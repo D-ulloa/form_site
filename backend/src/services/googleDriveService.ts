@@ -1,23 +1,10 @@
 import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { withRetry } from '../utils/retryPolicy.js';
+import { createGoogleAuth } from '../utils/googleAuth.js';
 import type { MediaFile } from '../types.js';
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-function getAuth() {
-  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_JSON;
-  if (!keyJson) {
-    throw new Error(
-      'GOOGLE_SERVICE_ACCOUNT_KEY_JSON environment variable is not set',
-    );
-  }
-  const credentials = JSON.parse(keyJson) as object;
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-}
+const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive'];
 
 // ─── Create folder ────────────────────────────────────────────────────────────
 
@@ -31,7 +18,7 @@ export async function createDriveFolder(
   folderName: string,
   parentFolderId: string,
 ): Promise<CreateFolderResult> {
-  const auth = getAuth();
+  const auth = createGoogleAuth(DRIVE_SCOPES);
   const drive = google.drive({ version: 'v3', auth });
 
   const createRes = await withRetry(() =>
@@ -71,7 +58,7 @@ export async function uploadFilesToFolder(
   files: Express.Multer.File[],
   folderId: string,
 ): Promise<UploadedFile[]> {
-  const auth = getAuth();
+  const auth = createGoogleAuth(DRIVE_SCOPES);
   const drive = google.drive({ version: 'v3', auth });
   const uploaded: UploadedFile[] = [];
 

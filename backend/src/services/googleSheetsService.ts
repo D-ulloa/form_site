@@ -1,21 +1,8 @@
 import { google } from 'googleapis';
 import { withRetry } from '../utils/retryPolicy.js';
+import { createGoogleAuth } from '../utils/googleAuth.js';
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-function getAuth() {
-  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_JSON;
-  if (!keyJson) {
-    throw new Error(
-      'GOOGLE_SERVICE_ACCOUNT_KEY_JSON environment variable is not set',
-    );
-  }
-  const credentials = JSON.parse(keyJson) as object;
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-}
+const SHEETS_SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
 // ─── Append row ───────────────────────────────────────────────────────────────
 
@@ -32,7 +19,7 @@ export async function appendSheetRow(
   }
   const range = process.env.GOOGLE_SHEET_RANGE ?? 'Sheet1!A1';
 
-  const auth = getAuth();
+  const auth = createGoogleAuth(SHEETS_SCOPES);
   const sheets = google.sheets({ version: 'v4', auth });
 
   await withRetry(() =>
