@@ -1,0 +1,60 @@
+import { useForm, type UseFormReturn } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { propertySchema, type PropertyFormValues } from '../schemas/propertySchema.ts';
+
+export type PropertyForm = UseFormReturn<PropertyFormValues, unknown, PropertyFormValues>;
+
+export function usePropertyForm(): PropertyForm {
+  return useForm<PropertyFormValues, unknown, PropertyFormValues>({
+    resolver: zodResolver(propertySchema),
+    defaultValues: {
+      tipo_propiedad: '',
+      operación: '',
+      tipo_contrato: '',
+      precio: 0,
+      expensas: 0,
+      dirección: '',
+      barrio: '',
+      zona: '',
+      ciudad: '',
+      dormitorios: 0,
+      baños: 0,
+      Medidas: '',
+      'Cantidad de plantas': '',
+      'Cantidad de pisos': 0,
+      'Número del departamento': '',
+      'Departamentos por piso': 0,
+      'Número de piso de la unidad': '',
+      'Antigüedad en años': 0,
+      amoblado: false,
+      barrio_cerrado: false,
+      cochera: false,
+      ascensor: false,
+      patio: false,
+      terraza: false,
+      balcon: false,
+      mascotas: false,
+      Pileta: false,
+      'Propiedad Ocupada': false,
+      'Apto para Escritura': false,
+      'A estrenar': false,
+      'Apto crédito': false,
+      'Conexión para lavarropas': false,
+      info_relevante: '',
+      Instalaciones: '',
+      Bauleras: '',
+      Orientación: '',
+      Orientación_2: '',
+      'Cobertura de Cochera': '',
+      'Forma de pago': '',
+      'Tipo de seguridad': '',
+      Seguridad: '',
+      Servicios: [],
+      'Comodidades y equipamiento': [],
+      'Espacios comunes': [],
+      Otros: [],
+      Seguridad_2: [],
+    },
+    mode: 'onBlur',
+  });
+}

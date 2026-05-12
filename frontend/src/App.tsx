@@ -1,12 +1,15 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ActionSelectionPage } from './pages/ActionSelectionPage.tsx';
+import { NewPropertyPage } from './pages/NewPropertyPage.tsx';
+import { SubmissionSuccessPage } from './pages/SubmissionSuccessPage.tsx';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<div className="p-8"><h1>Action Selection Page</h1></div>} />
-        <Route path="/properties/new" element={<div className="p-8"><h1>New Property Form</h1></div>} />
-        <Route path="/properties/success/:submissionId" element={<div className="p-8"><h1>Success Page</h1></div>} />
+        <Route path="/" element={<ActionSelectionPage />} />
+        <Route path="/properties/new" element={<NewPropertyPage />} />
+        <Route path="/properties/success/:submissionId" element={<SubmissionSuccessPage />} />
       </Routes>
     </BrowserRouter>
   );

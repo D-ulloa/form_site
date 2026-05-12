@@ -1,1 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
+
+/* ─── Color tokens ──────────────────────────────────────────────────────────── */
+:root {
+  --bg-base: #0d0f1a;
+  --bg-surface: #161927;
+  --bg-elevated: #1e2235;
+  --bg-input: #0a0c15;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.11);
+  --border-focus: #6366f1;
+  --accent-primary: #6366f1;
+  --accent-secondary: #22d3ee;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-partial: #a78bfa;
+}
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    margin: 0;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  input, select, textarea, button {
+    font-family: inherit;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.35);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.55);
+  }
+}
+
+/* ─── Shared utility classes ─────────────────────────────────────────────── */
+@layer utilities {
+
+  .surface {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .surface-elevated {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+  }
+
+  .glass {
+    background: rgba(22, 25, 39, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-default);
+  }
+
+  .gradient-text {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── Form field ─── */
+  .field-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    padding: 0.625rem 0.875rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    transition: border-color 150ms, box-shadow 150ms;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .field-input::placeholder { color: var(--text-muted); }
+
+  .field-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  }
+
+  .field-input.is-error {
+    border-color: var(--color-error) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+  }
+
+  /* ─── Chip ─── */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 140ms;
+    user-select: none;
+    border: 1px solid var(--border-default);
+    background: transparent;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .chip:hover {
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #c7d2fe;
+    background: rgba(99, 102, 241, 0.08);
+  }
+
+  .chip.chip-active {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: var(--accent-primary);
+    color: #a5b4fc;
+  }
+
+  /* ─── Animations ─── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .animate-fade-in-up { animation: fadeInUp 0.35s ease both; }
+  .animate-fade-in    { animation: fadeIn  0.25s ease both; }
+
+  .btn-shimmer {
+    background: linear-gradient(90deg, #6366f1, #22d3ee, #6366f1);
+    background-size: 200% auto;
+    animation: shimmer 1.8s linear infinite;
+  }
+
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+}
