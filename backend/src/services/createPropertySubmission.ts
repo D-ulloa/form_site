@@ -95,9 +95,9 @@ export async function createPropertySubmission(
 
   // ── Step 3: Build folder name ──────────────────────────────────────────────
   const folderName = buildFolderName({
-    ciudad: payload.ciudad,
-    tipo_propiedad: payload.tipo_propiedad,
-    dirección: payload.dirección,
+    localidad: payload.Localidad,
+    tipo_de_inmueble: payload['Tipo de Inmueble'],
+    calle: payload.Calle,
   });
 
   // ── Step 4: Create Drive folder ────────────────────────────────────────────

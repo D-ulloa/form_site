@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-418A9CF7",
+  "submission_id": "SUB-2026-05-15-0F1269C9",
+  "created_at": "2026-05-15T13:54:09.540Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-mar-del-plata-casa-av-colon-20260515-0954",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1htgBPQvxk4LvuAfrmvU0wyhEs1newAFn"
+}

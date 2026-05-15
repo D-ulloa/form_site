@@ -1,0 +1,121 @@
+{
+  // ==========================================
+  // PESTAÑA: GENERAL (Referencia: Imagen 4)
+  // ==========================================
+  
+  "Tipo de Inmueble": "", // String. Seleccionar de: Apart, Campo, Casa, Casa Qta, Casa Tem, Chalet, Cochera, Depto, Depto Tem, Duplex, Edificio, Extruct, Fondo Co, Galpon, Hotel, Local, Oficina, Terreno.
+  "Operación": "", // String. Radio button: "Venta" o "Alquiler".
+  "Dormitorios": 0, // Número entero. Dropdown: Seleccionar un valor hasta 50.
+  "Ambientes": 0, // Número entero. Dropdown: Seleccionar un valor hasta 50.
+  "Precio": 0.0, // Número decimal. Input de texto numérico para el valor de la propiedad.
+  "Expensas": 0.0, // Número decimal. Input de texto numérico para el valor de las expensas.
+  "Moneda": "", // String. Radio button: "Pesos" o "Dolares".
+  "Apto crédito": false, // Booleano. Checkbox.
+  "Escritura": false, // Booleano. Checkbox.
+  "Unidad en Pozo": false, // Booleano. Checkbox.
+  "Cartel": false, // Booleano. Checkbox.
+  "Propietario": "", // String. Input de búsqueda/autocompletado. Enviar el ID o Nombre del propietario ya cargado.
+  "Asesor comercial": "", // String. Dropdown. Enviar el ID o Nombre del asesor.
+  "Productor": "", // String. Dropdown. Enviar el ID o Nombre del productor.
+  "Sucursal": "", // String. Dropdown. Enviar el ID o Nombre de la sucursal.
+
+  // ==========================================
+  // PESTAÑA: UBICACION (Referencia: Imagen 3)
+  // ==========================================
+
+  "Pais": "Argentina", // String. Dropdown. Por defecto "Argentina".
+  "Provincia": "", // String. Dropdown dependiente del país.
+  "Localidad": "", // String. Dropdown dependiente de la provincia.
+  "Barrio": "", // String. Dropdown dependiente de la localidad.
+  "Calle": "", // String. Input de texto libre.
+  "Número": "", // String/Número. Input de texto para la numeración de la calle.
+  "Piso | Mza | Denominacion": "", // String. Input de texto libre.
+  "Depto | Lote |": "", // String. Input de texto libre.
+  "Referencia": "", // String. Input de texto libre para indicaciones adicionales.
+
+  // ==========================================
+  // PESTAÑA: DETALLES (Referencia: Imagen 2)
+  // ==========================================
+  
+  // -- Columna Izquierda --
+  "Baños": 0, // Número entero. Dropdown: Seleccionar un valor hasta 10.
+  "Plantas": 0, // Número entero. Dropdown: Seleccionar un valor hasta 10.
+  "Antiguedad": 0, // Número entero. Dropdown/Input. Si es a estrenar dejar en 0.
+  "Estado general": "", // String. Input de texto libre.
+  "Apto para": "", // String. Input de texto libre.
+  "Estilo": "", // String. Input de texto libre.
+  "Orientacion": "", // String. Input de texto libre.
+
+  // -- Columna Central (Superficies y Descripciones) --
+  "Sup Terreno | Hectáreas": "", // String/Número. Input de texto.
+  "Sup Terraza": "", // String/Número. Input de texto.
+  "Sup Balcon": "", // String/Número. Input de texto.
+  "Otras superficies": "", // String/Número. Input de texto.
+  "Metros cubiertos": "", // String/Número. Input de texto.
+  "Sup de Jardin": "", // String/Número. Input de texto.
+  "Mts de Frente": "", // String/Número. Input de texto.
+  "Mts de Fondo": "", // String/Número. Input de texto.
+  "Llaves": "", // String. Input de texto libre.
+  "Descrp. de dormitorio 1": "", // String. Input de texto libre.
+  "Descrp. de dormitorio 2": "", // String. Input de texto libre.
+  "Descrp. de dormitorio 3": "", // String. Input de texto libre.
+  "Descrp. de dormitorio 4": "", // String. Input de texto libre.
+  "Descrp. de dormitorio 5": "", // String. Input de texto libre.
+
+  // -- Columnas Derechas (Checkboxes / Amenities) --
+  "Garage": false, // Booleano. Checkbox.
+  "Living Comedor": false, // Booleano. Checkbox.
+  "Cocina Comedor": false, // Booleano. Checkbox.
+  "Comedor diario": false, // Booleano. Checkbox.
+  "Ante Cocina": false, // Booleano. Checkbox.
+  "Dependencias": false, // Booleano. Checkbox.
+  "Patio": false, // Booleano. Checkbox.
+  "Pileta": false, // Booleano. Checkbox.
+  "Hogar": false, // Booleano. Checkbox.
+  "Area de parrilla": false, // Booleano. Checkbox.
+  "Quincho": false, // Booleano. Checkbox.
+  "Suite Principal": false, // Booleano. Checkbox.
+  "Vestidor": false, // Booleano. Checkbox.
+  "Sala estar": false, // Booleano. Checkbox.
+  "Estudio": false, // Booleano. Checkbox.
+  "Escritorio": false, // Booleano. Checkbox.
+  "Lavadero": false, // Booleano. Checkbox.
+  "Hall acceso": false, // Booleano. Checkbox.
+  "Hall distrib.": false, // Booleano. Checkbox.
+  "Gas Natural": false, // Booleano. Checkbox.
+  "Gas en tubos": false, // Booleano. Checkbox.
+  "Cloacas": false, // Booleano. Checkbox.
+  "Sotano": false, // Booleano. Checkbox.
+  "Bodega": false, // Booleano. Checkbox.
+  "Despensa": false, // Booleano. Checkbox.
+  "Play room": false, // Booleano. Checkbox.
+  "Bar": false, // Booleano. Checkbox.
+  "Jardín inv.": false, // Booleano. Checkbox.
+  "Cámara Sept.": false, // Booleano. Checkbox.
+  "Galería": false, // Booleano. Checkbox.
+  "Altillo": false, // Booleano. Checkbox.
+  "Terraza": false, // Booleano. Checkbox.
+  "Aire A.Central": false, // Booleano. Checkbox.
+  "Aire A. Ind.": false, // Booleano. Checkbox.
+  "Calefactores": false, // Booleano. Checkbox.
+  "Calef. central": false, // Booleano. Checkbox.
+  "Tiro balanc.": false, // Booleano. Checkbox.
+  "Calefón": false, // Booleano. Checkbox.
+  "Estractor": false, // Booleano. Checkbox.
+  "Termotanque": false, // Booleano. Checkbox.
+  "Alarma": false, // Booleano. Checkbox.
+  "Agua cte.": false, // Booleano. Checkbox.
+  "Toillette": false, // Booleano. Checkbox.
+  "Hidromasaje": false, // Booleano. Checkbox.
+  "Jacuzzi": false, // Booleano. Checkbox.
+  "Balcon": false, // Booleano. Checkbox.
+
+  // ==========================================
+  // PESTAÑA: OBSERVACIONES (Referencia: Imagen 1)
+  // ==========================================
+
+  "Observaciones": "", // String. Textarea. Texto plano para descripción pública (redes, web).
+  "Notas Privadas": "", // String. Textarea. Texto plano visible solo por usuarios internos de la plataforma.
+  "Titulo": "", // String. Input de texto simple. Título obligatorio para publicar en portales.
+  "Detalle": "" // String. Textarea. Descripción alternativa para portales. Si se deja vacío, usa el campo "Observaciones".
+}
