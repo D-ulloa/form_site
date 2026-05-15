@@ -21,6 +21,7 @@ export function AgentModal({ open, onClose }: AgentModalProps) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line
       setForm({
         agent_user_id: agent?.agent_user_id ?? '',
         agent_name: agent?.agent_name ?? '',

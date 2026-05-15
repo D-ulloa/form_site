@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-06ECE0C5",
+  "submission_id": "SUB-2026-05-14-3EBAE1EE",
+  "created_at": "2026-05-14T03:03:53.378Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-mar-del-plata-departamento-av-colon-1234-20260513-2303",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1FY4v5d7UweZZNOQ78EK4v4ixWlSbQ1jO"
+}

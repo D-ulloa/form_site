@@ -35,6 +35,39 @@ function arrayFromForm(val: unknown): unknown {
 
 const formStringArray = z.preprocess(arrayFromForm, z.array(z.string()));
 
+const PROPERTY_KEY_ALIASES: Record<string, string> = {
+  operacion: 'operación',
+  direccion: 'dirección',
+  orientacion: 'Orientación',
+  orientacion_2: 'Orientación_2',
+  'Apto credito': 'Apto crédito',
+  'Antiguedad en años': 'Antigüedad en años',
+  'Conexion para lavarropas': 'Conexión para lavarropas',
+  'operaciÃ³n': 'operación',
+  'direcciÃ³n': 'dirección',
+  'OrientaciÃ³n': 'Orientación',
+  'OrientaciÃ³n_2': 'Orientación_2',
+  'Apto crÃ©dito': 'Apto crédito',
+  'AntigÃ¼edad en años': 'Antigüedad en años',
+  'ConexiÃ³n para lavarropas': 'Conexión para lavarropas',
+};
+
+function normalizePropertyPayload(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object') {
+    return raw;
+  }
+
+  const normalized = { ...(raw as Record<string, unknown>) };
+
+  for (const [alias, canonical] of Object.entries(PROPERTY_KEY_ALIASES)) {
+    if (!(canonical in normalized) && alias in normalized) {
+      normalized[canonical] = normalized[alias];
+    }
+  }
+
+  return normalized;
+}
+
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 export const propertySchema = z.object({
@@ -114,7 +147,8 @@ export type ValidationResult =
   | { success: false; errors: string[] };
 
 export function validatePropertyPayload(raw: unknown): ValidationResult {
-  const result = propertySchema.safeParse(raw);
+  const normalized = normalizePropertyPayload(raw);
+  const result = propertySchema.safeParse(normalized);
   if (result.success) {
     return { success: true, data: result.data };
   }

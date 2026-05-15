@@ -1,0 +1,15 @@
+{
+  "property_id": "PROP-2026-9AEAD2B5",
+  "submission_id": "SUB-2026-05-13-CB1C564D",
+  "created_at": "2026-05-13T16:06:40.740Z",
+  "outcome": "failure",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "failed",
+    "make": "skipped"
+  },
+  "drive_folder_name": "OP-buenos-aires-departamento-av-corrientes-1234-20260513-1206",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1E-Eworn0efHjTQ8EdPUWN3ML5XBJlMgr",
+  "error": "Google Sheets API has not been used in project 322726634458 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/sheets.googleapis.com/overview?project=322726634458 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."
+}

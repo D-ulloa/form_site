@@ -1,0 +1,15 @@
+{
+  "property_id": "PROP-2026-B34A96A2",
+  "submission_id": "SUB-2026-05-13-4D4E3F40",
+  "created_at": "2026-05-13T17:15:47.487Z",
+  "outcome": "failure",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "failed",
+    "make": "skipped"
+  },
+  "drive_folder_name": "OP-mar-del-plata-departamento-av-colon-1234-20260513-1315",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1x3lUqM74QMVEkEAPc_oq8jxtR1_IyzMM",
+  "error": "Unable to parse range: Sheet1!A1"
+}

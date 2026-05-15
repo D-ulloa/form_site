@@ -18,6 +18,7 @@ The project is structured as a monorepo with explicit separation between the fro
 - **Styling:** Tailwind CSS v4 (configured via the `@tailwindcss/vite` plugin and `@import "tailwindcss"` in `src/index.css`).
 - **Routing:** React Router v7.
 - **Forms & State:** React Hook Form, Zod for validation, and TanStack Query for server state.
+- **Agent Persistence:** Agent details (`agent_user_id`, `agent_name`, `agent_email`) are configured once via a modal (`AgentModal`), stored globally via React Context (`AgentContext`), and persisted in `localStorage` to be automatically injected into every new property submission.
 
 ### Running the Frontend
 ```bash

@@ -1,0 +1,13 @@
+{
+  "property_id": "PROP-2026-E6470620",
+  "submission_id": "SUB-2026-05-13-75EB0DD4",
+  "created_at": "2026-05-13T14:26:17.135Z",
+  "outcome": "failure",
+  "steps": {
+    "drive_folder": "failed",
+    "file_upload": "skipped",
+    "sheets": "skipped",
+    "make": "skipped"
+  },
+  "error": "File not found: 1ek_WdAGDd7eO6DMjk8JJ-n1pt0Z-12EL."
+}

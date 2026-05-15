@@ -157,6 +157,7 @@ export async function createPropertySubmission(
   });
 
   // ── Step 7: Append row to Google Sheets ───────────────────────────────────
+  let sheetError: string | undefined;
   try {
     await appendSheetRow(
       mapToSheetRow(payload, {
@@ -174,44 +175,40 @@ export async function createPropertySubmission(
     );
     steps.sheets = 'ok';
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'Sheets append failed';
+    sheetError = err instanceof Error ? err.message : 'Sheets append failed';
     steps.sheets = 'failed';
-    // Per failure policy: Sheets failed → do not send to Make
-    await persistSubmissionLog(
-      buildLog({
-        property_id, submission_id, created_at, outcome: 'failure', steps,
-        drive_folder_name: folder.folder_name,
-        drive_folder_url: folder.folder_url,
-        error,
-      }),
-    );
-    return {
-      outcome: 'failure', property_id, submission_id, steps,
-      drive_folder_name: folder.folder_name,
-      drive_folder_url: folder.folder_url,
-      error,
-    };
   }
 
   // ── Step 8: Send payload to Make ──────────────────────────────────────────
-  let finalOutcome: SubmissionOutcome = 'success';
   let makeError: string | undefined;
   try {
     await sendToMakeWebhook(makePayload);
     steps.make = 'ok';
   } catch (err) {
     steps.make = 'failed';
-    finalOutcome = 'partial_failure';
     makeError = err instanceof Error ? err.message : 'Make webhook failed';
   }
+
+  let finalOutcome: SubmissionOutcome = 'success';
+  if (steps.make === 'failed' && steps.sheets === 'failed') {
+    finalOutcome = 'failure';
+  } else if (steps.make === 'failed' || steps.sheets === 'failed') {
+    finalOutcome = 'partial_failure';
+  }
+
+  const combinedError = [sheetError, makeError].filter(Boolean).join(' | ');
 
   // ── Step 9: Persist log ────────────────────────────────────────────────────
   await persistSubmissionLog(
     buildLog({
-      property_id, submission_id, created_at, outcome: finalOutcome, steps,
+      property_id,
+      submission_id,
+      created_at,
+      outcome: finalOutcome,
+      steps,
       drive_folder_name: folder.folder_name,
       drive_folder_url: folder.folder_url,
-      error: makeError,
+      error: combinedError || undefined,
     }),
   );
 
@@ -224,6 +221,6 @@ export async function createPropertySubmission(
     drive_folder_name: folder.folder_name,
     drive_folder_url: folder.folder_url,
   };
-  if (makeError !== undefined) result.error = makeError;
+  if (combinedError) result.error = combinedError;
   return result;
 }
