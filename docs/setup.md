@@ -82,10 +82,12 @@ npm run dev                 # starts on http://localhost:3001
 | `POST` | `/properties/submit` | Submit a new property (multipart/form-data) |
 
 The `POST /properties/submit` endpoint accepts `multipart/form-data` with:
-- All property fields as text fields (see `scheme.json` for the full schema).
+- All property fields as text fields (see `scheme_reworked.json` for the full schema).
 - Agent fields: `agent_user_id`, `agent_name`, `agent_email`.
 - `cover_file_name` — filename of the designated cover image.
 - `files[]` — uploaded image/video files (total ≤ 1 GB, whitelisted MIME types only).
+
+> Note: `scheme_reworked.json` is the current canonical submission schema used by backend validation and payload mapping.
 
 **Response body (`SubmissionResult`):**
 ```json

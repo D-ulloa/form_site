@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-779DD62E",
+  "submission_id": "SUB-2026-05-18-470C9DB0",
+  "created_at": "2026-05-18T12:14:23.653Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-mar-de-plata-apart-libertador-20260518-0814",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1Xy_ZFwnFOjTNHJtb_m2_MAyUN1yuu2bP"
+}

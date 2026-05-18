@@ -58,6 +58,15 @@ const PROPERTY_KEY_ALIASES: Record<string, string> = {
   'ConexiÃ³n para lavarropas': 'Detalle',
 };
 
+function normalizeFieldKey(key: string): string {
+  return key
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 function normalizePropertyPayload(raw: unknown): unknown {
   if (raw === null || typeof raw !== 'object') {
     return raw;
@@ -68,6 +77,21 @@ function normalizePropertyPayload(raw: unknown): unknown {
   for (const [alias, canonical] of Object.entries(PROPERTY_KEY_ALIASES)) {
     if (!(canonical in normalized) && alias in normalized) {
       normalized[canonical] = normalized[alias];
+    }
+  }
+
+  const normalizedKeyMap = new Map<string, string>();
+  for (const canonical of Object.keys(propertySchema.shape)) {
+    normalizedKeyMap.set(normalizeFieldKey(canonical), canonical);
+  }
+  for (const [alias, canonical] of Object.entries(PROPERTY_KEY_ALIASES)) {
+    normalizedKeyMap.set(normalizeFieldKey(alias), canonical);
+  }
+
+  for (const key of Object.keys(raw as Record<string, unknown>)) {
+    const canonical = normalizedKeyMap.get(normalizeFieldKey(key));
+    if (canonical && !(canonical in normalized)) {
+      normalized[canonical] = (raw as Record<string, unknown>)[key];
     }
   }
 

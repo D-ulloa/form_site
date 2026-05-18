@@ -1,120 +1,168 @@
 import { z } from 'zod';
 
-// ─── Predefined options ───────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function boolFromForm(val: unknown): boolean {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'string') {
+    return val === 'true' || val === '1' || val === 'on';
+  }
+  return false;
+}
+
+const formBool = z.preprocess(boolFromForm, z.boolean());
 
 export const TIPO_PROPIEDAD_OPTIONS = [
+  'Apart',
+  'Campo',
   'Casa',
-  'Departamento',
-  'PH',
-  'Local Comercial',
+  'Casa Qta',
+  'Casa Tem',
+  'Chalet',
+  'Cochera',
+  'Depto',
+  'Depto Tem',
+  'Duplex',
+  'Edificio',
+  'Extruct',
+  'Fondo Co',
+  'Galpon',
+  'Hotel',
+  'Local',
   'Oficina',
   'Terreno',
-  'Galpon',
-  'Cochera',
 ] as const;
 
-export const OPERACION_OPTIONS = ['Venta', 'Alquiler', 'Alquiler temporario'] as const;
-export const TIPO_CONTRATO_OPTIONS = ['Tradicional', 'Indexado', 'Dólares'] as const;
-
-export const SERVICIOS_OPTIONS = [
-  'Agua',
-  'Gas natural',
-  'Electricidad',
-  'Cloacas',
-  'Internet',
-  'Cable',
-  'Teléfono',
-];
-
-export const COMODIDADES_OPTIONS = [
-  'Lavarropas',
-  'Lavavajillas',
-  'Heladera',
-  'Microondas',
-  'Horno',
-  'Aire acondicionado',
-  'Calefacción',
-  'TV',
-];
-
-export const ESPACIOS_COMUNES_OPTIONS = [
-  'Sum',
-  'Quincho',
-  'Gimnasio',
-  'Lavadero',
-  'Baulera',
-  'Sala de juegos',
-  'Coworking',
-];
-
-export const SEGURIDAD2_OPTIONS = [
-  'Guardia 24hs',
-  'Cámara',
-  'Portero eléctrico',
-  'Alarma',
-  'Cerco eléctrico',
-];
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
+export const OPERACION_OPTIONS = ['Venta', 'Alquiler'] as const;
+export const MONEDA_OPTIONS = ['Pesos', 'Dolares'] as const;
+export const PAIS_OPTIONS = ['Argentina'] as const;
+export const PROVINCIA_OPTIONS = [
+  'Buenos Aires',
+  'Córdoba',
+  'Santa Fe',
+  'Mendoza',
+  'Tucumán',
+  'Salta',
+  'Misiones',
+  'Entre Ríos',
+  'Corrientes',
+  'Chaco',
+  'Formosa',
+  'Catamarca',
+  'Jujuy',
+  'La Pampa',
+  'La Rioja',
+  'Neuquén',
+  'Río Negro',
+  'San Juan',
+  'San Luis',
+  'Santa Cruz',
+  'Santiago del Estero',
+  'Tierra del Fuego',
+  'Ciudad Autónoma de Buenos Aires',
+] as const;
 
 export const propertySchema = z.object({
-  // Identificación básica
-  tipo_propiedad: z.string().min(1, 'Seleccioná el tipo de propiedad'),
-  operación: z.string().min(1, 'Seleccioná la operación'),
-  tipo_contrato: z.string().min(1, 'Seleccioná el tipo de contrato'),
-  precio: z.coerce.number().min(0, 'El precio debe ser mayor a 0'),
-  expensas: z.coerce.number().min(0).default(0),
+  agent_user_id: z.string().min(1, 'agent_user_id is required'),
+  agent_name: z.string().min(1, 'agent_name is required'),
+  agent_email: z.string().email('agent_email must be a valid email'),
+  cover_file_name: z.string().default(''),
 
-  // Ubicación
-  dirección: z.string().min(1, 'La dirección es requerida'),
-  barrio: z.string().min(1, 'El barrio es requerido'),
-  zona: z.string().min(1, 'La zona es requerida'),
-  ciudad: z.string().min(1, 'La ciudad es requerida'),
-
-  // Distribución
-  dormitorios: z.coerce.number().int().min(0).default(0),
-  baños: z.coerce.number().int().min(0).default(0),
-  Medidas: z.string().default(''),
-  'Cantidad de plantas': z.string().default(''),
-  'Cantidad de pisos': z.coerce.number().int().min(0).default(0),
-  'Número del departamento': z.string().default(''),
-  'Departamentos por piso': z.coerce.number().int().min(0).default(0),
-  'Número de piso de la unidad': z.string().default(''),
-  'Antigüedad en años': z.coerce.number().int().min(0).default(0),
-
-  // Características booleanas
-  amoblado: z.boolean().default(false),
-  barrio_cerrado: z.boolean().default(false),
-  cochera: z.boolean().default(false),
-  ascensor: z.boolean().default(false),
-  patio: z.boolean().default(false),
-  terraza: z.boolean().default(false),
-  balcon: z.boolean().default(false),
-  mascotas: z.boolean().default(false),
-  Pileta: z.boolean().default(false),
-  'Propiedad Ocupada': z.boolean().default(false),
-  'Apto para Escritura': z.boolean().default(false),
-  'A estrenar': z.boolean().default(false),
-  'Apto crédito': z.boolean().default(false),
-  'Conexión para lavarropas': z.boolean().default(false),
-
-  // Detalles adicionales
-  info_relevante: z.string().default(''),
-  Instalaciones: z.string().default(''),
-  Bauleras: z.string().default(''),
-  Orientación: z.string().default(''),
-  Orientación_2: z.string().default(''),
-  'Cobertura de Cochera': z.string().default(''),
-  'Forma de pago': z.string().default(''),
-  'Tipo de seguridad': z.string().default(''),
-  Seguridad: z.string().default(''),
-
-  // Listas múltiples
-  Servicios: z.array(z.string()).default([]),
-  'Comodidades y equipamiento': z.array(z.string()).default([]),
-  'Espacios comunes': z.array(z.string()).default([]),
-  Otros: z.array(z.string()).default([]),
-  Seguridad_2: z.array(z.string()).default([]),
+  'Tipo de Inmueble': z.string().min(1, 'Tipo de Inmueble es requerido'),
+  'Operación': z.string().min(1, 'Operación es requerido'),
+  Dormitorios: z.coerce.number().int().min(0).default(0),
+  Ambientes: z.coerce.number().int().min(0).default(0),
+  Precio: z.coerce.number().min(0, 'Precio debe ser mayor o igual a 0'),
+  Expensas: z.coerce.number().min(0).default(0),
+  Moneda: z.string().default(''),
+  'Apto crédito': formBool.default(false),
+  Escritura: formBool.default(false),
+  'Unidad en Pozo': formBool.default(false),
+  Cartel: formBool.default(false),
+  Propietario: z.string().default(''),
+  'Asesor comercial': z.string().default(''),
+  Productor: z.string().default(''),
+  Sucursal: z.string().default(''),
+  Pais: z.string().default('Argentina'),
+  Provincia: z.string().default(''),
+  Localidad: z.string().default(''),
+  Barrio: z.string().default(''),
+  Calle: z.string().min(1, 'Calle es requerido'),
+  'Número': z.string().default(''),
+  'Piso | Mza | Denominacion': z.string().default(''),
+  'Depto | Lote |': z.string().default(''),
+  Referencia: z.string().default(''),
+  'Baños': z.coerce.number().int().min(0).default(0),
+  Plantas: z.coerce.number().int().min(0).default(0),
+  Antiguedad: z.coerce.number().int().min(0).default(0),
+  'Estado general': z.string().default(''),
+  'Apto para': z.string().default(''),
+  Estilo: z.string().default(''),
+  Orientacion: z.string().default(''),
+  'Sup Terreno | Hectáreas': z.string().default(''),
+  'Sup Terraza': z.string().default(''),
+  'Sup Balcon': z.string().default(''),
+  'Otras superficies': z.string().default(''),
+  'Metros cubiertos': z.string().default(''),
+  'Sup de Jardin': z.string().default(''),
+  'Mts de Frente': z.string().default(''),
+  'Mts de Fondo': z.string().default(''),
+  Llaves: z.string().default(''),
+  'Descrp. de dormitorio 1': z.string().default(''),
+  'Descrp. de dormitorio 2': z.string().default(''),
+  'Descrp. de dormitorio 3': z.string().default(''),
+  'Descrp. de dormitorio 4': z.string().default(''),
+  'Descrp. de dormitorio 5': z.string().default(''),
+  Garage: formBool.default(false),
+  'Living Comedor': formBool.default(false),
+  'Cocina Comedor': formBool.default(false),
+  'Comedor diario': formBool.default(false),
+  'Ante Cocina': formBool.default(false),
+  Dependencias: formBool.default(false),
+  Patio: formBool.default(false),
+  Pileta: formBool.default(false),
+  Hogar: formBool.default(false),
+  'Area de parrilla': formBool.default(false),
+  Quincho: formBool.default(false),
+  'Suite Principal': formBool.default(false),
+  Vestidor: formBool.default(false),
+  'Sala estar': formBool.default(false),
+  Estudio: formBool.default(false),
+  Escritorio: formBool.default(false),
+  Lavadero: formBool.default(false),
+  'Hall acceso': formBool.default(false),
+  'Hall distrib.': formBool.default(false),
+  'Gas Natural': formBool.default(false),
+  'Gas en tubos': formBool.default(false),
+  Cloacas: formBool.default(false),
+  Sotano: formBool.default(false),
+  Bodega: formBool.default(false),
+  Despensa: formBool.default(false),
+  'Play room': formBool.default(false),
+  Bar: formBool.default(false),
+  'Jardín inv.': formBool.default(false),
+  'Cámara Sept.': formBool.default(false),
+  'Galería': formBool.default(false),
+  Altillo: formBool.default(false),
+  Terraza: formBool.default(false),
+  'Aire A.Central': formBool.default(false),
+  'Aire A. Ind.': formBool.default(false),
+  Calefactores: formBool.default(false),
+  'Calef. central': formBool.default(false),
+  'Tiro balanc.': formBool.default(false),
+  'Calefón': formBool.default(false),
+  Estractor: formBool.default(false),
+  Termotanque: formBool.default(false),
+  Alarma: formBool.default(false),
+  'Agua cte.': formBool.default(false),
+  Toillette: formBool.default(false),
+  Hidromasaje: formBool.default(false),
+  Jacuzzi: formBool.default(false),
+  Balcon: formBool.default(false),
+  Observaciones: z.string().default(''),
+  'Notas Privadas': z.string().default(''),
+  Titulo: z.string().min(1, 'Titulo es requerido'),
+  Detalle: z.string().default(''),
 });
 
 export type PropertyFormValues = z.infer<typeof propertySchema>;

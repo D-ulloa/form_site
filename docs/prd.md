@@ -10,10 +10,10 @@ Locked product rules:
 - Property lifecycle in MVP: create only, no edit mode.
 - Upload limit: hard cap of 1 GB total per submission.
 - Media count: no fixed file-count limit as long as the submission remains under the total cap.
-- Folder naming convention: `OP-{ciudad}-{tipo_propiedad}-{direccion_sanitizada}-{timestamp}`.
+- Folder naming convention: `OP-{localidad}-{tipo_de_inmueble}-{calle_sanitizada}-{timestamp}`.
 
 Recommended example:
-- `OP-mar-del-plata-departamento-av-colon-1234-20260510-2128`
+- `OP-mar-del-plata-casa-av-colon-1234-20260510-2128`
 
 ## User flow
 
@@ -49,17 +49,17 @@ The form should be divided into sections instead of one long stack of inputs, si
 
 | Section | Fields |
 |---|---|
-| Identificación básica | `tipo_propiedad`, `operación`, `tipo_contrato`, `precio`, `expensas` |
-| Ubicación | `dirección`, `barrio`, `zona`, `ciudad` |
-| Distribución | `dormitorios`, `baños`, `Medidas`, `Cantidad de plantas`, `Cantidad de pisos`, `Número del departamento`, `Departamentos por piso`, `Número de piso de la unidad`, `Antigüedad en años` |
-| Características booleanas | `amoblado`, `barrio_cerrado`, `cochera`, `ascensor`, `patio`, `terraza`, `balcon`, `mascotas`, `Pileta`, `Propiedad Ocupada`, `Apto para Escritura`, `A estrenar`, `Apto crédito`, `Conexión para lavarropas` |
-| Detalles adicionales | `info_relevante`, `Instalaciones`, `Bauleras`, `Orientación`, `Orientación_2`, `Cobertura de Cochera`, `Forma de pago`, `Tipo de seguridad`, `Seguridad` |
-| Listas múltiples | `Servicios`, `Comodidades y equipamiento`, `Espacios comunes`, `Otros`, `Seguridad_2` |
+| General | `Tipo de Inmueble`, `Operación`, `Dormitorios`, `Ambientes`, `Precio`, `Expensas`, `Moneda`, `Apto crédito`, `Escritura`, `Unidad en Pozo`, `Cartel`, `Propietario`, `Asesor comercial`, `Productor`, `Sucursal` |
+| Ubicación | `Pais`, `Provincia`, `Localidad`, `Barrio`, `Calle`, `Número`, `Piso | Mza | Denominacion`, `Depto | Lote |`, `Referencia` |
+| Detalles básicos | `Baños`, `Plantas`, `Antiguedad`, `Estado general`, `Apto para`, `Estilo`, `Orientacion` |
+| Superficies y descripciones | `Sup Terreno | Hectáreas`, `Sup Terraza`, `Sup Balcon`, `Otras superficies`, `Metros cubiertos`, `Sup de Jardin`, `Mts de Frente`, `Mts de Fondo`, `Llaves`, `Descrp. de dormitorio 1`, `Descrp. de dormitorio 2`, `Descrp. de dormitorio 3`, `Descrp. de dormitorio 4`, `Descrp. de dormitorio 5` |
+| Amenities / servicios | `Garage`, `Living Comedor`, `Cocina Comedor`, `Comedor diario`, `Ante Cocina`, `Dependencias`, `Patio`, `Pileta`, `Hogar`, `Area de parrilla`, `Quincho`, `Suite Principal`, `Vestidor`, `Sala estar`, `Estudio`, `Escritorio`, `Lavadero`, `Hall acceso`, `Hall distrib.`, `Gas Natural`, `Gas en tubos`, `Cloacas`, `Sotano`, `Bodega`, `Despensa`, `Play room`, `Bar`, `Jardín inv.`, `Cámara Sept.`, `Galería`, `Altillo`, `Terraza`, `Aire A.Central`, `Aire A. Ind.`, `Calefactores`, `Calef. central`, `Tiro balanc.`, `Calefón`, `Estractor`, `Termotanque`, `Alarma`, `Agua cte.`, `Toillette`, `Hidromasaje`, `Jacuzzi`, `Balcon` |
+| Observaciones | `Observaciones`, `Notas Privadas`, `Titulo`, `Detalle` |
 | Media | Images, videos, cover image selection, upload ordering, preview |
 
 ### Sheet row contract
 
-The Google Sheet row should map 1:1 to your provided column schema, plus a small set of system columns needed for auditability and integration reliability.
+The Google Sheet row should map 1:1 to the current schema in `scheme_reworked.json`, plus a small set of system columns needed for auditability and integration reliability.
 
 Recommended extra system columns:
 - `property_id`
@@ -87,7 +87,7 @@ Alongside the exact business fields, the webhook payload should include integrat
     "email": "agente@agencia.com"
   },
   "google_drive": {
-    "folder_name": "OP-mar-del-plata-departamento-av-colon-1234-20260510-2128",
+    "folder_name": "OP-mar-del-plata-casa-av-colon-1234-20260510-2128",
     "folder_url": "https://drive.google.com/...",
     "parent_folder_id": "..."
   },
@@ -104,52 +104,61 @@ Alongside the exact business fields, the webhook payload should include integrat
     ]
   },
   "property": {
-    "tipo_propiedad": "",
-    "operación": "",
-    "dirección": "",
-    "barrio": "",
-    "zona": "",
-    "ciudad": "",
-    "dormitorios": 0,
-    "baños": 0,
-    "precio": 0.0,
-    "expensas": 0.0,
-    "info_relevante": "",
-    "Medidas": "",
-    "amoblado": false,
-    "barrio_cerrado": false,
-    "cochera": false,
-    "ascensor": false,
-    "patio": false,
-    "terraza": false,
-    "balcon": false,
-    "mascotas": false,
-    "Pileta": false,
-    "tipo_contrato": "",
-    "Instalaciones": "",
-    "Bauleras": "",
-    "Orientación": "",
-    "Cantidad de plantas": "",
-    "Cobertura de Cochera": "",
-    "Propiedad Ocupada": false,
-    "Apto para Escritura": false,
-    "A estrenar": false,
-    "Antigüedad en años": 0,
-    "Forma de pago": "",
+    "Tipo de Inmueble": "",
+    "Operación": "",
+    "Dormitorios": 0,
+    "Ambientes": 0,
+    "Precio": 0.0,
+    "Expensas": 0.0,
+    "Moneda": "",
     "Apto crédito": false,
-    "Cantidad de pisos": 0,
-    "Número del departamento": "",
-    "Departamentos por piso": 0,
-    "Número de piso de la unidad": "",
-    "Orientación_2": "",
-    "Tipo de seguridad": "",
-    "Seguridad": "",
-    "Conexión para lavarropas": false,
-    "Servicios": [],
-    "Comodidades y equipamiento": [],
-    "Espacios comunes": [],
-    "Otros": [],
-    "Seguridad_2": []
+    "Escritura": false,
+    "Unidad en Pozo": false,
+    "Cartel": false,
+    "Propietario": "",
+    "Asesor comercial": "",
+    "Productor": "",
+    "Sucursal": "",
+    "Pais": "Argentina",
+    "Provincia": "",
+    "Localidad": "",
+    "Barrio": "",
+    "Calle": "",
+    "Número": "",
+    "Piso | Mza | Denominacion": "",
+    "Depto | Lote |": "",
+    "Referencia": "",
+    "Baños": 0,
+    "Plantas": 0,
+    "Antiguedad": 0,
+    "Estado general": "",
+    "Apto para": "",
+    "Estilo": "",
+    "Orientacion": "",
+    "Sup Terreno | Hectáreas": "",
+    "Sup Terraza": "",
+    "Sup Balcon": "",
+    "Otras superficies": "",
+    "Metros cubiertos": "",
+    "Sup de Jardin": "",
+    "Mts de Frente": "",
+    "Mts de Fondo": "",
+    "Llaves": "",
+    "Descrp. de dormitorio 1": "",
+    "Garage": false,
+    "Living Comedor": false,
+    "Cocina Comedor": false,
+    "Comedor diario": false,
+    "Ante Cocina": false,
+    "Dependencias": false,
+    "Patio": false,
+    "Pileta": false,
+    "Balcon": false,
+    "Observaciones": "",
+    "Notas Privadas": "",
+    "Titulo": "",
+    "Detalle": ""
+    // ... plus all remaining fields from scheme_reworked.json
   }
 }
 ```

@@ -1,12 +1,11 @@
+import { useController } from 'react-hook-form';
 import type { PropertyForm } from '../hooks/usePropertyForm.ts';
+import type { PropertyFormValues } from '../schemas/propertySchema.ts';
 import { Select } from '../../../components/ui/Select.tsx';
 import { Input } from '../../../components/ui/Input.tsx';
+import { Checkbox } from '../../../components/ui/Checkbox.tsx';
 import { StepHeader } from '../../../components/ui/StepHeader.tsx';
-import {
-  TIPO_PROPIEDAD_OPTIONS,
-  OPERACION_OPTIONS,
-  TIPO_CONTRATO_OPTIONS,
-} from '../schemas/propertySchema.ts';
+import { TIPO_PROPIEDAD_OPTIONS, OPERACION_OPTIONS, MONEDA_OPTIONS } from '../schemas/propertySchema.ts';
 
 interface Props {
   form: PropertyForm;
@@ -14,6 +13,17 @@ interface Props {
 
 const toOptions = (arr: readonly string[]) =>
   arr.map((v) => ({ value: v, label: v }));
+
+function BoolField({ form, fieldKey, label }: { form: PropertyForm; fieldKey: keyof PropertyFormValues; label: string }) {
+  const { field } = useController({ name: fieldKey, control: form.control });
+  return (
+    <Checkbox
+      label={label}
+      checked={field.value as boolean}
+      onChange={field.onChange}
+    />
+  );
+}
 
 export function BasicInfoSection({ form }: Props) {
   const {
@@ -30,25 +40,28 @@ export function BasicInfoSection({ form }: Props) {
           placeholder="Seleccioná..."
           options={toOptions(TIPO_PROPIEDAD_OPTIONS)}
           required
-          error={errors.tipo_propiedad?.message}
-          {...register('tipo_propiedad')}
+          error={errors['Tipo de Inmueble']?.message}
+          {...register('Tipo de Inmueble')}
         />
-        <Select
-          label="Operación"
-          placeholder="Seleccioná..."
-          options={toOptions(OPERACION_OPTIONS)}
-          required
-          error={errors.operación?.message}
-          {...register('operación')}
-        />
-        <Select
-          label="Tipo de contrato"
-          placeholder="Seleccioná..."
-          options={toOptions(TIPO_CONTRATO_OPTIONS)}
-          required
-          error={errors.tipo_contrato?.message}
-          {...register('tipo_contrato')}
-        />
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-slate-300">Operación<span className="text-indigo-400 ml-0.5">*</span></span>
+          <div className="grid grid-cols-2 gap-2">
+            {OPERACION_OPTIONS.map((option) => (
+              <label key={option} className="rounded-lg border border-white/[0.12] p-3 cursor-pointer transition-shadow hover:border-indigo-500/60">
+                <input
+                  type="radio"
+                  value={option}
+                  {...register('Operación')}
+                  className="mr-2 align-middle"
+                />
+                <span className="text-sm text-slate-200">{option}</span>
+              </label>
+            ))}
+          </div>
+          {errors['Operación'] && (
+            <p className="text-xs text-red-400">{errors['Operación']?.message}</p>
+          )}
+        </div>
         <Input
           label="Precio"
           type="number"
@@ -56,8 +69,8 @@ export function BasicInfoSection({ form }: Props) {
           step="any"
           required
           placeholder="0"
-          error={errors.precio?.message}
-          {...register('precio')}
+          error={errors.Precio?.message}
+          {...register('Precio')}
         />
         <Input
           label="Expensas"
@@ -66,9 +79,62 @@ export function BasicInfoSection({ form }: Props) {
           step="any"
           placeholder="0"
           hint="Dejá en 0 si no aplica"
-          error={errors.expensas?.message}
-          {...register('expensas')}
+          error={errors.Expensas?.message}
+          {...register('Expensas')}
         />
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-slate-300">Moneda</span>
+          <div className="grid grid-cols-2 gap-2">
+            {MONEDA_OPTIONS.map((option) => (
+              <label key={option} className="rounded-lg border border-white/[0.12] p-3 cursor-pointer transition-shadow hover:border-indigo-500/60">
+                <input
+                  type="radio"
+                  value={option}
+                  {...register('Moneda')}
+                  className="mr-2 align-middle"
+                />
+                <span className="text-sm text-slate-200">{option}</span>
+              </label>
+            ))}
+          </div>
+          {errors.Moneda && (
+            <p className="text-xs text-red-400">{errors.Moneda?.message}</p>
+          )}
+        </div>
+        <Input
+          label="Propietario"
+          placeholder="Nombre del propietario"
+          error={errors.Propietario?.message}
+          {...register('Propietario')}
+        />
+        <Input
+          label="Asesor comercial"
+          placeholder="Nombre del asesor"
+          error={errors['Asesor comercial']?.message}
+          {...register('Asesor comercial')}
+        />
+        <Input
+          label="Productor"
+          placeholder="Nombre del productor"
+          error={errors.Productor?.message}
+          {...register('Productor')}
+        />
+        <Input
+          label="Sucursal"
+          placeholder="Nombre de la sucursal"
+          error={errors.Sucursal?.message}
+          {...register('Sucursal')}
+        />
+      </div>
+
+      <div className="mt-6">
+        <p className="text-sm text-slate-400 mb-3">Opciones y banderas</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <BoolField form={form} fieldKey="Apto crédito" label="Apto crédito" />
+          <BoolField form={form} fieldKey="Escritura" label="Escritura" />
+          <BoolField form={form} fieldKey="Unidad en Pozo" label="Unidad en pozo" />
+          <BoolField form={form} fieldKey="Cartel" label="Cartel" />
+        </div>
       </div>
     </section>
   );

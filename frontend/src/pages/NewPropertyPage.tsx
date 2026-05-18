@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { usePropertyForm } from '../features/properties/hooks/usePropertyForm.ts';
@@ -10,7 +10,6 @@ import { LocationSection } from '../features/properties/components/LocationSecti
 import { DistributionSection } from '../features/properties/components/DistributionSection.tsx';
 import { FeaturesSection } from '../features/properties/components/FeaturesSection.tsx';
 import { AdditionalDetailsSection } from '../features/properties/components/AdditionalDetailsSection.tsx';
-import { MultiSelectArraysSection } from '../features/properties/components/MultiSelectArraysSection.tsx';
 import { MediaUploadSection } from '../features/properties/components/MediaUploadSection.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
@@ -27,10 +26,19 @@ export function NewPropertyPage() {
   const form = usePropertyForm();
   const media = useMediaValidation();
   const { mutate, isPending } = useCreatePropertySubmission();
+  const { setValue } = form;
+
+  useEffect(() => {
+    if (!agent) return;
+
+    setValue('agent_user_id', agent.agent_user_id, { shouldValidate: true, shouldDirty: false });
+    setValue('agent_name', agent.agent_name, { shouldValidate: true, shouldDirty: false });
+    setValue('agent_email', agent.agent_email, { shouldValidate: true, shouldDirty: false });
+  }, [agent, setValue]);
 
   const {
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitted, isSubmitting },
   } = form;
 
   const errorCount = Object.keys(errors).length;
@@ -108,7 +116,7 @@ export function NewPropertyPage() {
             </AlertInline>
           )}
 
-          {errorCount > 0 && !isLoading && (
+          {errorCount > 0 && isSubmitted && !isLoading && (
             <AlertInline variant="warning" title="Hay campos incompletos">
               Revisá los campos marcados en rojo antes de enviar.
             </AlertInline>
@@ -119,7 +127,6 @@ export function NewPropertyPage() {
           <DistributionSection form={form} />
           <FeaturesSection form={form} />
           <AdditionalDetailsSection form={form} />
-          <MultiSelectArraysSection form={form} />
           <MediaUploadSection
             files={media.files}
             coverFileName={media.coverFileName}

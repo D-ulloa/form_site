@@ -27,8 +27,8 @@ export interface ApiError {
 
 export async function submitProperty(formData: FormData): Promise<SubmissionResult> {
   const response = await axios.post<SubmissionResult>('/properties/submit', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    // no timeout — large uploads may take a while
+    // Let the browser set multipart boundaries automatically.
+    // Setting Content-Type manually can break FormData encoding.
   });
   return response.data;
 }

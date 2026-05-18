@@ -10,13 +10,22 @@ export function useCreatePropertySubmission() {
   return useMutation<SubmissionResult, Error, SubmitPropertyArgs>({
     mutationFn: ({ formData }) => submitProperty(formData),
     onError: (err) => {
-      // Axios errors carry a response — we bubble them up as-is
       if (axios.isAxiosError(err) && err.response) {
-        const data = err.response.data as { error?: string; errors?: string[] };
-        const message =
-          data?.error ??
-          data?.errors?.join(', ') ??
-          `Error del servidor (${err.response.status})`;
+        const data = err.response.data as {
+          error?: string;
+          errors?: string[];
+          details?: string[];
+        };
+        const detailMessage = data?.details?.length
+          ? data.details.join(', ')
+          : data?.errors?.length
+          ? data.errors.join(', ')
+          : undefined;
+        const message = data?.error
+          ? detailMessage
+            ? `${data.error}: ${detailMessage}`
+            : data.error
+          : detailMessage ?? `Error del servidor (${err.response.status})`;
         throw new Error(message);
       }
     },

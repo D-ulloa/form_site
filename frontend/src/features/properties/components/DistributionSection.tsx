@@ -1,10 +1,17 @@
 import type { PropertyForm } from '../hooks/usePropertyForm.ts';
+import { Select } from '../../../components/ui/Select.tsx';
 import { Input } from '../../../components/ui/Input.tsx';
 import { StepHeader } from '../../../components/ui/StepHeader.tsx';
 
 interface Props {
   form: PropertyForm;
 }
+
+const rangeOptions = (max: number, start = 0) =>
+  Array.from({ length: max - start + 1 }, (_, index) => {
+    const value = start + index;
+    return { value: String(value), label: String(value) };
+  });
 
 export function DistributionSection({ form }: Props) {
   const {
@@ -16,69 +23,127 @@ export function DistributionSection({ form }: Props) {
     <section id="section-distribution" className="surface rounded-2xl p-6 animate-fade-in-up delay-200">
       <StepHeader step={3} title="Distribución" subtitle="Dimensiones y ambientes de la propiedad" />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <Input
+        <Select
           label="Dormitorios"
-          type="number"
-          min={0}
-          placeholder="0"
-          error={errors.dormitorios?.message}
-          {...register('dormitorios')}
+          placeholder="Seleccioná..."
+          options={rangeOptions(50, 0)}
+          error={errors.Dormitorios?.message}
+          {...register('Dormitorios')}
         />
-        <Input
+        <Select
+          label="Ambientes"
+          placeholder="Seleccioná..."
+          options={rangeOptions(50, 0)}
+          error={errors.Ambientes?.message}
+          {...register('Ambientes')}
+        />
+        <Select
           label="Baños"
-          type="number"
-          min={0}
-          placeholder="0"
-          error={errors.baños?.message}
-          {...register('baños')}
+          placeholder="Seleccioná..."
+          options={rangeOptions(10, 0)}
+          error={errors['Baños']?.message}
+          {...register('Baños')}
+        />
+        <Select
+          label="Plantas"
+          placeholder="Seleccioná..."
+          options={rangeOptions(10, 0)}
+          error={errors.Plantas?.message}
+          {...register('Plantas')}
+        />
+        <Select
+          label="Antigüedad"
+          placeholder="Seleccioná..."
+          options={rangeOptions(50, 0)}
+          error={errors.Antiguedad?.message}
+          {...register('Antiguedad')}
         />
         <Input
-          label="Medidas"
-          placeholder="Ej: 80m²"
-          error={errors.Medidas?.message}
-          {...register('Medidas')}
+          label="Metros cubiertos"
+          placeholder="Ej: 80"
+          error={errors['Metros cubiertos']?.message}
+          {...register('Metros cubiertos')}
         />
         <Input
-          label="Cant. plantas"
+          label="Sup Terreno | Hectáreas"
+          placeholder="Ej: 200"
+          error={errors['Sup Terreno | Hectáreas']?.message}
+          {...register('Sup Terreno | Hectáreas')}
+        />
+        <Input
+          label="Sup Terraza"
+          placeholder="Ej: 10"
+          error={errors['Sup Terraza']?.message}
+          {...register('Sup Terraza')}
+        />
+        <Input
+          label="Sup Balcón"
+          placeholder="Ej: 5"
+          error={errors['Sup Balcon']?.message}
+          {...register('Sup Balcon')}
+        />
+        <Input
+          label="Otras superficies"
+          placeholder="Ej: 12"
+          error={errors['Otras superficies']?.message}
+          {...register('Otras superficies')}
+        />
+        <Input
+          label="Sup de Jardín"
+          placeholder="Ej: 50"
+          error={errors['Sup de Jardin']?.message}
+          {...register('Sup de Jardin')}
+        />
+        <Input
+          label="Mts de Frente"
+          placeholder="Ej: 10"
+          error={errors['Mts de Frente']?.message}
+          {...register('Mts de Frente')}
+        />
+        <Input
+          label="Mts de Fondo"
+          placeholder="Ej: 20"
+          error={errors['Mts de Fondo']?.message}
+          {...register('Mts de Fondo')}
+        />
+        <Input
+          label="Llaves"
           placeholder="Ej: 2"
-          error={errors['Cantidad de plantas']?.message}
-          {...register('Cantidad de plantas')}
+          error={errors.Llaves?.message}
+          {...register('Llaves')}
+        />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input
+          label="Descrp. de dormitorio 1"
+          placeholder="Ej: suite con placard"
+          error={errors['Descrp. de dormitorio 1']?.message}
+          {...register('Descrp. de dormitorio 1')}
         />
         <Input
-          label="Cant. pisos (edificio)"
-          type="number"
-          min={0}
-          placeholder="0"
-          error={errors['Cantidad de pisos']?.message}
-          {...register('Cantidad de pisos')}
+          label="Descrp. de dormitorio 2"
+          placeholder="Ej: doble"
+          error={errors['Descrp. de dormitorio 2']?.message}
+          {...register('Descrp. de dormitorio 2')}
         />
         <Input
-          label="Nº departamento"
-          placeholder="Ej: 4B"
-          error={errors['Número del departamento']?.message}
-          {...register('Número del departamento')}
+          label="Descrp. de dormitorio 3"
+          placeholder="Ej: individual"
+          error={errors['Descrp. de dormitorio 3']?.message}
+          {...register('Descrp. de dormitorio 3')}
         />
         <Input
-          label="Deptos. por piso"
-          type="number"
-          min={0}
-          placeholder="0"
-          error={errors['Departamentos por piso']?.message}
-          {...register('Departamentos por piso')}
+          label="Descrp. de dormitorio 4"
+          placeholder="Ej: escritorio"
+          error={errors['Descrp. de dormitorio 4']?.message}
+          {...register('Descrp. de dormitorio 4')}
         />
         <Input
-          label="Piso de la unidad"
-          placeholder="Ej: 4"
-          error={errors['Número de piso de la unidad']?.message}
-          {...register('Número de piso de la unidad')}
-        />
-        <Input
-          label="Antigüedad (años)"
-          type="number"
-          min={0}
-          placeholder="0"
-          error={errors['Antigüedad en años']?.message}
-          {...register('Antigüedad en años')}
+          label="Descrp. de dormitorio 5"
+          placeholder="Ej: habitación adicional"
+          error={errors['Descrp. de dormitorio 5']?.message}
+          {...register('Descrp. de dormitorio 5')}
         />
       </div>
     </section>
