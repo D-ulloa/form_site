@@ -60,7 +60,7 @@ export function buildFormData(
   }
 
   for (const entry of files) {
-    fd.append('files[]', entry.file, entry.file.name);
+    fd.append('files', entry.file, entry.file.name);
   }
 
   // Temporary debug output: print final FormData contents before submit.

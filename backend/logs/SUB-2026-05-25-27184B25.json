@@ -1,0 +1,15 @@
+{
+  "property_id": "PROP-2026-75DF18FC",
+  "submission_id": "SUB-2026-05-25-27184B25",
+  "created_at": "2026-05-25T02:39:16.182Z",
+  "outcome": "failure",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "failed",
+    "sheets": "skipped",
+    "make": "skipped"
+  },
+  "drive_folder_name": "OP-la-plata-departamento-calle-50-20260524-2239",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1AucBZfW1qnx4Pbnw_5ew0KRTrl0QUl0z",
+  "error": "Service Accounts do not have storage quota. Leverage shared drives (https://developers.google.com/workspace/drive/api/guides/about-shareddrives), or use OAuth delegation (http://support.google.com/a/answer/7281227) instead."
+}

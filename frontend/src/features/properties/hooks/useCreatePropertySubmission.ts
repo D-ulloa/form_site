@@ -13,13 +13,17 @@ export function useCreatePropertySubmission() {
       if (axios.isAxiosError(err) && err.response) {
         const data = err.response.data as {
           error?: string;
-          errors?: string[];
-          details?: string[];
+          errors?: string | string[];
+          details?: string | string[];
         };
-        const detailMessage = data?.details?.length
+        const detailMessage = Array.isArray(data?.details)
           ? data.details.join(', ')
-          : data?.errors?.length
+          : typeof data?.details === 'string'
+          ? data.details
+          : Array.isArray(data?.errors)
           ? data.errors.join(', ')
+          : typeof data?.errors === 'string'
+          ? data.errors
           : undefined;
         const message = data?.error
           ? detailMessage

@@ -1,0 +1,15 @@
+{
+  "property_id": "PROP-2026-4C72B9BC",
+  "submission_id": "SUB-2026-05-22-67F6E1E8",
+  "created_at": "2026-05-22T21:03:30.225Z",
+  "outcome": "failure",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "failed",
+    "sheets": "skipped",
+    "make": "skipped"
+  },
+  "drive_folder_name": "OP--departamento-av-siempreviva-20260522-1703",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1thi_OLqr4Ykq01PrjYWropR3VE1XfNUW",
+  "error": "Service Accounts do not have storage quota. Leverage shared drives (https://developers.google.com/workspace/drive/api/guides/about-shareddrives), or use OAuth delegation (http://support.google.com/a/answer/7281227) instead."
+}

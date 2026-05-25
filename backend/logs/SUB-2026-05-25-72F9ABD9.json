@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-62CF5630",
+  "submission_id": "SUB-2026-05-25-72F9ABD9",
+  "created_at": "2026-05-25T03:41:40.849Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-la-plata-departamento-calle-50-20260524-2341",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1MuJGEB7tcnJ232sJ8E4DU_ClY3DdyL04"
+}

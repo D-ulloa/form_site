@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-C0BC4B03",
+  "submission_id": "SUB-2026-05-25-DBE28825",
+  "created_at": "2026-05-25T02:37:36.673Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-tandil-departamento-san-martin-20260524-2237",
+  "drive_folder_url": "https://drive.google.com/mock-link-999"
+}
