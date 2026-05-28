@@ -67,6 +67,7 @@ export function buildMakePayload(args: BuildMakePayloadArgs): MakePayload {
       'Asesor comercial': payload['Asesor comercial'],
       Productor: payload.Productor,
       Sucursal: payload.Sucursal,
+      'Tipo de contrato': payload['Tipo de contrato'],
       Pais: payload.Pais,
       Provincia: payload.Provincia,
       Localidad: payload.Localidad,

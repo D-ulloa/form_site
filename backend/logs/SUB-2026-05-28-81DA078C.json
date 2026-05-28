@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-EDECE825",
+  "submission_id": "SUB-2026-05-28-81DA078C",
+  "created_at": "2026-05-28T14:44:51.283Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP--chalet-fort-20260528-1044",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1HuDOcEVkaBWkmTkY_ic3hqqxz131GXJ5"
+}

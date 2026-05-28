@@ -18,6 +18,7 @@
   "Asesor comercial": "", // String. Dropdown. Enviar el ID o Nombre del asesor.
   "Productor": "", // String. Dropdown. Enviar el ID o Nombre del productor.
   "Sucursal": "", // String. Dropdown. Enviar el ID o Nombre de la sucursal.
+  "Tipo de contrato": "", // String. Dropdown. Valores: "A convenir.", "2 años con incremento cada 3 meses según el índice ICL.", "2 años con incremento cada 4 meses según el índice ICL.", "2 años con incremento cada 4 meses según el índice IPC.", "2 años con incremento cada 3 meses según el índice IPC.", "2 años con incremento cada 3 meses.", "2 años sin incrementos.", "24 meses con el índice IPC.", "1 año con incremento cada 3 meses según el índice ICL."
 
   // ==========================================
   // PESTAÑA: UBICACION (Referencia: Imagen 3)

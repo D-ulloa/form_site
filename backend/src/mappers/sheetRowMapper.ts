@@ -57,6 +57,7 @@ export function mapToSheetRow(
     payload['Asesor comercial'],
     payload.Productor,
     payload.Sucursal,
+    payload['Tipo de contrato'],
     payload.Pais,
     payload.Provincia,
     payload.Localidad,

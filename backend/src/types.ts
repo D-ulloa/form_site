@@ -24,6 +24,7 @@ export interface PropertyData {
   'Asesor comercial': string;
   Productor: string;
   Sucursal: string;
+  'Tipo de contrato': string;
   Pais: string;
   Provincia: string;
   Localidad: string;

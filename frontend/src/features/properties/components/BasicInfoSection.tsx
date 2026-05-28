@@ -5,7 +5,7 @@ import { Select } from '../../../components/ui/Select.tsx';
 import { Input } from '../../../components/ui/Input.tsx';
 import { Checkbox } from '../../../components/ui/Checkbox.tsx';
 import { StepHeader } from '../../../components/ui/StepHeader.tsx';
-import { TIPO_PROPIEDAD_OPTIONS, OPERACION_OPTIONS, MONEDA_OPTIONS } from '../schemas/propertySchema.ts';
+import { TIPO_PROPIEDAD_OPTIONS, OPERACION_OPTIONS, MONEDA_OPTIONS, TIPO_CONTRATO_OPTIONS } from '../schemas/propertySchema.ts';
 
 interface Props {
   form: PropertyForm;
@@ -124,6 +124,13 @@ export function BasicInfoSection({ form }: Props) {
           placeholder="Nombre de la sucursal"
           error={errors.Sucursal?.message}
           {...register('Sucursal')}
+        />
+        <Select
+          label="Tipo de contrato"
+          placeholder="Seleccioná..."
+          options={toOptions(TIPO_CONTRATO_OPTIONS)}
+          error={errors['Tipo de contrato']?.message}
+          {...register('Tipo de contrato')}
         />
       </div>
 
