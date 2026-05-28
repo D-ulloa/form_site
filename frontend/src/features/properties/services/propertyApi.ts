@@ -25,8 +25,10 @@ export interface ApiError {
   details?: string[];
 }
 
+const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
+
 export async function submitProperty(formData: FormData): Promise<SubmissionResult> {
-  const response = await axios.post<SubmissionResult>('/properties/submit', formData, {
+  const response = await axios.post<SubmissionResult>(`${API_PREFIX}/properties/submit`, formData, {
     // Let the browser set multipart boundaries automatically.
     // Setting Content-Type manually can break FormData encoding.
   });

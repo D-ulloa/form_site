@@ -30,7 +30,7 @@ async function parseUploadFiles(req: Request, res: Response): Promise<Express.Mu
 //
 // Accepts multipart/form-data:
 //   • All property fields as text fields (see scheme.json + agent_* fields)
-//   • files[]  — image/video files (total ≤ 1 GB, whitelisted MIME types)
+//   • files      — image/video files (total ≤ 1 GB, whitelisted MIME types)
 //   • cover_file_name — filename of the designated cover image
 
 router.post('/submit', async (req, res) => {
