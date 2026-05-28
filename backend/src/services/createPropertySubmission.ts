@@ -18,6 +18,13 @@ import type {
   SubmissionStepResults,
 } from '../types.js';
 
+function formatDriveQuotaError(rawMessage: string): string {
+  if (rawMessage.includes('Service Accounts do not have storage quota')) {
+    return `${rawMessage} Configure one of these in Vercel: OAuth credentials (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REFRESH_TOKEN) or GOOGLE_SUBJECT_EMAIL for delegated service account auth, or switch uploads to a shared Drive folder.`;
+  }
+  return rawMessage;
+}
+
 // ─── ID generators ────────────────────────────────────────────────────────────
 
 function generatePropertyId(): string {
@@ -122,7 +129,10 @@ export async function createPropertySubmission(
     }
     steps.file_upload = 'ok';
   } catch (err) {
-    const error = err instanceof Error ? err.message : 'File upload failed';
+    const error =
+      err instanceof Error
+        ? formatDriveQuotaError(err.message)
+        : formatDriveQuotaError('File upload failed');
     steps.file_upload = 'failed';
     await persistSubmissionLog(
       buildLog({

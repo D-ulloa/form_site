@@ -33,6 +33,13 @@ async function parseUploadFiles(req: Request, res: Response): Promise<Express.Mu
 //   • files      — image/video files (total ≤ 1 GB, whitelisted MIME types)
 //   • cover_file_name — filename of the designated cover image
 
+router.get('/submit', (_req, res) => {
+  res.status(405).json({
+    error: 'Method Not Allowed',
+    details: 'Use POST /properties/submit with multipart/form-data',
+  });
+});
+
 router.post('/submit', async (req, res) => {
   let files: Express.Multer.File[] = [];
 

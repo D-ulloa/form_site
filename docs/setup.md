@@ -101,6 +101,17 @@ This method uses a dedicated Google Cloud Service Account. Keep in mind that upl
 8. Copy the Sheet ID from its URL: `docs.google.com/spreadsheets/d/{SHEET_ID}/edit`.
 9. Copy the Drive folder ID from its URL: `drive.google.com/drive/folders/{FOLDER_ID}`.
 
+#### Method 3: Service Account + Domain-Wide Delegation
+
+If you want to keep using a Service Account while avoiding the Drive storage quota error, enable domain-wide delegation in Google Workspace and set:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_KEY_JSON=...
+GOOGLE_SUBJECT_EMAIL=user@your-domain.com
+```
+
+The backend will authenticate Drive and Sheets calls as the delegated user, which applies that user's Drive quota and shared-drive permissions.
+
 ### Required environment variables
 
 | Variable | Description | Requirement / Authentication Mode |
@@ -109,6 +120,7 @@ This method uses a dedicated Google Cloud Service Account. Keep in mind that upl
 | `GOOGLE_CLIENT_ID` | OAuth2 Client ID from Google Cloud Console | Required for User OAuth2 Mode (takes precedence) |
 | `GOOGLE_CLIENT_SECRET` | OAuth2 Client Secret from Google Cloud Console | Required for User OAuth2 Mode (takes precedence) |
 | `GOOGLE_REFRESH_TOKEN` | Generated OAuth2 Refresh Token | Required for User OAuth2 Mode (takes precedence) |
+| `GOOGLE_SUBJECT_EMAIL` | Workspace user email for delegated Service Account auth | Optional when using Service Account |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` | Service account JSON minified to a single-line string | Required for Service Account fallback mode |
 | `GOOGLE_SHEET_ID` | ID of the target Google Sheet | All |
 | `GOOGLE_SHEET_RANGE` | Range for appends (default `Sheet1!A1`) | All |

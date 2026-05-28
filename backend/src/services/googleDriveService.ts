@@ -6,6 +6,10 @@ import type { MediaFile } from '../types.js';
 
 const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive'];
 
+const DRIVE_REQUEST_OPTIONS = {
+  supportsAllDrives: true,
+};
+
 // ─── Create folder ────────────────────────────────────────────────────────────
 
 export interface CreateFolderResult {
@@ -23,6 +27,7 @@ export async function createDriveFolder(
 
   const createRes = await withRetry(() =>
     drive.files.create({
+      ...DRIVE_REQUEST_OPTIONS,
       requestBody: {
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder',
@@ -40,6 +45,7 @@ export async function createDriveFolder(
   // Make folder readable by anyone with the link
   await withRetry(() =>
     drive.permissions.create({
+      ...DRIVE_REQUEST_OPTIONS,
       fileId: id,
       requestBody: { role: 'reader', type: 'anyone' },
     }),
@@ -65,6 +71,7 @@ export async function uploadFilesToFolder(
   for (const file of files) {
     const res = await withRetry(() =>
       drive.files.create({
+        ...DRIVE_REQUEST_OPTIONS,
         requestBody: {
           name: file.originalname,
           parents: [folderId],

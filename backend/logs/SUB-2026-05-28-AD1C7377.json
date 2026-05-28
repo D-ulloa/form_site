@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-E0AE831D",
+  "submission_id": "SUB-2026-05-28-AD1C7377",
+  "created_at": "2026-05-28T18:44:36.711Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-guemes-extruct-colon-20260528-1444",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1A683CfRzvRF3262R8bZpjGdD0cQ0Tqmz"
+}

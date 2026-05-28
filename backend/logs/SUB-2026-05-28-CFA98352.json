@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-88D8FF89",
+  "submission_id": "SUB-2026-05-28-CFA98352",
+  "created_at": "2026-05-28T18:40:23.462Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP--campo-colon-20260528-1440",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1z38cuE0H_qh_e0SwgfgA2z8f4DV-_LOF"
+}
