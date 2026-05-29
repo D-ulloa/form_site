@@ -137,6 +137,8 @@ export const propertySchema = z.object({
     '2 años sin incrementos.',
     '24 meses con el índice IPC.',
     '1 año con incremento cada 3 meses según el índice ICL.',
+    '1 año con incremento cada 3 meses según el indice IPC.',
+    '1 año con incremento cada 4 meses según el indice IPC.',
   ]).or(z.literal('')).default(''),
   Pais: z.string().default('Argentina'),
   Provincia: z.string().default(''),

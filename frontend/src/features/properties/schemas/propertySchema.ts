@@ -45,6 +45,8 @@ export const TIPO_CONTRATO_OPTIONS = [
   { value: '2 años sin incrementos.', label: '2 años sin incrementos.' },
   { value: '24 meses con el índice IPC.', label: '24 meses con el índice IPC.', disabled: true },
   { value: '1 año con incremento cada 3 meses según el índice ICL.', label: '1 año con incremento cada 3 meses según el índice ICL.' },
+  { value: '1 año con incremento cada 3 meses según el indice IPC.', label: '1 año con incremento cada 3 meses según el indice IPC.' },
+  { value: '1 año con incremento cada 4 meses según el indice IPC.', label: '1 año con incremento cada 4 meses según el indice IPC.' },
 ] as const;
 
 export const PAIS_OPTIONS = ['Argentina'] as const;
