@@ -11,8 +11,12 @@ interface Props {
   form: PropertyForm;
 }
 
-const toOptions = (arr: readonly string[]) =>
-  arr.map((v) => ({ value: v, label: v }));
+type SelectItemInput = string | { value: string; label: string; disabled?: boolean };
+
+const toOptions = (arr: readonly SelectItemInput[]) =>
+  arr.map((item) =>
+    typeof item === 'string' ? { value: item, label: item } : item
+  );
 
 function BoolField({ form, fieldKey, label }: { form: PropertyForm; fieldKey: keyof PropertyFormValues; label: string }) {
   const { field } = useController({ name: fieldKey, control: form.control });

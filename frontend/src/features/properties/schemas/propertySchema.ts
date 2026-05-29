@@ -36,15 +36,15 @@ export const TIPO_PROPIEDAD_OPTIONS = [
 export const OPERACION_OPTIONS = ['Venta', 'Alquiler'] as const;
 export const MONEDA_OPTIONS = ['Pesos', 'Dolares'] as const;
 export const TIPO_CONTRATO_OPTIONS = [
-  'A convenir.',
-  '2 años con incremento cada 3 meses según el índice ICL.',
-  '2 años con incremento cada 4 meses según el índice ICL.',
-  '2 años con incremento cada 4 meses según el índice IPC.',
-  '2 años con incremento cada 3 meses según el índice IPC.',
-  '2 años con incremento cada 3 meses.',
-  '2 años sin incrementos.',
-  '24 meses con el índice IPC.',
-  '1 año con incremento cada 3 meses según el índice ICL.',
+  { value: 'A convenir.', label: 'A convenir.' },
+  { value: '2 años con incremento cada 3 meses según el índice ICL.', label: '2 años con incremento cada 3 meses según el índice ICL.' },
+  { value: '2 años con incremento cada 4 meses según el índice ICL.', label: '2 años con incremento cada 4 meses según el índice ICL.' },
+  { value: '2 años con incremento cada 4 meses según el índice IPC.', label: '2 años con incremento cada 4 meses según el índice IPC.' },
+  { value: '2 años con incremento cada 3 meses según el índice IPC.', label: '2 años con incremento cada 3 meses según el índice IPC.' },
+  { value: '2 años con incremento cada 3 meses.', label: '2 años con incremento cada 3 meses.', disabled: true },
+  { value: '2 años sin incrementos.', label: '2 años sin incrementos.' },
+  { value: '24 meses con el índice IPC.', label: '24 meses con el índice IPC.', disabled: true },
+  { value: '1 año con incremento cada 3 meses según el índice ICL.', label: '1 año con incremento cada 3 meses según el índice ICL.' },
 ] as const;
 
 export const PAIS_OPTIONS = ['Argentina'] as const;
