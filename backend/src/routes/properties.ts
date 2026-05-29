@@ -4,8 +4,15 @@ import { validatePropertyPayload } from '../services/validatePropertyPayload.js'
 import { createPropertySubmission } from '../services/createPropertySubmission.js';
 import { validateMimeTypes, validateTotalSize } from '../utils/sizeLimits.js';
 
+const MAX_VERCEL_SAFE_PAYLOAD_BYTES = 3_800_000;
+
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_VERCEL_SAFE_PAYLOAD_BYTES,
+  },
+});
 
 async function parseUploadFiles(req: Request, res: Response): Promise<Express.Multer.File[]> {
   if (!req.is('multipart/form-data')) {
@@ -26,11 +33,15 @@ async function parseUploadFiles(req: Request, res: Response): Promise<Express.Mu
   });
 }
 
+function getTotalSize(files: Express.Multer.File[]): number {
+  return files.reduce((sum, file) => sum + file.size, 0);
+}
+
 // ─── POST /properties/submit ──────────────────────────────────────────────────
 //
 // Accepts multipart/form-data:
 //   • All property fields as text fields (see scheme.json + agent_* fields)
-//   • files      — image/video files (total ≤ 1 GB, whitelisted MIME types)
+//   • files      — image/video files (platform cap: 3.8 MB total in this deployment, whitelisted MIME types)
 //   • cover_file_name — filename of the designated cover image
 
 router.get('/submit', (_req, res) => {
@@ -46,9 +57,26 @@ router.post('/submit', async (req, res) => {
   try {
     files = await parseUploadFiles(req, res);
   } catch (err) {
+    if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({
+        error: 'Request payload too large',
+        details: 'El total de archivos supera el límite soportado por esta implementación (3.8 MB máximo).',
+      });
+      return;
+    }
+
     res.status(400).json({
       error: 'File parsing failed',
       details: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+
+  const totalUploadSize = getTotalSize(files);
+  if (totalUploadSize > MAX_VERCEL_SAFE_PAYLOAD_BYTES) {
+    res.status(413).json({
+      error: 'Request payload too large',
+      details: 'El total de archivos supera el límite soportado por esta implementación (3.8 MB máximo).',
     });
     return;
   }

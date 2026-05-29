@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState, type DragEvent } from 'react';
+import {
+  MAX_SUBMISSION_PAYLOAD_BYTES,
+  MAX_SUBMISSION_PAYLOAD_LABEL,
+} from '../../features/properties/utils/uploadLimits.ts';
 
-const MAX_SIZE_BYTES = 1_073_741_824; // 1 GB
 const ALLOWED_MIME = new Set([
   'image/jpeg',
   'image/png',
@@ -59,11 +62,13 @@ export function FileDropzone({
         }
         valid.push(buildEntry(f));
       }
+
       const next = [...files, ...valid];
       const total = next.reduce((s, e) => s + e.file.size, 0);
-      if (total > MAX_SIZE_BYTES) {
-        errs.push('El total de archivos supera el límite de 1 GB.');
+      if (total > MAX_SUBMISSION_PAYLOAD_BYTES) {
+        errs.push(`El total de archivos supera el límite de ${MAX_SUBMISSION_PAYLOAD_LABEL} para esta implementación en Vercel.`);
       }
+
       setLocalErrors(errs);
       if (valid.length > 0) {
         onFilesChange(next);
@@ -96,7 +101,10 @@ export function FileDropzone({
     <div className="flex flex-col gap-4">
       {/* Drop zone */}
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
@@ -123,7 +131,7 @@ export function FileDropzone({
           <p className="text-sm font-medium text-slate-300">
             Arrastrá archivos o <span className="text-indigo-400">hacé click para seleccionar</span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">JPG, PNG, WEBP, GIF, MP4, MOV, AVI, WEBM · Máx. 1 GB total</p>
+          <p className="text-xs text-slate-500 mt-1">JPG, PNG, WEBP, GIF, MP4, MOV, AVI, WEBM · Máx. {MAX_SUBMISSION_PAYLOAD_LABEL} total</p>
         </div>
       </div>
 
@@ -141,13 +149,13 @@ export function FileDropzone({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs text-slate-500 px-1">
             <span>{files.length} archivo{files.length !== 1 ? 's' : ''}</span>
-            <span>{formatBytes(totalSize)} / 1 GB</span>
+            <span>{formatBytes(totalSize)} / {MAX_SUBMISSION_PAYLOAD_LABEL}</span>
           </div>
           {/* Progress bar total */}
           <div className="h-1 w-full rounded-full bg-white/[0.07] overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all"
-              style={{ width: `${Math.min((totalSize / MAX_SIZE_BYTES) * 100, 100)}%` }}
+              style={{ width: `${Math.min((totalSize / MAX_SUBMISSION_PAYLOAD_BYTES) * 100, 100)}%` }}
             />
           </div>
 

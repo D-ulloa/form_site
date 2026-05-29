@@ -20,7 +20,7 @@ export function MediaUploadSection({
 }: Props) {
   return (
     <section id="section-media" className="surface rounded-2xl p-6 animate-fade-in-up delay-500">
-      <StepHeader step={7} title="Archivos multimedia" subtitle="Imágenes y videos de la propiedad (máx. 1 GB total)" />
+      <StepHeader step={7} title="Archivos multimedia" subtitle="Imágenes y videos de la propiedad (máx. 3.8 MB total)" />
 
       {isSubmitting && (
         <div className="mb-4 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 flex items-center gap-3">

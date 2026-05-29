@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-D6BF4C2F",
+  "submission_id": "SUB-2026-05-29-5133A537",
+  "created_at": "2026-05-29T17:58:46.988Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP--apart-imagen-20260529-1358",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1r9XJQEjQHZyd1Cvi1Zru_xM1k1hyYNVK"
+}
