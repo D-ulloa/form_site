@@ -138,8 +138,10 @@ The `POST /properties/submit` endpoint accepts `multipart/form-data` with:
 - All property fields as text fields (see `scheme_reworked.json` for the full schema).
 - Agent fields: `agent_user_id`, `agent_name`, `agent_email`.
 - `cover_file_name` — filename of the designated cover image.
-- `files` — uploaded image/video files (total ≤ 1 GB, whitelisted MIME types only).
+- `files` — uploaded image/video files (whitelisted MIME types only).
 
+> Note: This deployment currently enforces a Vercel-safe request payload cap of about 3.8 MB total for uploaded files, while the backend also includes a higher internal hard cap of 1 GB.
+>
 > Note: `scheme_reworked.json` is the current canonical submission schema used by backend validation and payload mapping.
 
 **Response body (`SubmissionResult`):**

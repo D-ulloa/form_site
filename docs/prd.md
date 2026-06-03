@@ -8,9 +8,11 @@ Locked product rules:
 - Sheets update: always runs.
 - Make webhook: always runs.
 - Property lifecycle in MVP: create only, no edit mode.
-- Upload limit: hard cap of 1 GB total per submission.
+- Upload limit: hard cap of 1 GB total per submission in business rules, with the current deployment capped at approximately 3.8 MB due to platform payload limits.
 - Media count: no fixed file-count limit as long as the submission remains under the total cap.
-- Folder naming convention: `OP-{localidad}-{tipo_de_inmueble}-{calle_sanitizada}-{timestamp}`.
+- Folder naming convention: `OP-{localidad}-{tipo_de_inmueble}-{calle_sanitizada}-{YYYYMMDD-HHmm}`.
+
+Notes: the implementation lowercases and strips accents/special chars (spaces → hyphens) when sanitizing `calle`. The timestamp format is `YYYYMMDD-HHmm` (date + hour and minute).
 
 Recommended example:
 - `OP-mar-del-plata-casa-av-colon-1234-20260510-2128`
@@ -182,32 +184,35 @@ For a functioning version, the frontend should separate routes, form logic, vali
 ```text
 src/
   app/
-    router/
+    contexts/
+      AgentContext.tsx
     providers/
+      QueryProvider.tsx
+    App.tsx
   pages/
     ActionSelectionPage.tsx
     NewPropertyPage.tsx
     SubmissionSuccessPage.tsx
   features/properties/
     components/
-      PropertyFormLayout.tsx
       BasicInfoSection.tsx
       LocationSection.tsx
       DistributionSection.tsx
       FeaturesSection.tsx
+      AdditionalDetailsSection.tsx
       MultiSelectArraysSection.tsx
       MediaUploadSection.tsx
-      ReviewSubmitPanel.tsx
     hooks/
       usePropertyForm.ts
       useMediaValidation.ts
       useCreatePropertySubmission.ts
     schemas/
       propertySchema.ts
-      mediaSchema.ts
     services/
       propertyApi.ts
       payloadMapper.ts
+    utils/
+      uploadLimits.ts
   components/ui/
     Button.tsx
     Input.tsx
@@ -217,8 +222,13 @@ src/
     FileDropzone.tsx
     UploadProgressList.tsx
     AlertInline.tsx
-    StepHeader.tsx
+    AgentModal.tsx
 ```
+
+Notes / actual implementation details:
+- The real frontend composes the form in `NewPropertyPage.tsx` from section components (`BasicInfoSection`, `LocationSection`, `DistributionSection`, `FeaturesSection`, `AdditionalDetailsSection`, `MediaUploadSection`) rather than relying on a single `PropertyFormLayout` or `ReviewSubmitPanel` component.
+- There is no dedicated `mediaSchema.ts` file; media validation and limits are implemented in `useMediaValidation.ts` and `features/properties/utils/uploadLimits.ts` (frontend cap: `MAX_SUBMISSION_PAYLOAD_BYTES = 3_800_000`).
+- Key hooks and services: `usePropertyForm.ts`, `useMediaValidation.ts`, `useCreatePropertySubmission.ts`, `payloadMapper.ts`, and `propertyApi.ts`.
 
 ### Backend modules
 ```text
@@ -250,7 +260,7 @@ A good admin web app should surface every important system state, especially dur
 - Numeric fields must reject invalid numbers.
 - Boolean fields default to `false`.
 - Array fields default to `[]`.
-- Total upload size must not exceed 1 GB.
+- Total upload size must not exceed 1 GB in business rules, with the current deployment capped at approximately 3.8 MB due to platform payload limits.
 - Allowed media types must be whitelisted.
 - Dangerous filename characters must be sanitized.
 - Folder name generation must be deterministic.
@@ -266,6 +276,70 @@ A good admin web app should surface every important system state, especially dur
 - Per-file progress.
 - Total progress.
 - Remove-before-submit action.
+
+**Architecture (overview)**
+
+```mermaid
+flowchart LR
+  A[Browser / Frontend (Vite + React)] -->|POST multipart| B[Backend API (Express)]
+  B --> C[Google Drive]
+  B --> D[Google Sheets]
+  B --> E[Make webhook]
+  B --> F[Submission log (JSON files / DB)]
+  subgraph Frontend
+    A --> G[/properties/new UI/Sections/MediaUpload/Validation/React Hook Form/ Zod/Query/axios/]
+  end
+  subgraph Integrations
+    C & D & E
+  end
+```
+
+**Wireframe — `/properties/new` (compact admin layout)**
+
+- Header: back button, page title (`Nueva propiedad`), agent button (opens AgentModal).
+- Form body (max width ~800px) split into vertical stacked sections with sticky submit bar at bottom:
+  - Basic info: `Tipo de Inmueble`, `Operación`, `Precio`, `Moneda`, `Dormitorios`, `Ambientes`, `Titulo`.
+  - Location: `Pais`, `Provincia`, `Localidad`, `Barrio`, `Calle`, `Número`, `Piso | Mza | Denominacion`, `Depto | Lote |`, `Referencia`.
+  - Details: `Baños`, `Plantas`, `Antiguedad`, `Estado general`, `Apto para`, `Estilo`, `Orientacion`.
+  - Surfaces & descriptions: `Metros cubiertos`, `Sup Terreno`, `Sup Terraza`, `Descrp. de dormitorio 1..5`, `Llaves`.
+  - Features (checkbox grid): `Garage`, `Pileta`, `Quincho`, `Suite Principal`, `Aire A.Central`, etc.
+  - Contract & commercial: `Tipo de contrato`, `Propietario`, `Asesor comercial`, `Productor`, `Sucursal`.
+  - Observaciones: `Observaciones`, `Notas Privadas`, `Detalle`.
+  - MediaUploadSection: dropzone, file list, reorder controls, cover selector, per-file progress.
+
+Sticky submit bar (bottom): file count / total size, `Enviar propiedad` button (disabled when uploading or size invalid).
+
+**Field-by-field mapping (scheme_reworked.json → form field / where in UI)**
+
+- General
+  - `Tipo de Inmueble` → Basic info (`BasicInfoSection`) — required.
+  - `Operación` → Basic info — required.
+  - `Dormitorios`, `Ambientes`, `Precio`, `Expensas`, `Moneda` → Basic info.
+  - `Apto crédito`, `Escritura`, `Unidad en Pozo`, `Cartel` → Basic info (checkboxes).
+  - `Propietario`, `Asesor comercial`, `Productor`, `Sucursal` → Contract & commercial section.
+  - `Tipo de contrato` → Contract & commercial section (dropdown). **Present in `scheme_reworked.json`, frontend (`propertySchema`) and backend (`validatePropertyPayload`).**
+
+- Ubicación
+  - `Pais`, `Provincia`, `Localidad`, `Barrio`, `Calle`, `Número`, `Piso | Mza | Denominacion`, `Depto | Lote |`, `Referencia` → LocationSection.
+
+- Detalles básicos
+  - `Baños`, `Plantas`, `Antiguedad`, `Estado general`, `Apto para`, `Estilo`, `Orientacion` → Details section.
+
+- Superficies y descripciones
+  - `Sup Terreno | Hectáreas`, `Sup Terraza`, `Sup Balcon`, `Otras superficies`, `Metros cubiertos`, `Sup de Jardin`, `Mts de Frente`, `Mts de Fondo`, `Llaves`, `Descrp. de dormitorio 1..5` → Surfaces & descriptions.
+
+- Amenities / servicios (checkboxes)
+  - `Garage`, `Living Comedor`, `Cocina Comedor`, `Comedor diario`, `Ante Cocina`, `Dependencias`, `Patio`, `Pileta`, `Hogar`, `Area de parrilla`, `Quincho`, `Suite Principal`, `Vestidor`, `Sala estar`, `Estudio`, `Escritorio`, `Lavadero`, `Hall acceso`, `Hall distrib.`, `Gas Natural`, `Gas en tubos`, `Cloacas`, `Sotano`, `Bodega`, `Despensa`, `Play room`, `Bar`, `Jardín inv.`, `Cámara Sept.`, `Galería`, `Altillo`, `Terraza`, `Aire A.Central`, `Aire A. Ind.`, `Calefactores`, `Calef. central`, `Tiro balanc.`, `Calefón`, `Estractor`, `Termotanque`, `Alarma`, `Agua cte.`, `Toillette`, `Hidromasaje`, `Jacuzzi`, `Balcon` → FeaturesSection (checkbox grid).
+
+- Observaciones
+  - `Observaciones`, `Notas Privadas`, `Titulo`, `Detalle` → Observations section (textareas / title input). `Titulo` required by schema.
+
+- Media
+  - Files uploaded via `MediaUploadSection` map to `media.files` in Make payload and `cover_file_name` is included in the form fields.
+
+Notes:
+- The canonical Make payload and sheet row are assembled server-side (see `backend/src/mappers/makePayloadMapper.ts` and `backend/src/mappers/sheetRowMapper.ts`). The frontend sends form fields + files via multipart/form-data to `/properties/submit`.
+- `Tipo de contrato` is available across frontend and backend schemas and will be sent in the Make payload and appended to Sheets.
 
 ### Submission orchestration
 The backend flow should run in this exact order:
@@ -287,10 +361,12 @@ The backend flow should run in this exact order:
 - If Sheets succeeds but Make fails, mark submission as `partial_failure`.
 - Result screen must show exact step outcome: Drive, Upload, Sheets, Make.
 
+Note: `SubmissionSuccessPage` expects the `SubmissionResult` object to be passed via navigation state after a successful submission. If the page is loaded directly (no state), it shows a minimal view with only the submission ID.
+
 ### MVP acceptance criteria
 - User can reach the add-property flow from the landing page.
 - User can submit all required property data.
-- User can upload media up to 1 GB total.
+- User can upload media up to 1 GB total in business rules, with the current deployment capped at approximately 3.8 MB for payloads.
 - App creates one Drive folder per property.
 - App stores all uploaded files in that folder.
 - App appends a correctly mapped row in Google Sheets.
