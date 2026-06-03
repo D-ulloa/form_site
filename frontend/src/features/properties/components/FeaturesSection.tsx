@@ -59,6 +59,10 @@ const FEATURE_GROUPS: Array<{
   {
     title: 'Extras y comodidades',
     fields: [
+{ key: 'Amoblado', label: 'Amoblado' },
+      { key: 'Ascensor', label: 'Ascensor' },
+      { key: 'Mascotas', label: 'Mascotas' },
+      { key: 'Barrio cerrado', label: 'Barrio cerrado' },
       { key: 'Bodega', label: 'Bodega' },
       { key: 'Despensa', label: 'Despensa' },
       { key: 'Play room', label: 'Play room' },

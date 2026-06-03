@@ -1,0 +1,13 @@
+{
+  "property_id": "PROP-2026-B6599605",
+  "submission_id": "SUB-2026-06-03-D862EE84",
+  "created_at": "2026-06-03T18:51:50.737Z",
+  "outcome": "failure",
+  "steps": {
+    "drive_folder": "failed",
+    "file_upload": "skipped",
+    "sheets": "skipped",
+    "make": "skipped"
+  },
+  "error": "invalid_grant"
+}

@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-6B67C9FB",
+  "submission_id": "SUB-2026-06-03-42E825BC",
+  "created_at": "2026-06-03T19:59:36.053Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-guemes-apart-urdaneta-20260603-1559",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1l2gu3Yz-53KcoznXEApqFqghrHnPUaDy"
+}

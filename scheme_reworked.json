@@ -14,6 +14,10 @@
   "Escritura": false, // Booleano. Checkbox.
   "Unidad en Pozo": false, // Booleano. Checkbox.
   "Cartel": false, // Booleano. Checkbox.
+"Barrio cerrado": false, // Booleano. Checkbox.
+  "Amoblado": false, // Booleano. Checkbox.
+  "Ascensor": false, // Booleano. Checkbox.
+  "Mascotas": false, // Booleano. Checkbox.
   "Propietario": "", // String. Input de búsqueda/autocompletado. Enviar el ID o Nombre del propietario ya cargado.
   "Asesor comercial": "", // String. Dropdown. Enviar el ID o Nombre del asesor.
   "Productor": "", // String. Dropdown. Enviar el ID o Nombre del productor.

@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-D15E897F",
+  "submission_id": "SUB-2026-06-03-BE817D9D",
+  "created_at": "2026-06-03T19:55:45.791Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-mar-de-plata-galpon-libertador-20260603-1555",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1RyHWnvZvoYT59VgYARFuod12D5BkonYB"
+}

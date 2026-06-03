@@ -20,6 +20,10 @@ export interface PropertyData {
   Escritura: boolean;
   'Unidad en Pozo': boolean;
   Cartel: boolean;
+  'Barrio cerrado': boolean;
+Amoblado: boolean;
+  Ascensor: boolean;
+  Mascotas: boolean;
   Propietario: string;
   'Asesor comercial': string;
   Productor: string;
