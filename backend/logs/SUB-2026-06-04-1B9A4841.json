@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-DF84DAF6",
+  "submission_id": "SUB-2026-06-04-1B9A4841",
+  "created_at": "2026-06-04T17:06:18.298Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-maracay-apart-colon-20260604-1306",
+  "drive_folder_url": "https://drive.google.com/drive/folders/1d3jrhGwuoHP-hjegOBcU2KnXJ2gk8dnG"
+}
