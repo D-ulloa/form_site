@@ -49,6 +49,7 @@ const PROPERTY_KEY_ALIASES: Record<string, string> = {
   Orientación: 'Orientacion',
   'Orientación_2': 'Orientacion',
   'Conexión para lavarropas': 'Detalle',
+  SupTerrenoHectareas: 'Sup Terreno | Hectáreas',
   tipo_contrato: 'Tipo de contrato',
   'tipo de contrato': 'Tipo de contrato',
   cochera: 'Garage',

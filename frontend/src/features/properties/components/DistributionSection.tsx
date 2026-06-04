@@ -67,8 +67,8 @@ export function DistributionSection({ form }: Props) {
         <Input
           label="Sup Terreno | Hectáreas"
           placeholder="Ej: 200"
-          error={errors['Sup Terreno | Hectáreas']?.message}
-          {...register('Sup Terreno | Hectáreas')}
+          error={errors.SupTerrenoHectareas?.message}
+          {...register('SupTerrenoHectareas')}
         />
         <Input
           label="Sup Terraza"

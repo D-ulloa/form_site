@@ -1,0 +1,14 @@
+{
+  "property_id": "PROP-2026-91A63893",
+  "submission_id": "SUB-2026-06-04-083157C4",
+  "created_at": "2026-06-04T17:23:18.883Z",
+  "outcome": "success",
+  "steps": {
+    "drive_folder": "ok",
+    "file_upload": "ok",
+    "sheets": "ok",
+    "make": "ok"
+  },
+  "drive_folder_name": "OP-caracas-casa-qta-libertador-20260604-1323",
+  "drive_folder_url": "https://drive.google.com/drive/folders/18IaS-tWtCi3Rp3_hpQbkfk8IzUYwMhSI"
+}
