@@ -61,20 +61,20 @@ export function LocationSection({ form }: Props) {
         <Input
           label="Número"
           placeholder="Ej: 1234"
-          error={errors['Número']?.message}
-          {...register('Número')}
+          error={errors.Numero?.message}
+          {...register('Numero')}
         />
         <Input
           label="Piso | Mza | Denominacion"
           placeholder="Ej: PB / Mza A"
-          error={errors['Piso | Mza | Denominacion']?.message}
-          {...register('Piso | Mza | Denominacion')}
+          error={errors.PisoMzaDenominacion?.message}
+          {...register('PisoMzaDenominacion')}
         />
         <Input
           label="Depto | Lote |"
           placeholder="Ej: 4B"
-          error={errors['Depto | Lote |']?.message}
-          {...register('Depto | Lote |')}
+          error={errors.DeptoLote?.message}
+          {...register('DeptoLote')}
         />
         <Input
           label="Referencia"
