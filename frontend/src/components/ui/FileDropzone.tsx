@@ -1,14 +1,20 @@
 import { useCallback, useRef, useState, type DragEvent } from 'react';
 import {
+  MAX_MEDIA_FILES,
   MAX_SUBMISSION_PAYLOAD_BYTES,
+  MAX_SUBMISSION_PAYLOAD_BYTES_DRIVE_LEGACY,
   MAX_SUBMISSION_PAYLOAD_LABEL,
+  MAX_SUBMISSION_PAYLOAD_LABEL_DRIVE_LEGACY,
 } from '../../features/properties/utils/uploadLimits.ts';
+import { getMediaUploadProvider } from '../../features/properties/services/propertyApi.ts';
 
 const ALLOWED_MIME = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
+  'image/heic',
+  'image/heif',
   'video/mp4',
   'video/quicktime',
   'video/x-msvideo',
@@ -51,9 +57,21 @@ export function FileDropzone({
   const [dragOver, setDragOver] = useState(false);
   const [localErrors, setLocalErrors] = useState<string[]>([]);
 
+  const isDriveLegacy = getMediaUploadProvider() === 'drive';
+  const maxBytes = isDriveLegacy
+    ? MAX_SUBMISSION_PAYLOAD_BYTES_DRIVE_LEGACY
+    : MAX_SUBMISSION_PAYLOAD_BYTES;
+  const maxLabel = isDriveLegacy
+    ? MAX_SUBMISSION_PAYLOAD_LABEL_DRIVE_LEGACY
+    : MAX_SUBMISSION_PAYLOAD_LABEL;
+
   const addFiles = useCallback(
     (incoming: File[]) => {
       const errs: string[] = [];
+      if (files.length + incoming.length > MAX_MEDIA_FILES) {
+        errs.push(`Máximo de ${MAX_MEDIA_FILES} archivos por envío.`);
+      }
+
       const valid: FileEntry[] = [];
       for (const f of incoming) {
         if (!ALLOWED_MIME.has(f.type)) {
@@ -65,8 +83,8 @@ export function FileDropzone({
 
       const next = [...files, ...valid];
       const total = next.reduce((s, e) => s + e.file.size, 0);
-      if (total > MAX_SUBMISSION_PAYLOAD_BYTES) {
-        errs.push(`El total de archivos supera el límite de ${MAX_SUBMISSION_PAYLOAD_LABEL} para esta implementación en Vercel.`);
+      if (total > maxBytes) {
+        errs.push(`El total de archivos supera el límite de ${maxLabel}.`);
       }
 
       setLocalErrors(errs);
@@ -77,7 +95,7 @@ export function FileDropzone({
         }
       }
     },
-    [files, coverFileName, onFilesChange, onCoverChange],
+    [files, coverFileName, onFilesChange, onCoverChange, maxBytes, maxLabel],
   );
 
   const remove = (idx: number) => {
@@ -131,7 +149,7 @@ export function FileDropzone({
           <p className="text-sm font-medium text-slate-300">
             Arrastrá archivos o <span className="text-indigo-400">hacé click para seleccionar</span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">JPG, PNG, WEBP, GIF, MP4, MOV, AVI, WEBM · Máx. {MAX_SUBMISSION_PAYLOAD_LABEL} total</p>
+          <p className="text-xs text-slate-500 mt-1">JPG, PNG, WEBP, GIF, HEIC, HEIF, MP4, MOV, AVI, WEBM · Máx. {MAX_MEDIA_FILES} archivos · {maxLabel} total</p>
         </div>
       </div>
 
@@ -149,13 +167,13 @@ export function FileDropzone({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs text-slate-500 px-1">
             <span>{files.length} archivo{files.length !== 1 ? 's' : ''}</span>
-            <span>{formatBytes(totalSize)} / {MAX_SUBMISSION_PAYLOAD_LABEL}</span>
+            <span>{formatBytes(totalSize)} / {maxLabel}</span>
           </div>
           {/* Progress bar total */}
           <div className="h-1 w-full rounded-full bg-white/[0.07] overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all"
-              style={{ width: `${Math.min((totalSize / MAX_SUBMISSION_PAYLOAD_BYTES) * 100, 100)}%` }}
+              style={{ width: `${Math.min((totalSize / maxBytes) * 100, 100)}%` }}
             />
           </div>
 
@@ -181,7 +199,7 @@ export function FileDropzone({
                   ) : (
                     <div className="w-10 h-10 rounded-md bg-white/[0.06] flex items-center justify-center flex-shrink-0">
                       <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 004.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
                       </svg>
                     </div>
                   )}
@@ -215,7 +233,7 @@ export function FileDropzone({
                     className="text-slate-600 hover:text-red-400 transition-colors ml-1"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M5.72 5.72a.75.75 0 0 1 1.06 0L8 6.94l1.22-1.22a.75.75 0 1 1 1.06 1.06L9.06 8l1.22 1.22a.75.75 0 1 1-1.06 1.06L8 9.06l-1.22 1.22a.75.75 0 0 1-1.06-1.06L6.94 8 5.72 6.78a.75.75 0 0 1 0-1.06z" />
+                      <path d="M5.72 5.72a.75.75 0 0 1 1.06 0L8 6.94l1.22-1.22a.75.75 0 1 1 1.06 1.06L9.06 8l1.22 1.22a.75.75 0 0 1-1.06 1.06L8 9.06l-1.22 1.22a.75.75 0 0 1-1.06-1.06L6.94 8 5.72 6.78a.75.75 0 0 1 0-1.06z" />
                       <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0z" />
                     </svg>
                   </button>

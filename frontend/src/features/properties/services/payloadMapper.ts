@@ -2,6 +2,26 @@ import type { PropertyFormValues } from '../schemas/propertySchema.ts';
 import type { AgentData } from '../../../app/contexts/AgentContext.tsx';
 import type { FileEntry } from '../../../components/ui/FileDropzone.tsx';
 
+export interface MediaUploadMetadata {
+  original_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_bucket?: string;
+  public_path?: string;
+  expires_at?: string;
+}
+
+export interface PropertySubmissionPayload {
+  agent_user_id: string;
+  agent_name: string;
+  agent_email: string;
+  cover_file_name: string;
+  media_uploads?: MediaUploadMetadata[];
+  media_upload_session_id?: string;
+  [key: string]: string | number | boolean | MediaUploadMetadata[] | undefined;
+}
+
 /**
  * Maps form values + files + agent identity → multipart/form-data.
  * The backend consumes canonical property field names.
@@ -63,15 +83,62 @@ export function buildFormData(
     fd.append('files', entry.file, entry.file.name);
   }
 
-  // Temporary debug output: print final FormData contents before submit.
-  for (const pair of fd.entries()) {
-    const [field, value] = pair;
-    if (value instanceof File) {
-      console.log('FormData entry:', field, 'File name=', value.name, 'type=', value.type, 'size=', value.size);
-    } else {
-      console.log('FormData entry:', field, 'value=', value);
+  return fd;
+}
+
+export function buildPropertySubmitPayload(
+  values: PropertyFormValues,
+  mediaUploads: MediaUploadMetadata[],
+  mediaUploadSessionId: string | undefined,
+  coverFileName: string,
+  agent: AgentData,
+): PropertySubmissionPayload {
+  const payload: PropertySubmissionPayload = {
+    agent_user_id: agent.agent_user_id,
+    agent_name: agent.agent_name,
+    agent_email: agent.agent_email,
+    cover_file_name: coverFileName,
+    media_uploads: mediaUploads,
+    ...(mediaUploadSessionId ? { media_upload_session_id: mediaUploadSessionId } : {}),
+  };
+
+  const skippedFields: Array<keyof PropertyFormValues | 'media_uploads' | 'media_upload_session_id'> = [
+    'cover_file_name',
+    'agent_user_id',
+    'agent_name',
+    'agent_email',
+  ];
+
+  for (const [key, val] of Object.entries(values) as [keyof PropertyFormValues, unknown][]) {
+    if (skippedFields.includes(key)) continue;
+
+    if (val === undefined || val === null) {
+      payload[key as string] = '';
+      continue;
     }
+
+    if (typeof val === 'boolean') {
+      payload[key as string] = val;
+      continue;
+    }
+
+    if (typeof val === 'number') {
+      payload[key as string] = val;
+      continue;
+    }
+
+    if (typeof val === 'string') {
+      payload[key as string] = val;
+      continue;
+    }
+
+    if (Array.isArray(val)) {
+      payload[key as string] = val.length > 0 ? JSON.stringify(val) : '';
+      continue;
+    }
+
+    payload[key as string] = String(val);
   }
 
-  return fd;
+  return payload;
 }

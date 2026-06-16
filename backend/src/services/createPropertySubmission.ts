@@ -9,13 +9,19 @@ import { sendToMakeWebhook } from './makeWebhookService.js';
 import { persistSubmissionLog } from './submissionLogger.js';
 import { mapToSheetRow } from '../mappers/sheetRowMapper.js';
 import { buildMakePayload } from '../mappers/makePayloadMapper.js';
-import { getTotalSize } from '../utils/sizeLimits.js';
+import { getTotalSize, getUploadDescriptorTotalSize } from '../utils/sizeLimits.js';
+import {
+  issueSignedDownloadUrl,
+} from './supabaseStorageService.js';
 import type { ValidatedPropertyPayload } from './validatePropertyPayload.js';
 import type {
   SubmissionLog,
   SubmissionOutcome,
   SubmissionResult,
   SubmissionStepResults,
+  MediaUploadMetadata,
+  MediaFile,
+  UploadStrategy,
 } from '../types.js';
 
 function formatDriveQuotaError(rawMessage: string): string {
@@ -24,6 +30,8 @@ function formatDriveQuotaError(rawMessage: string): string {
   }
   return rawMessage;
 }
+
+export type UploadMode = 'supabase' | 'drive' | 'none';
 
 // ─── ID generators ────────────────────────────────────────────────────────────
 
@@ -54,6 +62,9 @@ function buildLog(args: {
   drive_folder_name?: string;
   drive_folder_url?: string;
   error?: string | undefined;
+  upload_strategy?: UploadStrategy;
+  supabase_object_count?: number;
+  upload_byte_total?: number;
 }): SubmissionLog {
   const log: SubmissionLog = {
     property_id: args.property_id,
@@ -67,13 +78,27 @@ function buildLog(args: {
   if (args.drive_folder_url !== undefined)
     log.drive_folder_url = args.drive_folder_url;
   if (args.error !== undefined) log.error = args.error;
+  if (args.upload_strategy !== undefined)
+    log.upload_strategy = args.upload_strategy;
+  if (args.supabase_object_count !== undefined)
+    log.supabase_object_count = args.supabase_object_count;
+  if (args.upload_byte_total !== undefined)
+    log.upload_byte_total = args.upload_byte_total;
+
   return log;
+}
+
+function resolveUploadStrategy(uploadMode: UploadMode): UploadStrategy {
+  if (uploadMode === 'supabase') return 'supabase';
+  if (uploadMode === 'drive') return 'drive';
+
+  return process.env.MEDIA_UPLOAD_PROVIDER === 'drive' ? 'drive' : 'supabase';
 }
 
 // ─── Orchestration ────────────────────────────────────────────────────────────
 
 /**
- * Runs the full 10-step property submission flow and returns a SubmissionResult.
+ * Runs the full property submission flow and returns a SubmissionResult.
  * HTTP concerns (status codes, request parsing) are handled by the caller.
  *
  * Failure policy:
@@ -85,6 +110,8 @@ function buildLog(args: {
 export async function createPropertySubmission(
   payload: ValidatedPropertyPayload,
   files: Express.Multer.File[],
+  mediaUploads: MediaUploadMetadata[],
+  uploadMode: UploadMode,
 ): Promise<SubmissionResult> {
   // ── Step 2: Generate IDs ───────────────────────────────────────────────────
   const property_id = generatePropertyId();
@@ -94,6 +121,7 @@ export async function createPropertySubmission(
   const steps: SubmissionStepResults = {
     drive_folder: 'failed',
     file_upload: 'skipped',
+    drive_upload: 'skipped',
     sheets: 'skipped',
     make: 'skipped',
   };
@@ -115,45 +143,128 @@ export async function createPropertySubmission(
   } catch (err) {
     const error =
       err instanceof Error ? err.message : 'Drive folder creation failed';
-    await persistSubmissionLog(
-      buildLog({ property_id, submission_id, created_at, outcome: 'failure', steps, error }),
-    );
-    return { outcome: 'failure', property_id, submission_id, steps, error };
-  }
+    const result: SubmissionResult = {
+      outcome: 'failure',
+      property_id,
+      submission_id,
+      upload_strategy: resolveUploadStrategy(uploadMode),
+      steps,
+      error,
+    };
 
-  // ── Step 5: Upload media files ─────────────────────────────────────────────
-  let uploadedFiles: Awaited<ReturnType<typeof uploadFilesToFolder>> = [];
-  try {
-    if (files.length > 0) {
-      uploadedFiles = await uploadFilesToFolder(files, folder.folder_id);
-    }
-    steps.file_upload = 'ok';
-  } catch (err) {
-    const error =
-      err instanceof Error
-        ? formatDriveQuotaError(err.message)
-        : formatDriveQuotaError('File upload failed');
-    steps.file_upload = 'failed';
     await persistSubmissionLog(
       buildLog({
-        property_id, submission_id, created_at, outcome: 'failure', steps,
-        drive_folder_name: folder.folder_name,
-        drive_folder_url: folder.folder_url,
+        property_id,
+        submission_id,
+        created_at,
+        outcome: 'failure',
+        steps,
         error,
       }),
     );
+    return result;
+  }
+
+  // ── Step 5: Resolve media file metadata for this submission ───────────────
+  let mediaFiles: MediaFile[] = [];
+  let upload_strategy: UploadStrategy =
+    resolveUploadStrategy(uploadMode);
+  let supabase_object_count = 0;
+  let upload_byte_total = 0;
+
+  if (uploadMode === 'supabase') {
+    supabase_object_count = mediaUploads.length;
+    upload_byte_total = getUploadDescriptorTotalSize(mediaUploads);
+  }
+
+  try {
+    if (uploadMode === 'supabase') {
+      const normalized = mediaUploads.map((media) => ({
+        original_name: media.original_name,
+        mime_type: media.mime_type,
+        size_bytes: media.size_bytes,
+        storage_path: media.storage_path,
+        ...(media.storage_bucket ? { storage_bucket: media.storage_bucket } : {}),
+        ...(media.public_path ? { public_path: media.public_path } : {}),
+        ...(media.expires_at ? { expires_at: media.expires_at } : {}),
+      }));
+
+      const withSignedUrls = await Promise.all(
+        normalized.map(async (media) => {
+          const signed = await issueSignedDownloadUrl(
+            media.storage_path,
+            media.storage_bucket,
+          );
+          return {
+            name: media.original_name,
+            mime_type: media.mime_type,
+            size_bytes: media.size_bytes,
+            storage_path: media.storage_path,
+            ...(media.storage_bucket ? { storage_bucket: media.storage_bucket } : {}),
+            ...(media.public_path ? { public_path: media.public_path } : {}),
+            url: signed.signedUrl,
+            expires_at: signed.expiresAt,
+          };
+        }),
+      );
+
+      mediaFiles = withSignedUrls;
+      steps.file_upload = 'ok';
+      steps.drive_upload = 'skipped';
+      upload_strategy = 'supabase';
+    } else if (uploadMode === 'drive') {
+      const uploadedFiles = await uploadFilesToFolder(files, folder.folder_id);
+      mediaFiles = uploadedFiles.map(({ name, mime_type, size_bytes, url }) => ({
+        name,
+        mime_type,
+        size_bytes,
+        url,
+      }));
+      steps.file_upload = 'ok';
+      steps.drive_upload = 'ok';
+      upload_strategy = 'drive';
+      upload_byte_total = getTotalSize(files);
+      supabase_object_count = 0;
+    }
+  } catch (err) {
+    const error =
+      err instanceof Error ? err.message : 'File upload failed';
+    steps.file_upload = 'failed';
+
+    await persistSubmissionLog(
+      buildLog({
+        property_id,
+        submission_id,
+        created_at,
+        outcome: 'failure',
+        steps,
+        drive_folder_name: folder.folder_name,
+        drive_folder_url: folder.folder_url,
+        upload_strategy,
+        supabase_object_count,
+        upload_byte_total,
+        error: uploadMode === 'supabase'
+          ? error
+          : formatDriveQuotaError(error),
+      }),
+    );
     return {
-      outcome: 'failure', property_id, submission_id, steps,
+      outcome: 'failure',
+      property_id,
+      submission_id,
       drive_folder_name: folder.folder_name,
       drive_folder_url: folder.folder_url,
-      error,
+      upload_strategy,
+      supabase_object_count,
+      upload_byte_total,
+      steps,
+      error: uploadMode === 'supabase'
+        ? error
+        : formatDriveQuotaError(error),
     };
   }
 
   // ── Step 6: Build canonical payload ───────────────────────────────────────
-  const mediaFiles = uploadedFiles.map(({ name, mime_type, size_bytes, url }) => ({
-    name, mime_type, size_bytes, url,
-  }));
   const makePayload = buildMakePayload({
     property_id,
     submission_id,
@@ -163,7 +274,7 @@ export async function createPropertySubmission(
     folder_url: folder.folder_url,
     parent_folder_id: parentFolderId,
     media_files: mediaFiles,
-    total_size_bytes: getTotalSize(files),
+    total_size_bytes: upload_byte_total,
   });
 
   // ── Step 7: Append row to Google Sheets ───────────────────────────────────
@@ -178,7 +289,7 @@ export async function createPropertySubmission(
         agent_email: payload.agent_email,
         drive_folder_name: folder.folder_name,
         drive_folder_url: folder.folder_url,
-        media_file_count: uploadedFiles.length,
+        media_file_count: mediaFiles.length,
         make_status: 'pending',
         sheets_status: 'ok',
       }),
@@ -218,6 +329,9 @@ export async function createPropertySubmission(
       steps,
       drive_folder_name: folder.folder_name,
       drive_folder_url: folder.folder_url,
+      upload_strategy,
+      supabase_object_count,
+      upload_byte_total,
       error: combinedError || undefined,
     }),
   );
@@ -228,6 +342,9 @@ export async function createPropertySubmission(
     property_id,
     submission_id,
     steps,
+    upload_strategy,
+    supabase_object_count,
+    upload_byte_total,
     drive_folder_name: folder.folder_name,
     drive_folder_url: folder.folder_url,
   };

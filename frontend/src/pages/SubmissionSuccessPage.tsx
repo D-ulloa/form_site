@@ -7,6 +7,7 @@ type StepKey = keyof SubmissionStepResults;
 const STEP_LABELS: Record<StepKey, string> = {
   drive_folder: 'Carpeta en Google Drive',
   file_upload: 'Carga de archivos',
+  drive_upload: 'Subida a Drive',
   sheets: 'Fila en Google Sheets',
   make: 'Webhook a Make',
 };
