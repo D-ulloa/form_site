@@ -4,7 +4,17 @@ import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { usePropertyForm } from '../features/properties/hooks/usePropertyForm.ts';
 import { useMediaValidation } from '../features/properties/hooks/useMediaValidation.ts';
 import { useCreatePropertySubmission } from '../features/properties/hooks/useCreatePropertySubmission.ts';
-import { buildFormData } from '../features/properties/services/payloadMapper.ts';
+import {
+  buildFormData,
+  buildPropertySubmitPayload,
+  type MediaUploadMetadata,
+} from '../features/properties/services/payloadMapper.ts';
+import {
+  buildMediaMetadataFromPresigned,
+  getMediaUploadProvider,
+  requestMediaUploadUrls,
+  uploadFileToSupabase,
+} from '../features/properties/services/propertyApi.ts';
 import { BasicInfoSection } from '../features/properties/components/BasicInfoSection.tsx';
 import { LocationSection } from '../features/properties/components/LocationSection.tsx';
 import { DistributionSection } from '../features/properties/components/DistributionSection.tsx';
@@ -43,8 +53,14 @@ export function NewPropertyPage() {
 
   const errorCount = Object.keys(errors).length;
   const isLoading = isPending || isSubmitting;
+  const provider = getMediaUploadProvider();
 
-  const onValidSubmit = (values: PropertyFormValues) => {
+  const handleSubmitError = (message: string): void => {
+    setSubmitError(message);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const onValidSubmit = async (values: PropertyFormValues) => {
     if (!isConfigured || !agent) {
       setShowAgentModal(true);
       return;
@@ -52,22 +68,110 @@ export function NewPropertyPage() {
     if (!media.isValid) {
       return;
     }
+
     setSubmitError(null);
-    const fd = buildFormData(values, media.files, media.coverFileName, agent);
-    mutate(
-      { formData: fd },
-      {
-        onSuccess: (result: SubmissionResult) => {
-          navigate(`/properties/success/${result.submission_id}`, {
-            state: { result },
-          });
+
+    if (provider === 'drive') {
+      const fd = buildFormData(values, media.files, media.coverFileName, agent);
+      mutate(
+        { mode: 'legacy', formData: fd },
+        {
+          onSuccess: (result: SubmissionResult) => {
+            navigate(`/properties/success/${result.submission_id}`, {
+              state: { result },
+            });
+          },
+          onError: (err: Error) => {
+            handleSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
+          },
         },
-        onError: (err: Error) => {
-          setSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+      );
+      return;
+    }
+
+    if (media.files.length === 0) {
+      const payload = buildPropertySubmitPayload(
+        values,
+        [],
+        undefined,
+        media.coverFileName,
+        agent,
+      );
+
+      mutate(
+        { mode: 'json', payload },
+        {
+          onSuccess: (result: SubmissionResult) => {
+            navigate(`/properties/success/${result.submission_id}`, {
+              state: { result },
+            });
+          },
+          onError: (err: Error) => {
+            handleSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
+          },
         },
-      },
-    );
+      );
+      return;
+    }
+
+    try {
+      const presignRequestFiles = media.files.map((entry) => ({
+        originalName: entry.file.name,
+        mimeType: entry.file.type,
+        sizeBytes: entry.file.size,
+      }));
+
+      const presignResponse = await requestMediaUploadUrls(
+        agent.agent_user_id,
+        presignRequestFiles,
+      );
+
+      const uploadedMedia: MediaUploadMetadata[] = [];
+
+      for (let i = 0; i < media.files.length; i += 1) {
+        const entry = media.files[i];
+        const upload = presignResponse.media_uploads[i];
+        if (!entry || !upload) {
+          throw new Error('Error de sesión de carga: falta información de presign para uno de los archivos.');
+        }
+
+        await uploadFileToSupabase(entry.file, upload.uploadUrl, entry.file.type);
+        uploadedMedia.push(buildMediaMetadataFromPresigned(entry.file, {
+          originalName: upload.originalName,
+          uploadUrl: upload.uploadUrl,
+          publicPath: upload.publicPath,
+          storagePath: upload.storagePath,
+          storageBucket: upload.storageBucket,
+        }));
+      }
+
+      const payload = buildPropertySubmitPayload(
+        values,
+        uploadedMedia,
+        presignResponse.upload_session_id,
+        media.coverFileName,
+        agent,
+      );
+
+      mutate(
+        { mode: 'json', payload },
+        {
+          onSuccess: (result: SubmissionResult) => {
+            navigate(`/properties/success/${result.submission_id}`, {
+              state: { result },
+            });
+          },
+          onError: (err: Error) => {
+            handleSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
+          },
+        },
+      );
+    } catch (err) {
+      const message = err instanceof Error
+        ? err.message
+        : 'No se pudo subir la media al storage temporal. Intentá nuevamente.';
+      handleSubmitError(message);
+    }
   };
 
   return (

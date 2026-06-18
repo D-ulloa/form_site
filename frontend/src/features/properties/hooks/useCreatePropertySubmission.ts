@@ -1,17 +1,33 @@
 import { useMutation } from '@tanstack/react-query';
-import { submitProperty, type SubmissionResult } from '../services/propertyApi.ts';
+import {
+  submitProperty,
+  submitPropertyFormData,
+  type SubmissionResult,
+} from '../services/propertyApi.ts';
+import type { PropertySubmissionPayload } from '../services/payloadMapper.ts';
 import axios from 'axios';
 
-export interface SubmitPropertyArgs {
+export interface SubmitPropertyJsonArgs {
+  mode: 'json';
+  payload: PropertySubmissionPayload;
+}
+
+export interface SubmitPropertyLegacyArgs {
+  mode: 'legacy';
   formData: FormData;
 }
 
+export type SubmitPropertyArgs = SubmitPropertyJsonArgs | SubmitPropertyLegacyArgs;
+
 const REQUEST_TOO_LARGE_MESSAGE =
-  'El payload enviado supera el límite de Vercel para solicitudes multipart. Reducí el total de archivos (máximo recomendado: 3.8 MB).';
+  'El servidor rechazó el envío por tamaño del payload. Reducí el total de archivos o dividí la carga en partes menores.';
 
 export function useCreatePropertySubmission() {
   return useMutation<SubmissionResult, Error, SubmitPropertyArgs>({
-    mutationFn: ({ formData }) => submitProperty(formData),
+    mutationFn: (args) =>
+      args.mode === 'json'
+        ? submitProperty(args.payload)
+        : submitPropertyFormData(args.formData),
     onError: (err) => {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 413) {
@@ -21,24 +37,16 @@ export function useCreatePropertySubmission() {
         if (err.response) {
           const data = err.response.data as {
             error?: string;
-            errors?: string | string[];
             details?: string | string[];
           };
           const detailMessage = Array.isArray(data?.details)
             ? data.details.join(', ')
             : typeof data?.details === 'string'
               ? data.details
-              : Array.isArray(data?.errors)
-                ? data.errors.join(', ')
-                : typeof data?.errors === 'string'
-                  ? data.errors
-                  : undefined;
-          const message = data?.error
-            ? detailMessage
-              ? `${data.error}: ${detailMessage}`
-              : data.error
-            : detailMessage ?? `Error del servidor (${err.response.status})`;
-          throw new Error(message);
+              : data?.error
+                ? data.error
+                : `Error del servidor (${err.response.status})`;
+          throw new Error(detailMessage);
         }
       }
 
