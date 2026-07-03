@@ -1,11 +1,11 @@
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { propertySchema, type PropertyFormValues } from '../schemas/propertySchema.ts';
+import { propertySchema, type PropertyFormInput, type PropertyFormValues } from '../schemas/propertySchema.ts';
 
-export type PropertyForm = UseFormReturn<PropertyFormValues, unknown, PropertyFormValues>;
+export type PropertyForm = UseFormReturn<PropertyFormInput, unknown, PropertyFormValues>;
 
 export function usePropertyForm(): PropertyForm {
-  return useForm<PropertyFormValues, unknown, PropertyFormValues>({
+  return useForm<PropertyFormInput, unknown, PropertyFormValues>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
       agent_user_id: '',

@@ -15,10 +15,7 @@ const formBool = z.preprocess(boolFromForm, z.boolean());
 const requiredNonNegativeNumber = (fieldName: string) =>
   z.preprocess(
     (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
-    z.number({
-      required_error: `${fieldName} es requerido`,
-      invalid_type_error: `${fieldName} es requerido`,
-    }).min(0, `${fieldName} debe ser mayor o igual a 0`),
+    z.number({ message: `${fieldName} es requerido` }).min(0, `${fieldName} debe ser mayor o igual a 0`),
   );
 
 export const TIPO_PROPIEDAD_OPTIONS = [
@@ -193,4 +190,5 @@ Amoblado: formBool.default(false),
   Detalle: z.string().default(''),
 });
 
-export type PropertyFormValues = z.infer<typeof propertySchema>;
+export type PropertyFormInput = z.input<typeof propertySchema>;
+export type PropertyFormValues = z.output<typeof propertySchema>;

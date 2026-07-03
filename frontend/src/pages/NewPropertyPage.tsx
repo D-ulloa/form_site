@@ -25,7 +25,7 @@ import { MediaUploadSection } from '../features/properties/components/MediaUploa
 import { Button } from '../components/ui/Button.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
-import type { PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
+import type { PropertyFormInput, PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
 import type { SubmissionResult } from '../features/properties/services/propertyApi.ts';
 
 export function NewPropertyPage() {
@@ -63,7 +63,7 @@ export function NewPropertyPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleInvalidSubmit = (submitErrors: FieldErrors<PropertyFormValues>): void => {
+  const handleInvalidSubmit = (submitErrors: FieldErrors<PropertyFormInput>): void => {
     setSubmitError(null);
     setValidationError('Revisá los campos marcados en rojo antes de enviar.');
 
