@@ -12,6 +12,12 @@ function boolFromForm(val: unknown): boolean {
 
 const formBool = z.preprocess(boolFromForm, z.boolean());
 
+const requiredNonNegativeNumber = (fieldName: string) =>
+  z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number({ message: `${fieldName} es requerido` }).min(0, `${fieldName} debe ser mayor o igual a 0`),
+  );
+
 export const TIPO_PROPIEDAD_OPTIONS = [
   'Apart',
   'Campo',
@@ -77,16 +83,16 @@ export const PROVINCIA_OPTIONS = [
 ] as const;
 
 export const propertySchema = z.object({
-  agent_user_id: z.string().min(1, 'agent_user_id is required'),
-  agent_name: z.string().min(1, 'agent_name is required'),
-  agent_email: z.string().email('agent_email must be a valid email'),
+  agent_user_id: z.string().default(''),
+  agent_name: z.string().default(''),
+  agent_email: z.string().email('agent_email must be a valid email').or(z.literal('')).default(''),
   cover_file_name: z.string().default(''),
 
   'Tipo de Inmueble': z.string().min(1, 'Tipo de Inmueble es requerido'),
   'Operación': z.string().min(1, 'Operación es requerido'),
   Dormitorios: z.coerce.number().int().min(0).default(0),
   Ambientes: z.coerce.number().int().min(0).default(0),
-  Precio: z.coerce.number().min(0, 'Precio debe ser mayor o igual a 0'),
+  Precio: requiredNonNegativeNumber('Precio'),
   Expensas: z.coerce.number().min(0).default(0),
   Moneda: z.string().default(''),
   'Apto crédito': formBool.default(false),
@@ -103,7 +109,7 @@ Amoblado: formBool.default(false),
   Sucursal: z.string().default(''),
   'Tipo de contrato': z.string().default(''),
   Pais: z.string().default('Argentina'),
-  Provincia: z.string().default(''),
+  Provincia: z.string().min(1, 'Provincia es requerido'),
   Localidad: z.string().default(''),
   Barrio: z.string().default(''),
   Calle: z.string().min(1, 'Calle es requerido'),
@@ -184,4 +190,5 @@ Amoblado: formBool.default(false),
   Detalle: z.string().default(''),
 });
 
-export type PropertyFormValues = z.infer<typeof propertySchema>;
+export type PropertyFormInput = z.input<typeof propertySchema>;
+export type PropertyFormValues = z.output<typeof propertySchema>;
