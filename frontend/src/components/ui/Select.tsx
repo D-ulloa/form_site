@@ -16,10 +16,6 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, options, placeholder, error, className = '', id, required, ...props }, ref) => {
     const selectId = id ?? `select-${label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
-    const errorId = `${selectId}-error`;
-    const describedBy = [error ? errorId : undefined, props['aria-describedby']]
-      .filter(Boolean)
-      .join(' ') || undefined;
 
     return (
       <div className="flex flex-col gap-1.5">
@@ -33,8 +29,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             id={selectId}
             required={required}
             {...props}
-            aria-invalid={error ? true : props['aria-invalid']}
-            aria-describedby={describedBy}
             className={`field-input pr-9 cursor-pointer ${error ? 'is-error' : ''} ${className}`}
           >
             {placeholder && (
@@ -58,7 +52,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </span>
         </div>
         {error && (
-          <p id={errorId} className="text-xs text-red-400 flex items-center gap-1 mt-0.5">
+          <p className="text-xs text-red-400 flex items-center gap-1 mt-0.5">
             <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4.25a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0v-3.5zm0 6a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0z" />
             </svg>
