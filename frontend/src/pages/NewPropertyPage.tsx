@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react';
+import type { FieldErrors } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { usePropertyForm } from '../features/properties/hooks/usePropertyForm.ts';
 import { useMediaValidation } from '../features/properties/hooks/useMediaValidation.ts';
 import { useCreatePropertySubmission } from '../features/properties/hooks/useCreatePropertySubmission.ts';
-import { buildFormData } from '../features/properties/services/payloadMapper.ts';
+import {
+  buildFormData,
+  buildPropertySubmitPayload,
+  type MediaUploadMetadata,
+} from '../features/properties/services/payloadMapper.ts';
+import {
+  buildMediaMetadataFromPresigned,
+  getMediaUploadProvider,
+  requestMediaUploadUrls,
+  uploadFileToSupabase,
+} from '../features/properties/services/propertyApi.ts';
 import { BasicInfoSection } from '../features/properties/components/BasicInfoSection.tsx';
 import { LocationSection } from '../features/properties/components/LocationSection.tsx';
 import { DistributionSection } from '../features/properties/components/DistributionSection.tsx';
@@ -14,7 +25,7 @@ import { MediaUploadSection } from '../features/properties/components/MediaUploa
 import { Button } from '../components/ui/Button.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
-import type { PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
+import type { PropertyFormInput, PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
 import type { SubmissionResult } from '../features/properties/services/propertyApi.ts';
 
 export function NewPropertyPage() {
@@ -22,6 +33,7 @@ export function NewPropertyPage() {
   const { agent, isConfigured } = useAgent();
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const form = usePropertyForm();
   const media = useMediaValidation();
@@ -38,13 +50,38 @@ export function NewPropertyPage() {
 
   const {
     handleSubmit,
-    formState: { errors, isSubmitted, isSubmitting },
+    formState: { errors, isSubmitted },
   } = form;
 
   const errorCount = Object.keys(errors).length;
-  const isLoading = isPending || isSubmitting;
+  const isLoading = isPending;
+  const provider = getMediaUploadProvider();
 
-  const onValidSubmit = (values: PropertyFormValues) => {
+  const handleSubmitError = (message: string): void => {
+    setValidationError(null);
+    setSubmitError(message);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleInvalidSubmit = (submitErrors: FieldErrors<PropertyFormInput>): void => {
+    setSubmitError(null);
+    setValidationError('Revisá los campos marcados en rojo antes de enviar.');
+
+    const firstErrorName = Object.keys(submitErrors)[0];
+
+    window.requestAnimationFrame(() => {
+      const selector =
+        firstErrorName && typeof CSS !== 'undefined'
+          ? `[name="${CSS.escape(firstErrorName)}"]`
+          : '.is-error, [aria-invalid="true"]';
+      const target = document.querySelector<HTMLElement>(selector);
+
+      target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target?.focus({ preventScroll: true });
+    });
+  };
+
+  const onValidSubmit = async (values: PropertyFormValues) => {
     if (!isConfigured || !agent) {
       setShowAgentModal(true);
       return;
@@ -52,22 +89,111 @@ export function NewPropertyPage() {
     if (!media.isValid) {
       return;
     }
+
     setSubmitError(null);
-    const fd = buildFormData(values, media.files, media.coverFileName, agent);
-    mutate(
-      { formData: fd },
-      {
-        onSuccess: (result: SubmissionResult) => {
-          navigate(`/properties/success/${result.submission_id}`, {
-            state: { result },
-          });
+    setValidationError(null);
+
+    if (provider === 'drive') {
+      const fd = buildFormData(values, media.files, media.coverFileName, agent);
+      mutate(
+        { mode: 'legacy', formData: fd },
+        {
+          onSuccess: (result: SubmissionResult) => {
+            navigate(`/properties/success/${result.submission_id}`, {
+              state: { result },
+            });
+          },
+          onError: (err: Error) => {
+            handleSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
+          },
         },
-        onError: (err: Error) => {
-          setSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+      );
+      return;
+    }
+
+    if (media.files.length === 0) {
+      const payload = buildPropertySubmitPayload(
+        values,
+        [],
+        undefined,
+        media.coverFileName,
+        agent,
+      );
+
+      mutate(
+        { mode: 'json', payload },
+        {
+          onSuccess: (result: SubmissionResult) => {
+            navigate(`/properties/success/${result.submission_id}`, {
+              state: { result },
+            });
+          },
+          onError: (err: Error) => {
+            handleSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
+          },
         },
-      },
-    );
+      );
+      return;
+    }
+
+    try {
+      const presignRequestFiles = media.files.map((entry) => ({
+        originalName: entry.file.name,
+        mimeType: entry.file.type,
+        sizeBytes: entry.file.size,
+      }));
+
+      const presignResponse = await requestMediaUploadUrls(
+        agent.agent_user_id,
+        presignRequestFiles,
+      );
+
+      const uploadedMedia: MediaUploadMetadata[] = [];
+
+      for (let i = 0; i < media.files.length; i += 1) {
+        const entry = media.files[i];
+        const upload = presignResponse.media_uploads[i];
+        if (!entry || !upload) {
+          throw new Error('Error de sesión de carga: falta información de presign para uno de los archivos.');
+        }
+
+        await uploadFileToSupabase(entry.file, upload.uploadUrl, entry.file.type);
+        uploadedMedia.push(buildMediaMetadataFromPresigned(entry.file, {
+          originalName: upload.originalName,
+          uploadUrl: upload.uploadUrl,
+          publicPath: upload.publicPath,
+          storagePath: upload.storagePath,
+          storageBucket: upload.storageBucket,
+        }));
+      }
+
+      const payload = buildPropertySubmitPayload(
+        values,
+        uploadedMedia,
+        presignResponse.upload_session_id,
+        media.coverFileName,
+        agent,
+      );
+
+      mutate(
+        { mode: 'json', payload },
+        {
+          onSuccess: (result: SubmissionResult) => {
+            navigate(`/properties/success/${result.submission_id}`, {
+              state: { result },
+            });
+          },
+          onError: (err: Error) => {
+            handleSubmitError(err.message ?? 'Error inesperado al enviar la propiedad.');
+          },
+        },
+      );
+    } catch (err) {
+      const message = err instanceof Error
+        ? err.message
+        : 'No se pudo subir la media al storage temporal. Intentá nuevamente.';
+      handleSubmitError(message);
+    }
   };
 
   return (
@@ -105,7 +231,7 @@ export function NewPropertyPage() {
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
         <form
           id="property-form"
-          onSubmit={handleSubmit(onValidSubmit)}
+          onSubmit={handleSubmit(onValidSubmit, handleInvalidSubmit)}
           noValidate
           className="flex flex-col gap-6"
         >
@@ -116,9 +242,9 @@ export function NewPropertyPage() {
             </AlertInline>
           )}
 
-          {errorCount > 0 && isSubmitted && !isLoading && (
+          {validationError && errorCount > 0 && isSubmitted && !isLoading && (
             <AlertInline variant="warning" title="Hay campos incompletos">
-              Revisá los campos marcados en rojo antes de enviar.
+              {validationError}
             </AlertInline>
           )}
 
