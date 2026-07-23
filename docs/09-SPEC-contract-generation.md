@@ -95,7 +95,7 @@ For this contract flow, the actual site form fields are derived from the provide
 
 1. Inquilino
 2. Garante
-3. Testigo
+3. Propietario
 4. Contrato
 
 The schema example for this flow is:
@@ -138,7 +138,7 @@ The schema example for this flow is:
       "contract_rent_amount": "Monto alquiler",
       "contract_update": "Actualización",
       "contract_formatted_update": "Formateada_2",
-      "contract_selection": "Seleccionar",
+      "contract_selection": "Ajuste",
       "submission_date": "Fecha Actual",
       "approve_contract": "Aprobar Contrato"
     }
@@ -175,7 +175,7 @@ The schema example for this flow is:
       ]
     },
     {
-      "title": "Testigo",
+      "title": "Propietario",
       "fields": [
         { "name": "witness_full_name", "label": "Nombre Completo (Apellidos, Nombres)", "type": "string", "required": true },
         { "name": "witness_dni", "label": "DNI (Separar con puntos)", "type": "string", "required": true },
@@ -192,7 +192,7 @@ The schema example for this flow is:
         { "name": "contract_rent_amount", "label": "Monto alquiler", "type": "number", "required": true, "min": 0 },
         { "name": "contract_update", "label": "Actualización", "type": "number", "required": false, "min": 0 },
         { "name": "contract_formatted_update", "label": "Formateada_2", "type": "date", "required": false },
-        { "name": "contract_selection", "label": "Seleccionar", "type": "string", "required": false },
+        { "name": "contract_selection", "label": "Ajuste", "type": "string", "required": false },
         { "name": "submission_date", "label": "Fecha Actual", "type": "date", "required": true },
         { "name": "approve_contract", "label": "Aprobar Contrato", "type": "string", "required": true }
       ]

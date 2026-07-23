@@ -15,6 +15,10 @@ export interface PropertyData {
     Escritura: boolean;
     'Unidad en Pozo': boolean;
     Cartel: boolean;
+    'Barrio cerrado': boolean;
+    Amoblado: boolean;
+    Ascensor: boolean;
+    Mascotas: boolean;
     Propietario: string;
     'Asesor comercial': string;
     Productor: string;
@@ -106,11 +110,24 @@ export interface MediaFile {
     mime_type: string;
     size_bytes: number;
     url: string;
+    storage_path?: string;
+    storage_bucket?: string;
+    public_path?: string;
+    expires_at?: string;
 }
 export interface MediaInfo {
     total_size_bytes: number;
     cover_file_name: string;
     files: MediaFile[];
+}
+export interface MediaUploadMetadata {
+    original_name: string;
+    storage_path: string;
+    mime_type: string;
+    size_bytes: number;
+    storage_bucket?: string;
+    public_path?: string;
+    expires_at?: string;
 }
 export interface GoogleDriveInfo {
     folder_name: string;
@@ -127,9 +144,11 @@ export interface MakePayload {
     property: PropertyData;
 }
 export type SubmissionStepStatus = 'ok' | 'failed' | 'skipped';
+export type UploadStrategy = 'supabase' | 'drive' | 'both';
 export interface SubmissionStepResults {
     drive_folder: SubmissionStepStatus;
     file_upload: SubmissionStepStatus;
+    drive_upload: SubmissionStepStatus;
     sheets: SubmissionStepStatus;
     make: SubmissionStepStatus;
 }
@@ -140,6 +159,9 @@ export interface SubmissionResult {
     submission_id: string;
     drive_folder_url?: string;
     drive_folder_name?: string;
+    upload_strategy: UploadStrategy;
+    supabase_object_count?: number;
+    upload_byte_total?: number;
     steps: SubmissionStepResults;
     error?: string;
 }
@@ -151,6 +173,9 @@ export interface SubmissionLog {
     steps: SubmissionStepResults;
     drive_folder_name?: string;
     drive_folder_url?: string;
+    upload_strategy?: UploadStrategy;
+    supabase_object_count?: number;
+    upload_byte_total?: number;
     error?: string;
 }
 //# sourceMappingURL=types.d.ts.map

@@ -36,7 +36,7 @@
     "Monto alquiler": "Number",
     "Actualización": "Number",
     "Formateada_2": "Date",
-    "Seleccionar": "String",
+    "Ajuste": "String",
     "Fecha Actual": "Date",
     "Aprobar Contrato": "String"
   }

@@ -15,6 +15,10 @@ export declare const propertySchema: z.ZodObject<{
     Escritura: z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
     'Unidad en Pozo': z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
     Cartel: z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
+    'Barrio cerrado': z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
+    Amoblado: z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
+    Ascensor: z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
+    Mascotas: z.ZodDefault<z.ZodPreprocess<z.ZodBoolean>>;
     Propietario: z.ZodDefault<z.ZodString>;
     'Asesor comercial': z.ZodDefault<z.ZodString>;
     Productor: z.ZodDefault<z.ZodString>;

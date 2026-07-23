@@ -63,10 +63,18 @@ test('config getters read runtime env and public projection omits Sheet config',
   assert.equal(publicSchema.googleFormLink, environment.CONTRACT_GOOGLE_FORM_LINK);
   assert.equal('sheet' in publicSchema, false);
   assert.equal('columnMap' in publicSchema, false);
+  const ownerSection = publicSchema.sections.find((section) =>
+    section.fields.some((field) => field.name === 'witness_full_name'));
+  assert.equal(ownerSection?.title, 'Propietario');
+  const adjustmentField = publicSchema.sections
+    .flatMap((section) => section.fields)
+    .find((field) => field.name === 'contract_selection');
+  assert.equal(adjustmentField?.label, 'Ajuste');
 
   const fullSchema = getContractSchemaConfig(RENT_CONTRACT_SCHEMA_ID, environment);
   assert.equal(fullSchema.sheet.spreadsheetId, environment.CONTRACT_GOOGLE_SHEET_ID);
   assert.equal(fullSchema.sheet.sheetName, environment.CONTRACT_GOOGLE_SHEET_NAME);
+  assert.equal(fullSchema.sheet.columnMap.contract_selection, 'Ajuste');
 
   assert.throws(
     () => getContractSchemaConfig(RENT_CONTRACT_SCHEMA_ID, {}),

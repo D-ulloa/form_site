@@ -45,7 +45,7 @@ const sections = [
     ],
   },
   {
-    title: 'Testigo',
+    title: 'Propietario',
     fields: [
       { name: 'witness_full_name', label: 'Nombre Completo (Apellidos, Nombres)', type: 'string', required: true, sensitive: true },
       { name: 'witness_dni', label: 'DNI (Separar con puntos)', type: 'string', required: true, sensitive: true },
@@ -62,7 +62,7 @@ const sections = [
       { name: 'contract_rent_amount', label: 'Monto alquiler', type: 'number', required: true, min: 0, sensitive: true },
       { name: 'contract_update', label: 'Actualización', type: 'number', required: false, min: 0 },
       { name: 'contract_formatted_update', label: 'Formateada_2', type: 'date', required: false },
-      { name: 'contract_selection', label: 'Seleccionar', type: 'string', required: false },
+      { name: 'contract_selection', label: 'Ajuste', type: 'string', required: false },
       { name: 'submission_date', label: 'Fecha Actual', type: 'date', required: true },
       { name: 'approve_contract', label: 'Aprobar Contrato', type: 'string', required: true },
     ],
