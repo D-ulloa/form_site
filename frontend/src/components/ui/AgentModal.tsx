@@ -6,9 +6,10 @@ import { Input } from './Input.tsx';
 interface AgentModalProps {
   open: boolean;
   onClose: () => void;
+  onSaved?: (data: AgentData) => void;
 }
 
-export function AgentModal({ open, onClose }: AgentModalProps) {
+export function AgentModal({ open, onClose, onSaved }: AgentModalProps) {
   const { agent, setAgent } = useAgent();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -20,6 +21,8 @@ export function AgentModal({ open, onClose }: AgentModalProps) {
   const [errors, setErrors] = useState<Partial<AgentData>>({});
 
   useEffect(() => {
+    const dialog = dialogRef.current;
+
     if (open) {
       // eslint-disable-next-line
       setForm({
@@ -28,10 +31,14 @@ export function AgentModal({ open, onClose }: AgentModalProps) {
         agent_email: agent?.agent_email ?? '',
       });
       setErrors({});
-      dialogRef.current?.showModal();
-    } else {
-      dialogRef.current?.close();
+      if (dialog && !dialog.open) dialog.showModal();
+    } else if (dialog?.open) {
+      dialog.close();
     }
+
+    return () => {
+      if (dialog?.open) dialog.close();
+    };
   }, [open, agent]);
 
   const validate = (): boolean => {
@@ -49,25 +56,32 @@ export function AgentModal({ open, onClose }: AgentModalProps) {
     e.preventDefault();
     if (!validate()) return;
     setAgent(form);
+    onSaved?.(form);
     onClose();
   };
 
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="agent-modal-title"
+      aria-describedby="agent-modal-description"
+      className="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none items-center justify-center bg-transparent p-4 text-[var(--text-primary)] open:flex backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
       {/* Panel */}
       <div className="relative w-full max-w-md surface-elevated rounded-2xl p-8 shadow-2xl shadow-black/40 animate-fade-in-up">
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-slate-100">Configurar agente</h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Estos datos se guardan localmente y se envían con cada propiedad.
+          <h2 id="agent-modal-title" className="text-xl font-semibold text-slate-100">Configurar agente</h2>
+          <p id="agent-modal-description" className="text-sm text-slate-400 mt-1">
+            Estos datos se guardan localmente y se envían con cada operación.
           </p>
         </div>
 
@@ -111,6 +125,6 @@ export function AgentModal({ open, onClose }: AgentModalProps) {
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }

@@ -1,2 +1,8 @@
 # Dependencies installed locally
 node_modules/
+
+# Local backend configuration
+backend/.env
+
+# Generated submission and contract audit records
+backend/logs/*.json

@@ -1,6 +1,6 @@
 # External Services
 
-Status: 2026-06-05.
+Status: 2026-07-21.
 
 ## Google Drive
 
@@ -12,11 +12,31 @@ The backend creates a property folder and uploads files to Google Drive.
 
 ## Google Sheets
 
-The backend appends one row per submission to the configured sheet.
+The backend supports separate Sheet destinations for property and contract submissions.
 
 - The target sheet ID is `GOOGLE_SHEET_ID`.
 - The append range is `GOOGLE_SHEET_RANGE`.
 - The row mapping is implemented in `backend/src/mappers/sheetRowMapper.ts`.
+
+Contract Generation uses a separate destination:
+
+- `CONTRACT_GOOGLE_SHEET_ID` selects the spreadsheet.
+- `CONTRACT_GOOGLE_SHEET_NAME` selects the tab.
+- The authoritative contract schema determines deterministic field/column order.
+- Before every append, the backend reads `'<sheetName>'!1:1` with `majorDimension=ROWS` and `valueRenderOption=FORMATTED_VALUE`.
+- The complete returned header row must equal the configured headers by length and position. Duplicate labels are intentional and must occur in the same positions.
+- Appends use `spreadsheets.values.append` with `valueInputOption=RAW`.
+- Formula-like strings are escaped before append even though `RAW` is used.
+
+Header preflight failure prevents the append. A missing, extra, or reordered header produces a non-retriable `500` mapping/configuration response that identifies the first mismatch and tells an administrator to update the configured tab before retrying.
+
+Contract header reads and row appends authenticate only with `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` through the dedicated service-account helper. Unlike the property workflow, they never select user OAuth credentials as a fallback.
+
+`spreadsheets.values.append` has no application idempotency key in this implementation. The service retries transient provider failures, but a lost response can be ambiguous: Google may have committed the row even though the client received an error. Before any manual or UI retry after an ambiguous append failure, reconcile the destination Sheet using the time window and submitted values. The `retriable` flag classifies the upstream failure; it is not proof that no row exists.
+
+## Google Forms
+
+`CONTRACT_GOOGLE_FORM_LINK` is displayed as a public, copyable link. The application does not call the Google Forms API, read responses from that form, or synchronize the Form with the in-app schema. Only `POST /api/contracts/submit` appends a contract row.
 
 ## Make
 
@@ -25,7 +45,7 @@ The backend sends a JSON webhook payload to the Make webhook URL configured in `
 - Payload mapping is implemented in `backend/src/mappers/makePayloadMapper.ts`.
 - The webhook receives full submission metadata, folder information, agent data, and media details.
 
-## Auth modes
+## Property Google auth modes
 
 ### User OAuth2 (recommended)
 
@@ -37,3 +57,7 @@ The backend sends a JSON webhook payload to the Make webhook URL configured in `
 - Configure `GOOGLE_SERVICE_ACCOUNT_KEY_JSON`.
 - Share the target sheet and parent Drive folder with the service account email.
 - Optionally configure `GOOGLE_SUBJECT_EMAIL` for domain-wide delegation if needed.
+
+## Contract Google auth
+
+For Contract Generation, the service account is required rather than a fallback. Share only the configured destination spreadsheet with that principal and grant the minimum role required to read row 1 and append values (`Editor` on that spreadsheet). Contract submission does not require general Drive access or ownership of unrelated spreadsheets. Keep service-account JSON server-side and rotate credentials according to the deployment's secret-management policy.

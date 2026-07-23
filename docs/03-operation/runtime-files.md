@@ -1,10 +1,15 @@
 # Runtime Files
 
-Status: 2026-06-05.
+Status: 2026-07-21.
 
 ## Persisted runtime artifacts
 
-- `backend/logs/` — JSON files generated for each submission. These logs contain submission IDs, outcome, step results, and optional error details.
+- `backend/logs/` — default local JSON location for property submissions and successful contract appends.
+- `CONTRACT_AUDIT_LOGS_DIR` — optional contract-only audit location. The logger resolves it at call time for both persistence and retrieval; blank or unset falls back to `backend/logs`.
+
+Contract audit names use `SUB-YYYY-MM-DD-<hex>.json`. A contract audit contains the schema and contract identifiers, redacted fields, a redacted mapped row, spreadsheet/tab metadata, appended range, submission/user/request identifiers, source IP, and timestamp. Fields marked `sensitive` are redacted by default in every audit representation, including the mapped row.
+
+For gateway and development authentication, the stored `userId` is the authenticated header identity even when the submitted `meta.userId` differs. For API-key authentication, the submitted `meta.userId` is preserved as attribution. Gateway/development audit reads are owner-scoped; the shared API key can read any valid contract audit.
 
 ## Build output
 
@@ -16,13 +21,21 @@ Status: 2026-06-05.
 - `backend/.env` — local backend environment values (not committed).
 - `backend/.env.example` — template environment values.
 - `scheme.json` and `scheme_reworked.json` — canonical property schema references used by validation and integration logic.
+- The backend contract registry — canonical contract fields, constraints, sensitivity markers, and private Sheet mapping.
 
 ## Temporary or generated files
 
 - `node_modules/` — dependency installation directories.
 - `frontend/dist/` and `backend/dist/` should be treated as build artifacts.
+- `backend/logs/*.json` — generated audit output ignored for new files. Historical files already tracked by Git remain tracked until a separate, intentional repository cleanup.
 
 ## Notes
 
-- The backend uses `backend/logs/` as a lightweight audit trail; these files are not a primary data store.
+- The backend uses exclusive file creation for contract audit records so an existing receipt is not silently replaced.
+- The contract logger creates the selected audit directory recursively. Configure a writable absolute mount path; changing the environment variable only selects a path.
+- Contract audits are available only through the authenticated audit API; the logs directory is not served statically.
+- Local disk is not durable on many serverless and container deployments. Production must use a mounted persistent volume or forward audit records to durable storage. A successful Sheet append followed by a disk failure requires operational reconciliation because the append cannot be rolled back.
+- `CONTRACT_AUDIT_LOGS_DIR` does not make Vercel's ephemeral filesystem durable. A Vercel path may disappear between instances or deployments even when the variable is stable; use an external durable store there.
+- An ambiguous Google append failure may also leave a row without an audit file because the backend persists the audit only after Google returns an appended range. Check the Sheet before retrying; this append path has no idempotency or deduplication store.
+- Audit `ip` is the normalized Express `req.ip`. Configure `TRUST_PROXY_HOPS` only for known proxies; otherwise keep it at `0`.
 - The frontend persists agent metadata in localStorage via `AgentContext`.

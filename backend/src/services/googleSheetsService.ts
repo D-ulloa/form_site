@@ -31,3 +31,21 @@ export async function appendSheetRow(
     }),
   );
 }
+
+export {
+  appendContractSheetRow,
+  buildContractSheetAppendRequest,
+} from "./contractGoogleSheetsService.js";
+export type {
+  ContractSheetAppendDependencies,
+  ContractSheetAppendExecutor,
+  ContractSheetAppendInput,
+  ContractSheetAppendRequest,
+  ContractSheetAppendResponse,
+  ContractSheetAppendResult,
+} from "./contractGoogleSheetsService.js";
+export {
+  ContractSheetsAppendError,
+  getGoogleSheetsErrorStatus,
+  isRetriableGoogleSheetsError,
+} from "./contractSheetsErrors.js";
