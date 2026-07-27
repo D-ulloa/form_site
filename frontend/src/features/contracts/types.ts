@@ -76,23 +76,26 @@ export interface ContractApiErrorBody {
   retriable?: boolean;
 }
 
-export function getContractFields(schema: ContractPublicSchema): ContractField[] {
+type ContractSchemaSections = Pick<ContractPublicSchema, 'sections'>;
+
+export function getContractFields(schema: ContractSchemaSections): ContractField[] {
   return schema.sections.flatMap((section) => section.fields);
 }
 
 export function buildContractDefaultValues(
-  schema: ContractPublicSchema,
+  schema: ContractSchemaSections,
+  values: ContractFormValues = {},
 ): ContractFormValues {
   return Object.fromEntries(
     getContractFields(schema).map((field) => [
       field.name,
-      field.type === 'boolean' ? false : '',
+      values[field.name] ?? (field.type === 'boolean' ? false : ''),
     ]),
   );
 }
 
 export function normalizeContractFields(
-  schema: ContractPublicSchema,
+  schema: ContractSchemaSections,
   values: ContractFormValues,
 ): Record<string, ContractFieldValue> {
   const normalized: Record<string, ContractFieldValue> = {};
@@ -124,4 +127,60 @@ export function normalizeContractFields(
   }
 
   return normalized;
+}
+
+export type ContractRole = 'user' | 'client';
+export type ContractEntryStatus = 'open' | 'complete' | 'archived';
+
+export interface ContractEntrySummary {
+  entryId: string;
+  schemaId: string;
+  createdBy: string;
+  createdAt: string;
+  userFilled: boolean;
+  clientFilled: boolean;
+  userSubmittedAt: string | null;
+  clientSubmittedAt: string | null;
+  status: ContractEntryStatus;
+  archivedAt: string | null;
+}
+
+export interface ContractEntryLinks {
+  entryId: string;
+  userUrl: string;
+  clientUrl: string;
+  createdAt: string;
+  status: 'open';
+}
+
+export interface ContractRoleSchemaResponse {
+  schemaId: string;
+  contractType: string;
+  role: ContractRole;
+  sections: ContractSection[];
+  entry: ContractEntrySummary;
+  readOnly: boolean;
+  values: ContractFormValues;
+}
+
+export interface ContractRoleSubmitResponse {
+  submissionId: string;
+  entryId: string;
+  status: 'open' | 'complete';
+  submittedAt: string;
+}
+
+export interface ContractAdminEntryDetail {
+  entry: ContractEntrySummary;
+  userSubmission: ContractFormValues | null;
+  clientSubmission: ContractFormValues | null;
+  combinedSubmission: Record<string, unknown> | null;
+}
+
+export function getContractEntryWaitingStatus(entry: ContractEntrySummary): string {
+  if (entry.status === 'archived') return 'archived';
+  if (entry.status === 'complete') return 'complete';
+  if (entry.userFilled) return 'waiting for client';
+  if (entry.clientFilled) return 'waiting for user';
+  return 'waiting for user and client';
 }

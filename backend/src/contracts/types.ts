@@ -106,3 +106,50 @@ export interface MappedContractSheetRow {
   readonly columnHeaders: readonly string[];
   readonly values: readonly ContractFieldValue[];
 }
+
+export type ContractRole = 'user' | 'client';
+export type ContractEntryStatus = 'open' | 'complete' | 'archived';
+
+export interface ContractRoleSchema {
+  readonly schemaId: string;
+  readonly contractType: string;
+  readonly role: ContractRole;
+  readonly sections: readonly ContractSectionDefinition[];
+}
+
+export interface ContractEntryRecord {
+  readonly id: string;
+  readonly schemaId: string;
+  readonly createdBy: string;
+  readonly createdAt: string;
+  readonly userTokenHash: string;
+  readonly clientTokenHash: string;
+  readonly userFilled: boolean;
+  readonly clientFilled: boolean;
+  readonly userSubmittedAt: string | null;
+  readonly clientSubmittedAt: string | null;
+  readonly userSubmission: Readonly<Record<string, ContractFieldValue>> | null;
+  readonly clientSubmission: Readonly<Record<string, ContractFieldValue>> | null;
+  readonly combinedSubmission: Readonly<Record<string, unknown>> | null;
+  readonly status: ContractEntryStatus;
+  readonly archivedAt: string | null;
+}
+
+export interface ContractEntrySummary {
+  readonly entryId: string;
+  readonly schemaId: string;
+  readonly createdBy: string;
+  readonly createdAt: string;
+  readonly userFilled: boolean;
+  readonly clientFilled: boolean;
+  readonly userSubmittedAt: string | null;
+  readonly clientSubmittedAt: string | null;
+  readonly status: ContractEntryStatus;
+  readonly archivedAt: string | null;
+}
+
+export interface ContractSubmissionMetadata {
+  readonly ip: string;
+  readonly userAgent: string;
+  readonly receivedAt: string;
+}

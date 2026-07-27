@@ -19,8 +19,10 @@ The property workflow retains lightweight validation helpers. Contract Generatio
 
 ### Current Contract Generation coverage
 
-The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..49` top-level tests, `# tests 73` including nested subtests, `# pass 73`, and `# fail 0`. It covers:
+The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..52` top-level tests, `# tests 76` including nested subtests, `# pass 76`, and `# fail 0`. It covers:
 
+- SPEC-10 role splitting (`Inquilino`/`Garantes` vs. `Testigos`/`Contrato`), HMAC token storage and verification, entry creation, both role submissions, combined completion, admin inspection, token regeneration, and archive lifecycle.
+- The retained SPEC-09 compatibility boundary, including:
 - Runtime contract configuration, public/private projection, malformed destination rejection, and strict service-account-only Google auth.
 - Strict request validation for unknown fields, no numeric coercion, email, impossible ISO dates, minimum limits, contract-type mismatch, and allowed `meta.origin` values.
 - Formula-injection sanitization for leading `=`, `+`, `-`, and `@`, including leading whitespace.
@@ -47,8 +49,9 @@ The frontend suite currently runs 20 Vitest cases. It covers:
 
 - Unit tests for `frontend/src/features/properties/schemas/propertySchema.ts` and media validation hooks.
 - Integration tests for `backend/src/routes/properties.ts` and `backend/src/services/createPropertySubmission.ts`.
+- Additional staging coverage for the Supabase migration/RPC and RLS grants.
 - End-to-end tests covering the full property submission path, including Drive/Sheets/Make integration if feasible.
-- Accessibility checks for the dynamic contract renderer and two-step modal.
+- Accessibility checks for the hosted role form, entry modal, and contract admin UI; legacy two-step modal tests remain compatibility coverage.
 - An optional staging test against a least-privileged sandbox spreadsheet. Never point automated tests at a production contract sheet.
 - Release validation checks for `npm run build` and `npm run typecheck`.
 

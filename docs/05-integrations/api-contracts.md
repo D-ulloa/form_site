@@ -64,7 +64,32 @@ Response body shape:
 - `413` for payload size violations.
 - `500` for backend failures.
 
-## Contract endpoint authorization
+## SPEC-10 contract entry API
+
+All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary. Role reads and submits require the matching role token, except that an authenticated owner can use the user route without a token.
+
+### `POST /api/contracts/create`
+
+Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optional. API-key callers also supply `createdBy`. Returns `201` with `{ entryId, userUrl, clientUrl, createdAt, status: "open" }`. The URLs contain raw tokens that are not stored or recoverable.
+
+### `GET /api/contracts/:entryId/schema?role=user|client&token=...`
+
+Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes`; user sections are `Testigos` and `Contrato`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
+
+### `POST /api/contracts/:entryId/submit?role=user|client&token=...`
+
+Request: `{ "fields": { ... } }`. The server supplies entry, role, IP, user agent, and timestamps; caller-supplied metadata is not accepted. Success returns `{ submissionId, entryId, status, submittedAt }`. The transactional Supabase function writes `contract_submissions`, updates the role fields on `contract_entries`, and writes `combined_submission` when both roles are filled. Duplicate role submissions return `409`; throttled attempts return `429` and `Retry-After`.
+
+### Administrator endpoints
+
+- `GET /api/contracts/admin/entries`
+- `GET /api/contracts/admin/entries/:entryId`
+- `POST /api/contracts/admin/entries/:entryId/archive`
+- `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate`
+
+The API key is an administrator. Gateway and development identities must also appear in `CONTRACT_ADMIN_USER_IDS`. Read responses never expose token hashes. A regenerated raw URL is returned once.
+
+## Legacy SPEC-09 contract endpoint authorization
 
 `GET /api/contracts/schemas/:schemaId` is public. `POST /api/contracts/submit` and `GET /api/contracts/audits/:submissionId` require one of:
 

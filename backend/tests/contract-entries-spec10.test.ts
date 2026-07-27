@@ -1,0 +1,246 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import express from 'express';
+import request from 'supertest';
+import { getContractRoleSchema } from '../src/config/contractSchemas.js';
+import type {
+  ContractEntryRecord,
+  ContractFieldDefinition,
+  ContractFieldValue,
+  ContractRole,
+} from '../src/contracts/types.js';
+import { createContractEntriesRouter } from '../src/routes/contractEntries.js';
+import type {
+  ContractEntryRepository,
+  CreateContractEntryRecordInput,
+  SaveContractRoleSubmissionInput,
+} from '../src/services/contractEntryRepository.js';
+import {
+  hashContractAccessToken,
+  verifyContractAccessToken,
+} from '../src/services/contractTokenService.js';
+
+const ENVIRONMENT: NodeJS.ProcessEnv = {
+  NODE_ENV: 'development',
+  CONTRACT_TOKEN_SECRET: 'spec-10-test-secret-that-is-at-least-32-chars',
+  CONTRACT_PUBLIC_BASE_URL: 'https://contracts.example.test',
+  CONTRACT_ADMIN_USER_IDS: 'agent-001',
+};
+
+class MemoryContractRepository implements ContractEntryRepository {
+  entry: ContractEntryRecord | null = null;
+
+  async createEntry(input: CreateContractEntryRecordInput): Promise<ContractEntryRecord> {
+    this.entry = {
+      id: input.id,
+      schemaId: input.schemaId,
+      createdBy: input.createdBy,
+      createdAt: input.createdAt,
+      userTokenHash: input.userTokenHash,
+      clientTokenHash: input.clientTokenHash,
+      userFilled: false,
+      clientFilled: false,
+      userSubmittedAt: null,
+      clientSubmittedAt: null,
+      userSubmission: null,
+      clientSubmission: null,
+      combinedSubmission: null,
+      status: 'open',
+      archivedAt: null,
+    };
+    return this.entry;
+  }
+
+  async findEntry(entryId: string): Promise<ContractEntryRecord | null> {
+    return this.entry?.id === entryId ? this.entry : null;
+  }
+
+  async listEntries(): Promise<readonly ContractEntryRecord[]> {
+    return this.entry ? [this.entry] : [];
+  }
+
+  async saveRoleSubmission(input: SaveContractRoleSubmissionInput): Promise<ContractEntryRecord> {
+    assert.ok(this.entry);
+    const userSubmission = input.role === 'user' ? input.fields : this.entry.userSubmission;
+    const clientSubmission = input.role === 'client' ? input.fields : this.entry.clientSubmission;
+    const userFilled = input.role === 'user' || this.entry.userFilled;
+    const clientFilled = input.role === 'client' || this.entry.clientFilled;
+    this.entry = {
+      ...this.entry,
+      userSubmission,
+      clientSubmission,
+      userFilled,
+      clientFilled,
+      userSubmittedAt: input.role === 'user' ? input.submittedAt : this.entry.userSubmittedAt,
+      clientSubmittedAt: input.role === 'client' ? input.submittedAt : this.entry.clientSubmittedAt,
+      status: userFilled && clientFilled ? 'complete' : 'open',
+      combinedSubmission: userFilled && clientFilled
+        ? { user: userSubmission, client: clientSubmission }
+        : null,
+    };
+    return this.entry;
+  }
+
+  async archiveEntry(entryId: string, archivedAt: string): Promise<ContractEntryRecord> {
+    assert.equal(this.entry?.id, entryId);
+    this.entry = { ...(this.entry as ContractEntryRecord), status: 'archived', archivedAt };
+    return this.entry;
+  }
+
+  async replaceTokenHash(
+    entryId: string,
+    role: ContractRole,
+    tokenHash: string,
+    _occurredAt: string,
+  ): Promise<ContractEntryRecord> {
+    assert.equal(this.entry?.id, entryId);
+    this.entry = {
+      ...(this.entry as ContractEntryRecord),
+      ...(role === 'user' ? { userTokenHash: tokenHash } : { clientTokenHash: tokenHash }),
+    };
+    return this.entry;
+  }
+}
+
+function valueFor(field: ContractFieldDefinition): ContractFieldValue {
+  if (field.type === 'email') return `${field.name}@example.test`;
+  if (field.type === 'number') return field.min ?? 1;
+  if (field.type === 'date') return '2026-08-01';
+  if (field.type === 'boolean') return false;
+  if (field.type === 'select') return field.options?.[0] ?? '';
+  return `${field.name} value`;
+}
+
+function validRoleFields(role: ContractRole): Record<string, ContractFieldValue> {
+  const schema = getContractRoleSchema('rent-contract-v1', role);
+  return Object.fromEntries(schema.sections.flatMap((section) =>
+    section.fields.filter((field) => field.required).map((field) => [field.name, valueFor(field)])));
+}
+
+function createApp(repository: ContractEntryRepository) {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/contracts', createContractEntriesRouter({
+    environment: ENVIRONMENT,
+    repository,
+    now: () => new Date('2026-07-24T12:00:00.000Z'),
+  }));
+  return app;
+}
+
+test('role schemas enforce the SPEC-10 section split', () => {
+  const client = getContractRoleSchema('rent-contract-v1', 'client');
+  const user = getContractRoleSchema('rent-contract-v1', 'user');
+
+  assert.deepEqual(client.sections.map((section) => section.title), ['Inquilino', 'Garantes']);
+  assert.deepEqual(user.sections.map((section) => section.title), ['Testigos', 'Contrato']);
+  assert.equal(client.sections.some((section) =>
+    section.fields.some((field) => field.name === 'contract_months')), false);
+  assert.equal(user.sections.some((section) =>
+    section.fields.some((field) => field.name === 'tenant_full_name')), false);
+});
+
+test('contract access tokens are HMAC hashed and compared safely', () => {
+  const token = 'a'.repeat(43);
+  const hash = hashContractAccessToken(token, ENVIRONMENT);
+  assert.match(hash, /^v1:[a-f0-9]{64}$/u);
+  assert.equal(hash.includes(token), false);
+  assert.equal(verifyContractAccessToken(token, hash, ENVIRONMENT), true);
+  assert.equal(verifyContractAccessToken('b'.repeat(43), hash, ENVIRONMENT), false);
+});
+
+test('create, both role submissions, admin inspection, token regeneration, and archive', async () => {
+  const repository = new MemoryContractRepository();
+  const app = createApp(repository);
+  const created = await request(app)
+    .post('/api/contracts/create')
+    .set('X-User-Id', 'agent-001')
+    .send({});
+
+  assert.equal(created.status, 201);
+  assert.equal(created.body.status, 'open');
+  assert.ok(repository.entry);
+  const userUrl = new URL(created.body.userUrl as string);
+  const clientUrl = new URL(created.body.clientUrl as string);
+  const userToken = userUrl.searchParams.get('token');
+  const clientToken = clientUrl.searchParams.get('token');
+  assert.ok(userToken);
+  assert.ok(clientToken);
+  assert.equal(repository.entry.userTokenHash.includes(userToken), false);
+  assert.equal(repository.entry.clientTokenHash.includes(clientToken), false);
+
+  const invalidClientToken = await request(app)
+    .get(`/api/contracts/${created.body.entryId}/schema`)
+    .query({ role: 'client', token: 'x'.repeat(43) });
+  assert.equal(invalidClientToken.status, 403);
+
+  const ownedUserSchema = await request(app)
+    .get(`/api/contracts/${created.body.entryId}/schema`)
+    .query({ role: 'user' })
+    .set('X-User-Id', 'agent-001');
+  assert.equal(ownedUserSchema.status, 200);
+  assert.deepEqual(ownedUserSchema.body.sections.map(
+    (section: { title: string }) => section.title,
+  ), ['Testigos', 'Contrato']);
+
+  const clientSchema = await request(app)
+    .get(`/api/contracts/${created.body.entryId}/schema`)
+    .query({ role: 'client', token: clientToken });
+  assert.equal(clientSchema.status, 200);
+  assert.deepEqual(clientSchema.body.sections.map((section: { title: string }) => section.title), [
+    'Inquilino', 'Garantes',
+  ]);
+
+  const clientSubmission = await request(app)
+    .post(`/api/contracts/${created.body.entryId}/submit`)
+    .query({ role: 'client', token: clientToken })
+    .send({ fields: validRoleFields('client') });
+  assert.equal(clientSubmission.status, 200);
+  assert.equal(clientSubmission.body.status, 'open');
+
+  const userSubmission = await request(app)
+    .post(`/api/contracts/${created.body.entryId}/submit`)
+    .query({ role: 'user', token: userToken })
+    .send({ fields: validRoleFields('user') });
+  assert.equal(userSubmission.status, 200);
+  assert.equal(userSubmission.body.status, 'complete');
+  assert.equal(repository.entry?.status, 'complete');
+  assert.ok(repository.entry?.combinedSubmission);
+
+  const duplicate = await request(app)
+    .post(`/api/contracts/${created.body.entryId}/submit`)
+    .query({ role: 'user', token: userToken })
+    .send({ fields: validRoleFields('user') });
+  assert.equal(duplicate.status, 409);
+
+  const list = await request(app).get('/api/contracts/admin/entries')
+    .set('X-User-Id', 'agent-001');
+  assert.equal(list.body.entries.length, 1);
+
+  const detail = await request(app)
+    .get(`/api/contracts/admin/entries/${created.body.entryId}`)
+    .set('X-User-Id', 'agent-001');
+  assert.equal(detail.status, 200);
+  assert.ok(detail.body.userSubmission);
+  assert.ok(detail.body.clientSubmission);
+  assert.equal('userTokenHash' in detail.body.entry, false);
+
+  const regenerated = await request(app)
+    .post(`/api/contracts/admin/entries/${created.body.entryId}/tokens/client/regenerate`)
+    .set('X-User-Id', 'agent-001')
+    .send({});
+  assert.equal(regenerated.status, 200);
+  assert.notEqual(new URL(regenerated.body.url as string).searchParams.get('token'), clientToken);
+
+  const archived = await request(app)
+    .post(`/api/contracts/admin/entries/${created.body.entryId}/archive`)
+    .set('X-User-Id', 'agent-001')
+    .send({});
+  assert.equal(archived.status, 200);
+  assert.equal(archived.body.entry.status, 'archived');
+
+  const closed = await request(app)
+    .get(`/api/contracts/${created.body.entryId}/schema`)
+    .query({ role: 'user', token: userToken });
+  assert.equal(closed.status, 410);
+});

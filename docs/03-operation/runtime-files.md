@@ -4,10 +4,14 @@ Status: 2026-07-21.
 
 ## Persisted runtime artifacts
 
+- Supabase `contract_entries` — current contract lifecycle, role payloads, and combined payload.
+- Supabase `contract_submissions` — immutable one-per-role submission audits.
+- Supabase `contract_events` — creation, role submission, completion, archive, and token-regeneration events.
+
 - `backend/logs/` — default local JSON location for property submissions and successful contract appends.
 - `CONTRACT_AUDIT_LOGS_DIR` — optional contract-only audit location. The logger resolves it at call time for both persistence and retrieval; blank or unset falls back to `backend/logs`.
 
-Contract audit names use `SUB-YYYY-MM-DD-<hex>.json`. A contract audit contains the schema and contract identifiers, redacted fields, a redacted mapped row, spreadsheet/tab metadata, appended range, submission/user/request identifiers, source IP, and timestamp. Fields marked `sensitive` are redacted by default in every audit representation, including the mapped row.
+Legacy SPEC-09 contract audit names use `SUB-YYYY-MM-DD-<hex>.json`. A contract audit contains the schema and contract identifiers, redacted fields, a redacted mapped row, spreadsheet/tab metadata, appended range, submission/user/request identifiers, source IP, and timestamp. Fields marked `sensitive` are redacted by default in every audit representation, including the mapped row.
 
 For gateway and development authentication, the stored `userId` is the authenticated header identity even when the submitted `meta.userId` differs. For API-key authentication, the submitted `meta.userId` is preserved as attribution. Gateway/development audit reads are owner-scoped; the shared API key can read any valid contract audit.
 

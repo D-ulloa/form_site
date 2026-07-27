@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20  
 **Priority Order:** 9  
-**Status:** draft
+**Status:** superseded by SPEC-10
 
 ---
 

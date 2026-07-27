@@ -1,5 +1,7 @@
 import type {
   ContractFieldDefinition,
+  ContractRole,
+  ContractRoleSchema,
   ContractSchemaConfig,
   ContractSchemaDefinition,
   PublicContractSchema,
@@ -146,6 +148,33 @@ export function getContractSchemaDefinition(
     throw new ContractSchemaNotFoundError(schemaId);
   }
   return schema;
+}
+
+export function getContractRoleSchema(
+  schemaId: string,
+  role: ContractRole,
+): ContractRoleSchema {
+  const schema = getContractSchemaDefinition(schemaId);
+  const selectedTitles = role === 'client'
+    ? new Set(['Inquilino', 'Garante'])
+    : new Set(['Propietario', 'Contrato']);
+  const publicTitles: Readonly<Record<string, string>> = {
+    Garante: 'Garantes',
+    Propietario: 'Testigos',
+  };
+  const roleSections = schema.sections
+    .filter((section) => selectedTitles.has(section.title))
+    .map((section) => ({
+      title: publicTitles[section.title] ?? section.title,
+      fields: section.fields,
+    }));
+
+  return {
+    schemaId: schema.schemaId,
+    contractType: schema.contractType,
+    role,
+    sections: roleSections,
+  };
 }
 
 export function getPublicContractSchema(

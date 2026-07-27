@@ -1,0 +1,390 @@
+import { Router, type Request, type Response } from 'express';
+import { z } from 'zod';
+import {
+  ContractSchemaNotFoundError,
+  RENT_CONTRACT_SCHEMA_ID,
+  getContractRoleSchema,
+} from '../config/contractSchemas.js';
+import type { ContractEntryRecord, ContractRole } from '../contracts/types.js';
+import {
+  ContractAuthenticationError,
+  ContractAuthorizationError,
+  authenticateContractRequest,
+  authorizeContractAdmin,
+  authorizeContractUserScope,
+  getContractPrincipalUserId,
+} from '../services/contractAuth.js';
+import {
+  createContractEntryRepository,
+  ContractDatabaseConfigurationError,
+  ContractEntryNotFoundError,
+  ContractEntryStateError,
+  type ContractEntryRepository,
+} from '../services/contractEntryRepository.js';
+import {
+  ContractPublicBaseUrlConfigurationError,
+  ContractRoleValidationError,
+  createContractEntry,
+  regenerateContractRoleToken,
+  submitContractEntryRole,
+  toContractEntrySummary,
+} from '../services/contractEntryService.js';
+import {
+  createContractSubmissionRateLimiter,
+  type ContractSubmissionRateLimiter,
+} from '../services/contractSubmissionRateLimiter.js';
+import {
+  ContractTokenConfigurationError,
+  verifyContractAccessToken,
+} from '../services/contractTokenService.js';
+import { normalizeContractRequestIp } from '../services/contractRequestContext.js';
+
+const EntryIdSchema = z.string().uuid();
+const RoleSchema = z.enum(['user', 'client']);
+const CreateEntryBodySchema = z.object({
+  schemaId: z.string().trim().min(1).max(128).default(RENT_CONTRACT_SCHEMA_ID),
+  createdBy: z.string().trim().min(1).max(256).optional(),
+}).strict();
+const SubmitRoleBodySchema = z.object({
+  fields: z.record(z.string(), z.unknown()),
+}).strict();
+
+export interface ContractEntriesRouterDependencies {
+  readonly environment: NodeJS.ProcessEnv;
+  readonly repository: ContractEntryRepository;
+  readonly rateLimiter: ContractSubmissionRateLimiter;
+  readonly now: () => Date;
+}
+
+function resolveDependencies(
+  overrides: Partial<ContractEntriesRouterDependencies>,
+): ContractEntriesRouterDependencies {
+  const environment = overrides.environment ?? process.env;
+  return {
+    environment,
+    repository: overrides.repository ?? createContractEntryRepository(environment),
+    rateLimiter: overrides.rateLimiter ?? createContractSubmissionRateLimiter(environment),
+    now: overrides.now ?? (() => new Date()),
+  };
+}
+
+function authenticate(req: Request, environment: NodeJS.ProcessEnv) {
+  return authenticateContractRequest({
+    authorization: req.get('Authorization'),
+    authenticatedUserId: req.get('X-Authenticated-User-Id'),
+    developmentUserId: req.get('X-User-Id'),
+  }, environment);
+}
+
+function setPrivateHeaders(res: Response): void {
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'no-referrer');
+}
+
+function getBearerToken(req: Request): string | undefined {
+  const authorization = req.get('Authorization');
+  if (!authorization) return undefined;
+  return /^Bearer[ \t]+([^\s,]+)$/u.exec(authorization.trim())?.[1];
+}
+
+function getAccessToken(req: Request): string | undefined {
+  const queryToken = req.query.token;
+  if (typeof queryToken === 'string') return queryToken;
+  return getBearerToken(req);
+}
+
+function getPublicBaseUrl(req: Request, environment: NodeJS.ProcessEnv): string {
+  const configured = environment.CONTRACT_PUBLIC_BASE_URL?.trim();
+  if (configured) return configured;
+  if (environment.NODE_ENV === 'production') {
+    throw new ContractPublicBaseUrlConfigurationError();
+  }
+  return `${req.protocol}://${req.get('host') ?? 'localhost'}`;
+}
+
+function roleTokenHash(entry: ContractEntryRecord, role: ContractRole): string {
+  return role === 'user' ? entry.userTokenHash : entry.clientTokenHash;
+}
+
+function authorizeRoleAccess(
+  req: Request,
+  entry: ContractEntryRecord,
+  role: ContractRole,
+  environment: NodeJS.ProcessEnv,
+): string | null {
+  const token = getAccessToken(req);
+  if (token && verifyContractAccessToken(token, roleTokenHash(entry, role), environment)) {
+    return roleTokenHash(entry, role);
+  }
+  if (role === 'client') {
+    if (!token) {
+      throw new ContractAuthenticationError('A client contract access token is required.');
+    }
+    throw new ContractAuthorizationError('The contract access token is invalid.');
+  }
+  if (typeof req.query.token === 'string') {
+    throw new ContractAuthorizationError('The contract access token is invalid.');
+  }
+  const principal = authenticate(req, environment);
+  authorizeContractUserScope(principal, entry.createdBy);
+  return null;
+}
+
+async function loadEntry(
+  entryIdValue: string | undefined,
+  repository: ContractEntryRepository,
+): Promise<ContractEntryRecord> {
+  const parsed = EntryIdSchema.safeParse(entryIdValue);
+  if (!parsed.success) throw new z.ZodError(parsed.error.issues);
+  const entry = await repository.findEntry(parsed.data);
+  if (!entry) throw new ContractEntryNotFoundError(parsed.data);
+  return entry;
+}
+
+function validationErrors(error: ContractRoleValidationError) {
+  return error.errors.map((issue) => ({
+    field: issue.path.startsWith('fields.') ? issue.path.slice(7) : issue.path,
+    message: issue.message,
+  }));
+}
+
+function sendError(res: Response, error: unknown): void {
+  if (error instanceof z.ZodError) {
+    res.status(400).json({
+      error: 'INVALID_REQUEST',
+      message: 'The contract request is invalid.',
+      errors: error.issues.map((issue) => ({
+        field: issue.path.join('.') || 'request',
+        message: issue.message,
+      })),
+      retriable: false,
+    });
+    return;
+  }
+  if (error instanceof ContractRoleValidationError) {
+    res.status(400).json({
+      error: 'VALIDATION_FAILED',
+      message: error.message,
+      errors: validationErrors(error),
+      retriable: false,
+    });
+    return;
+  }
+  if (error instanceof ContractAuthenticationError) {
+    res.status(401).json({ error: 'AUTHENTICATION_REQUIRED', message: error.message, retriable: false });
+    return;
+  }
+  if (error instanceof ContractAuthorizationError) {
+    res.status(403).json({ error: 'FORBIDDEN', message: error.message, retriable: false });
+    return;
+  }
+  if (error instanceof ContractEntryNotFoundError || error instanceof ContractSchemaNotFoundError) {
+    res.status(404).json({ error: 'NOT_FOUND', message: error.message, retriable: false });
+    return;
+  }
+  if (error instanceof ContractEntryStateError) {
+    const status = error.code === 'archived' ? 410
+      : error.code === 'access_changed' ? 403
+        : 409;
+    const code = error.code === 'archived' ? 'ENTRY_ARCHIVED'
+      : error.code === 'access_changed' ? 'ACCESS_REVOKED'
+        : 'ALREADY_SUBMITTED';
+    res.status(status).json({
+      error: code,
+      message: error.message,
+      retriable: false,
+    });
+    return;
+  }
+  if (
+    error instanceof ContractDatabaseConfigurationError ||
+    error instanceof ContractPublicBaseUrlConfigurationError ||
+    error instanceof ContractTokenConfigurationError
+  ) {
+    console.error('[contract-entries] configuration error', error.name);
+    res.status(500).json({
+      error: 'CONTRACT_CONFIGURATION_ERROR',
+      message: error.message,
+      retriable: false,
+    });
+    return;
+  }
+  console.error('[contract-entries] unexpected error', error instanceof Error ? error.name : 'UnknownError');
+  res.status(500).json({
+    error: 'INTERNAL_ERROR',
+    message: 'The contract operation could not be completed.',
+    retriable: false,
+  });
+}
+
+export function createContractEntriesRouter(
+  dependencyOverrides: Partial<ContractEntriesRouterDependencies> = {},
+): Router {
+  const dependencies = resolveDependencies(dependencyOverrides);
+  const router = Router();
+
+  router.use((req, res, next) => {
+    if (dependencies.environment.NODE_ENV === 'production' && !req.secure) {
+      setPrivateHeaders(res);
+      res.status(426).json({
+        error: 'HTTPS_REQUIRED',
+        message: 'Contract links and submissions are accepted only over HTTPS.',
+        retriable: false,
+      });
+      return;
+    }
+    next();
+  });
+
+  router.post('/create', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      const body = CreateEntryBodySchema.parse(req.body);
+      const createdBy = getContractPrincipalUserId(principal, body.createdBy);
+      const entry = await createContractEntry({
+        schemaId: body.schemaId,
+        createdBy,
+        publicBaseUrl: getPublicBaseUrl(req, dependencies.environment),
+      }, dependencies.repository, dependencies.environment);
+      res.status(201).json(entry);
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.get('/admin/entries', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      authorizeContractAdmin(principal, dependencies.environment);
+      const entries = await dependencies.repository.listEntries();
+      res.status(200).json({ entries: entries.map(toContractEntrySummary) });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.get('/admin/entries/:entryId', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      authorizeContractAdmin(principal, dependencies.environment);
+      const entry = await loadEntry(req.params.entryId, dependencies.repository);
+      res.status(200).json({
+        entry: toContractEntrySummary(entry),
+        userSubmission: entry.userSubmission,
+        clientSubmission: entry.clientSubmission,
+        combinedSubmission: entry.combinedSubmission,
+      });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.post('/admin/entries/:entryId/archive', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      authorizeContractAdmin(principal, dependencies.environment);
+      const entryId = EntryIdSchema.parse(req.params.entryId);
+      const entry = await dependencies.repository.archiveEntry(
+        entryId,
+        dependencies.now().toISOString(),
+      );
+      res.status(200).json({ entry: toContractEntrySummary(entry) });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.post('/admin/entries/:entryId/tokens/:role/regenerate', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      authorizeContractAdmin(principal, dependencies.environment);
+      const entryId = EntryIdSchema.parse(req.params.entryId);
+      const role = RoleSchema.parse(req.params.role);
+      const result = await regenerateContractRoleToken({
+        entryId,
+        role,
+        publicBaseUrl: getPublicBaseUrl(req, dependencies.environment),
+      }, dependencies.repository, dependencies.environment, { now: dependencies.now });
+      res.status(200).json(result);
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.get('/:entryId/schema', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const role = RoleSchema.parse(req.query.role);
+      const entry = await loadEntry(req.params.entryId, dependencies.repository);
+      if (entry.status === 'archived') throw new ContractEntryStateError('archived');
+      authorizeRoleAccess(req, entry, role, dependencies.environment);
+      const roleSchema = getContractRoleSchema(entry.schemaId, role);
+      const roleFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
+      const values = role === 'user' ? entry.userSubmission : entry.clientSubmission;
+      res.status(200).json({
+        ...roleSchema,
+        entry: toContractEntrySummary(entry),
+        readOnly: entry.status === 'complete' || roleFilled,
+        values: values ?? {},
+      });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.post('/:entryId/submit', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const role = RoleSchema.parse(req.query.role);
+      const entryId = EntryIdSchema.parse(req.params.entryId);
+      const rateLimit = dependencies.rateLimiter.check(
+        `${normalizeContractRequestIp(req.ip)}:${entryId}`,
+      );
+      if (!rateLimit.allowed) {
+        res.set('Retry-After', String(rateLimit.retryAfterSeconds));
+        res.status(429).json({
+          error: 'RATE_LIMITED',
+          message: 'Too many submission attempts. Try again later.',
+          retriable: true,
+        });
+        return;
+      }
+      const entry = await loadEntry(entryId, dependencies.repository);
+      if (entry.status === 'archived') throw new ContractEntryStateError('archived');
+      const alreadyFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
+      if (alreadyFilled) throw new ContractEntryStateError('already_submitted');
+      const authorizedTokenHash = authorizeRoleAccess(
+        req,
+        entry,
+        role,
+        dependencies.environment,
+      );
+      const body = SubmitRoleBodySchema.parse(req.body);
+      const receivedAt = dependencies.now().toISOString();
+      const result = await submitContractEntryRole({
+        entry,
+        role,
+        authorizedTokenHash,
+        fields: body.fields,
+        metadata: {
+          ip: normalizeContractRequestIp(req.ip),
+          userAgent: (req.get('User-Agent') ?? '').slice(0, 512),
+          receivedAt,
+        },
+      }, dependencies.repository);
+      res.status(200).json(result);
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  return router;
+}
+
+export default createContractEntriesRouter();

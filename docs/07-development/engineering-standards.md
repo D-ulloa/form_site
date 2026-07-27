@@ -26,13 +26,17 @@ Status: 2026-07-21.
 - Validate all incoming payloads before side effects.
 - Use explicit step results for Drive, upload, Sheets, and Make.
 - Return clear outcomes: `success`, `partial_failure`, or `failure`.
-- Persist submission logs under `backend/logs/` for auditability.
+- Persist property logs and legacy SPEC-09 audits under `backend/logs/`; persist SPEC-10 contract entries, immutable role audits, and events in Supabase.
 - Use environment variables only for secrets and external service configuration.
 - Authenticate contract submit/audit routes before validation or filesystem access. Never trust a request-body user ID as the authenticated principal.
 - Keep `X-Authenticated-User-Id` behind a proxy that strips caller-supplied values. Accept `X-User-Id` only when `NODE_ENV` is exactly `development`.
 - Gateway/development principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped; do not conflate attribution with authentication.
 - Configure `TRUST_PROXY_HOPS` to the exact known proxy count before relying on `req.ip` in audits. Keep it `0` for direct connections.
-- Validate contract configuration and requests strictly, sanitize formula-leading strings, map fields deterministically, and use `RAW` for contract Sheet appends.
+- Validate SPEC-10 fields against role-specific schema projections and write them only through the server-side atomic Supabase function.
+- Generate 32-byte role tokens, store only HMAC hashes, compare them in constant time, and return regenerated raw URLs once.
+- Enforce HTTPS in production, `no-store`/`no-referrer` response headers, and per-IP/entry submission rate limits.
+- Restrict contract administration to the server API key or configured `CONTRACT_ADMIN_USER_IDS`.
+- For retained SPEC-09 routes, sanitize formula-leading strings, map fields deterministically, and use `RAW` for Sheet appends.
 - Use the dedicated service-account helper for contract Sheet reads and writes. Do not let contract integration fall through to property user OAuth.
 - Read and validate the complete ordered Sheet header row before append; preserve duplicate labels by position and fail before writing on any mismatch.
 - Redact sensitive values in both structured fields and mapped rows. Never log Google credentials, API keys, authorization headers, or raw service errors containing secrets.

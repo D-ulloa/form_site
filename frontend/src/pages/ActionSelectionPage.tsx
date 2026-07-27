@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button.tsx';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
 import { useAgent, type AgentData } from '../app/contexts/AgentContext.tsx';
-import { ContractGenerationModal } from '../features/contracts/components/ContractGenerationModal.tsx';
+import { ContractEntryModal } from '../features/contracts/components/ContractEntryModal.tsx';
 
 type PendingAction = 'property' | 'contract' | null;
 
@@ -164,16 +164,16 @@ export function ActionSelectionPage() {
                   Contract Generation
                 </h2>
                 <p className="text-sm leading-relaxed text-slate-500">
-                  Copiá el formulario externo y enviá los datos validados del contrato a Google Sheets.
+                  Creá formularios privados para el usuario y el cliente, alojados y guardados en Supabase.
                 </p>
                 <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                    Google Forms
+                    Sitio seguro
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Google Sheets
+                    Supabase
                   </span>
                 </div>
               </div>
@@ -220,7 +220,7 @@ export function ActionSelectionPage() {
         onClose={handleAgentModalClose}
         onSaved={handleAgentSaved}
       />
-      <ContractGenerationModal
+      <ContractEntryModal
         open={showContractModal}
         userId={contractUserId}
         onClose={() => {

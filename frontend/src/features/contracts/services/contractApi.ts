@@ -1,9 +1,15 @@
 import axios from 'axios';
 import { z } from 'zod';
 import type {
+  ContractAdminEntryDetail,
   ContractApiErrorBody,
+  ContractEntryLinks,
+  ContractEntrySummary,
   ContractFieldApiError,
   ContractPublicSchema,
+  ContractRole,
+  ContractRoleSchemaResponse,
+  ContractRoleSubmitResponse,
   ContractSubmitRequest,
   ContractSubmitResponse,
 } from '../types.ts';
@@ -113,6 +119,70 @@ const ContractSubmitResponseSchema = z.object({
     auditUrl: z.string().min(1),
   }),
 });
+
+const ContractEntrySummarySchema = z.object({
+  entryId: z.string().uuid(),
+  schemaId: z.string().min(1),
+  createdBy: z.string().min(1),
+  createdAt: z.string().min(1),
+  userFilled: z.boolean(),
+  clientFilled: z.boolean(),
+  userSubmittedAt: z.string().nullable(),
+  clientSubmittedAt: z.string().nullable(),
+  status: z.enum(['open', 'complete', 'archived']),
+  archivedAt: z.string().nullable(),
+});
+
+const ContractEntryLinksSchema = z.object({
+  entryId: z.string().uuid(),
+  userUrl: z.string().url(),
+  clientUrl: z.string().url(),
+  createdAt: z.string().min(1),
+  status: z.literal('open'),
+});
+
+const ContractRoleSchemaResponseSchema = z.object({
+  schemaId: z.string().min(1),
+  contractType: z.string().min(1),
+  role: z.enum(['user', 'client']),
+  sections: z.array(z.object({
+    title: z.string().min(1),
+    fields: z.array(ContractFieldSchema).min(1),
+  })).min(1),
+  entry: ContractEntrySummarySchema,
+  readOnly: z.boolean(),
+  values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+});
+
+const ContractRoleSubmitResponseSchema = z.object({
+  submissionId: z.string().uuid(),
+  entryId: z.string().uuid(),
+  status: z.enum(['open', 'complete']),
+  submittedAt: z.string().min(1),
+});
+
+const ContractAdminDetailSchema = z.object({
+  entry: ContractEntrySummarySchema,
+  userSubmission: z.record(
+    z.string(),
+    z.union([z.string(), z.number(), z.boolean()]),
+  ).nullable(),
+  clientSubmission: z.record(
+    z.string(),
+    z.union([z.string(), z.number(), z.boolean()]),
+  ).nullable(),
+  combinedSubmission: z.record(z.string(), z.unknown()).nullable(),
+});
+
+function parseResponse<T>(schema: z.ZodType<T>, value: unknown, message: string): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new Error(message);
+  return result.data;
+}
+
+function identityHeaders(userId?: string): Record<string, string> | undefined {
+  return import.meta.env.DEV && userId ? { 'X-User-Id': userId } : undefined;
+}
 
 export class ContractRequestError extends Error {
   status: number | undefined;
@@ -281,6 +351,152 @@ export async function fetchContractAudit(
           : undefined,
     });
     return response.data;
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function createContractEntry(userId: string): Promise<ContractEntryLinks> {
+  try {
+    const response = await axios.post<unknown>(`${CONTRACTS_API_PATH}/create`, {}, {
+      withCredentials: true,
+      headers: identityHeaders(userId),
+    });
+    return parseResponse(
+      ContractEntryLinksSchema,
+      response.data,
+      'El servidor creó la entrada, pero devolvió enlaces inválidos.',
+    );
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function fetchContractRoleSchema(
+  entryId: string,
+  role: ContractRole,
+  token: string | null,
+  userId?: string,
+): Promise<ContractRoleSchemaResponse> {
+  try {
+    const response = await axios.get<unknown>(
+      `${CONTRACTS_API_PATH}/${encodeURIComponent(entryId)}/schema`,
+      {
+        withCredentials: true,
+        params: { role, ...(token ? { token } : {}) },
+        headers: identityHeaders(userId),
+      },
+    );
+    return parseResponse(
+      ContractRoleSchemaResponseSchema,
+      response.data,
+      'El servidor devolvió un formulario de contrato inválido.',
+    );
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function submitContractRole(
+  entryId: string,
+  role: ContractRole,
+  token: string | null,
+  fields: Record<string, string | number | boolean>,
+  userId?: string,
+): Promise<ContractRoleSubmitResponse> {
+  try {
+    const response = await axios.post<unknown>(
+      `${CONTRACTS_API_PATH}/${encodeURIComponent(entryId)}/submit`,
+      { fields },
+      {
+        withCredentials: true,
+        params: { role, ...(token ? { token } : {}) },
+        headers: identityHeaders(userId),
+      },
+    );
+    return parseResponse(
+      ContractRoleSubmitResponseSchema,
+      response.data,
+      'El servidor guardó la respuesta, pero devolvió un recibo inválido.',
+    );
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function listContractEntries(
+  userId: string,
+): Promise<ContractEntrySummary[]> {
+  try {
+    const response = await axios.get<unknown>(`${CONTRACTS_API_PATH}/admin/entries`, {
+      withCredentials: true,
+      headers: identityHeaders(userId),
+    });
+    return parseResponse(
+      z.object({ entries: z.array(ContractEntrySummarySchema) }),
+      response.data,
+      'El servidor devolvió una lista de contratos inválida.',
+    ).entries;
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function fetchContractAdminEntry(
+  entryId: string,
+  userId: string,
+): Promise<ContractAdminEntryDetail> {
+  try {
+    const response = await axios.get<unknown>(
+      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}`,
+      { withCredentials: true, headers: identityHeaders(userId) },
+    );
+    return parseResponse(
+      ContractAdminDetailSchema,
+      response.data,
+      'El servidor devolvió un contrato inválido.',
+    );
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function archiveContractEntry(
+  entryId: string,
+  userId: string,
+): Promise<ContractEntrySummary> {
+  try {
+    const response = await axios.post<unknown>(
+      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/archive`,
+      {},
+      { withCredentials: true, headers: identityHeaders(userId) },
+    );
+    return parseResponse(
+      z.object({ entry: ContractEntrySummarySchema }),
+      response.data,
+      'El servidor devolvió un contrato archivado inválido.',
+    ).entry;
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function regenerateContractToken(
+  entryId: string,
+  role: ContractRole,
+  userId: string,
+): Promise<{ role: ContractRole; url: string }> {
+  try {
+    const response = await axios.post<unknown>(
+      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/tokens/${role}/regenerate`,
+      {},
+      { withCredentials: true, headers: identityHeaders(userId) },
+    );
+    return parseResponse(
+      z.object({ role: z.enum(['user', 'client']), url: z.string().url() }),
+      response.data,
+      'El servidor devolvió un enlace regenerado inválido.',
+    );
   } catch (error) {
     throw normalizeContractRequestError(error);
   }

@@ -7,7 +7,7 @@ Status: 2026-07-21.
 - `/` — action selection page.
 - `/properties/new` — new property form page.
 - `/properties/success/:submissionId` — result page for the submission.
-- Contract Generation opens as a two-step modal from `/`.
+- Contract Generation creates an entry card from `/`; hosted forms use `/contracts/:entryId/user` and `/contracts/:entryId/client`, and administration uses `/contracts/admin`.
 
 The main workflow is:
 
@@ -19,42 +19,50 @@ The main workflow is:
 
 The Contract Generation workflow is:
 
-1. Select `Contract Generation` on `/`.
-2. Copy the public Google Form link in step A. The modal advances only after a successful copy.
-3. Complete the schema-rendered fields in step B while using the visible JSON panel as a reference.
-4. Select `Send`; invalid fields are reported before submission and are revalidated by the backend.
-5. Review the returned receipt, Sheet link, and appended range. Selecting the audit link performs an authenticated fetch and displays the redacted audit JSON inline; form values remain available after a recoverable error.
+1. Select `Contract Generation` on `/`; the authenticated create call runs immediately.
+2. Open the hosted user form and copy the client link from the entry card.
+3. Each party completes only the sections assigned to their role.
+4. Each submit is independently validated and stored in Supabase.
+5. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
+6. Configured administrators use `/contracts/admin` to inspect, archive, or regenerate links.
 
 ## Backend endpoints
 
 - `GET /health` — health check.
 - `POST /properties/submit` — accepts multipart/form-data submissions.
-- `GET /api/contracts/schemas/:schemaId` — public, client-safe contract schema.
+- `POST /api/contracts/create` — authenticated entry creation; returns one-time user and client URLs.
+- `GET /api/contracts/:entryId/schema?role=user|client` — token- or owner-authorized role schema and status.
+- `POST /api/contracts/:entryId/submit?role=user|client` — validated role submission and atomic Supabase persistence.
+- `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and inspection.
+- `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
+- `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
+
+Legacy SPEC-09 compatibility endpoints:
+
+- `GET /api/contracts/schemas/:schemaId` — legacy public schema.
 - `POST /api/contracts/submit` — authenticated JSON contract submission.
 - `GET /api/contracts/audits/:submissionId` — authenticated redacted audit record.
 
-Property endpoints are implemented in `backend/src/routes/properties.ts`; Contract Generation endpoints are implemented in `backend/src/routes/contracts.ts`.
+Property endpoints are implemented in `backend/src/routes/properties.ts`; current Contract Generation endpoints are in `backend/src/routes/contractEntries.ts`; legacy SPEC-09 endpoints remain in `backend/src/routes/contracts.ts`.
 
-Contract submit and audit calls require a valid bearer API key, a trusted gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. `X-Request-Id` is optional and supports correlation. The public schema route does not require authentication.
+Legacy SPEC-09 submit and audit calls require a valid bearer API key, a trusted gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. `X-Request-Id` is optional and supports correlation. The public schema route does not require authentication.
 
-In development, the frontend derives `X-User-Id` from the configured agent and sends it on both submit and inline audit requests. In production, it sends no API key or identity header and relies on the same-origin gateway to authenticate the request and inject `X-Authenticated-User-Id`. The gateway identity has precedence over forwarded authorization.
+In development, the frontend derives `X-User-Id` from the configured agent for current owner/admin requests and legacy submit/audit requests. In production, it sends no API key or identity header and relies on the same-origin gateway to authenticate the request and inject `X-Authenticated-User-Id`. The gateway identity has precedence over forwarded authorization.
 
-Gateway and development identities replace the submitted `meta.userId` before audit creation and may read only audits with that resulting owner. A valid API key preserves the submitted `meta.userId` for audit attribution and is not owner-scoped when reading audits. The audit control retains its real `href`, but JavaScript intercepts normal activation to fetch and render the JSON inside the receipt view.
+For legacy SPEC-09, gateway and development identities replace the submitted `meta.userId` before audit creation and may read only audits with that resulting owner. A valid API key preserves the submitted `meta.userId` for audit attribution and is not owner-scoped when reading audits. The audit control retains its real `href`, but JavaScript intercepts normal activation to fetch and render the JSON inside the receipt view.
 
 When deployed behind a reverse proxy, set `TRUST_PROXY_HOPS` to the exact known hop count so the audit receives the intended client `req.ip`. Keep `0` for direct connections.
 
-For a deployment with a persistent filesystem mount, set `CONTRACT_AUDIT_LOGS_DIR` to that writable mount path before starting the backend. The audit route and submission logger resolve the setting at call time. Do not use this setting as a durability workaround on Vercel; its deployment filesystem remains ephemeral.
+For legacy SPEC-09 on a deployment with a persistent filesystem mount, set `CONTRACT_AUDIT_LOGS_DIR` to that writable mount path before starting the backend. The audit route and submission logger resolve the setting at call time. Do not use this setting as a durability workaround on Vercel; its deployment filesystem remains ephemeral.
 
 ## Contract submission flow
 
-1. The frontend fetches the public schema without private Sheet mapping data.
-2. The client normalizes values and performs schema-derived validation.
-3. The backend authenticates the request and loads the authoritative schema by `schemaId`.
-4. The backend rejects contract-type mismatches, unknown fields, and invalid values before any Google call.
-5. Formula-like strings are escaped and fields are mapped in canonical order.
-6. The backend reads row 1 and requires an exact length-and-position match with the registered headers; duplicate labels are compared in order.
-7. The backend performs one `RAW` Sheet append only after header preflight passes.
-8. A redacted audit file is written and a receipt is returned.
+1. The backend authenticates entry creation and stores only HMAC hashes of two 32-byte random tokens.
+2. A role page presents its token or, for the user role, authenticated owner identity.
+3. The backend enforces production HTTPS, no-store/no-referrer headers, and per-IP/entry rate limits.
+4. Fields are validated against only the role-specific schema.
+5. The Supabase RPC locks the entry, rejects duplicate or archived submissions, inserts the immutable audit row, and updates the role payload.
+6. If both roles are filled, the same transaction writes `combined_submission`, marks the entry complete, and records a completion event.
 
 ## Submission flow
 
@@ -80,9 +88,13 @@ Contract endpoints additionally use:
 
 - `401` — missing or invalid authentication.
 - `403` — authenticated identity is not authorized.
-- `404` — unknown schema or audit receipt.
-- `502` — upstream Google failure.
-- `503` — retriable Google availability/quota failure.
+- `404` — unknown schema, entry, or audit receipt.
+- `409` — that role already submitted.
+- `410` — entry archived.
+- `426` — HTTPS required in production.
+- `429` — per-IP/entry rate limit exceeded.
+- `502` — upstream Google failure on legacy endpoints.
+- `503` — retriable Google availability/quota failure on legacy endpoints.
 
 Validation and mapping errors are not retriable until the payload or server configuration is corrected. A browser following an audit URL must still pass through the authenticated gateway; bearer clients must fetch the URL with their `Authorization` header.
 

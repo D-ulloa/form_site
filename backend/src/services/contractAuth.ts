@@ -123,3 +123,30 @@ export function authorizeContractUserScope(
     );
   }
 }
+
+export function getContractPrincipalUserId(
+  principal: ContractPrincipal,
+  attributedUserId?: string,
+): string {
+  if (principal.mode !== 'api_key') return principal.userId;
+
+  const normalized = attributedUserId?.trim();
+  if (!normalized || normalized.length > 256 || /[\u0000-\u001F\u007F]/u.test(normalized)) {
+    throw new ContractAuthenticationError(
+      'createdBy is required when using server API-key authentication.',
+    );
+  }
+  return normalized;
+}
+
+export function authorizeContractAdmin(
+  principal: ContractPrincipal,
+  environment: NodeJS.ProcessEnv = process.env,
+): void {
+  if (principal.mode === 'api_key') return;
+  const admins = new Set((environment.CONTRACT_ADMIN_USER_IDS ?? '')
+    .split(',').map((value) => value.trim()).filter(Boolean));
+  if (!admins.has(principal.userId)) {
+    throw new ContractAuthorizationError('Contract administrator access is required.');
+  }
+}

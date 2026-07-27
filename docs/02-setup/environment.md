@@ -23,27 +23,27 @@ Required / recommended values:
 
 Contract Generation values:
 
-- `CONTRACT_GOOGLE_FORM_LINK` — public Google Form URL displayed in modal step A.
-- `CONTRACT_GOOGLE_SHEET_ID` — spreadsheet ID used only for contract submissions.
-- `CONTRACT_GOOGLE_SHEET_NAME` — exact tab name used as the contract append range.
-- `CONTRACTS_API_KEY` — optional shared bearer credential for protected contract endpoints. Use this only from a server-side client or trusted gateway; never expose it through a `VITE_*` variable.
-- `CONTRACT_AUDIT_LOGS_DIR` — optional contract audit directory, resolved at each audit read/write call. Blank or unset uses `backend/logs`. In production, set an absolute path only when it points to a mounted persistent volume with backend read/write access.
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — server-only Supabase credentials used for contract rows and property media.
+- `CONTRACT_PUBLIC_BASE_URL` — frontend origin used in generated user and client links, for example `https://app.example.com`.
+- `CONTRACT_TOKEN_SECRET` — at least 32 random characters used to HMAC role tokens. Rotate only with a deliberate token-regeneration plan.
+- `CONTRACTS_API_KEY` — optional server-to-server bearer credential; never expose it through `VITE_*`.
+- `CONTRACT_ADMIN_USER_IDS` — comma-separated trusted gateway user IDs allowed to use the admin API and UI.
+- `CONTRACT_SUBMISSION_RATE_LIMIT` — allowed attempts per IP/entry window (default `10`).
+- `CONTRACT_SUBMISSION_RATE_WINDOW_MS` — limiter window (default `900000`).
 
-The three `CONTRACT_GOOGLE_*` values are server configuration. The public schema endpoint exposes the Form link but does not expose the spreadsheet ID, tab name, or column mapping.
+Apply `backend/supabase/migrations/20260724000000_contract_entries.sql` before enabling the flow. The migration enables RLS and grants the atomic submission function only to `service_role`; browsers never write Supabase tables directly.
 
-Contract Generation deliberately ignores `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REFRESH_TOKEN`. Configure `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` even when the property workflow already uses user OAuth. `GOOGLE_SUBJECT_EMAIL` remains optional for service-account delegation.
-
-`CONTRACT_AUDIT_LOGS_DIR` changes where the process reads and writes audit JSON; it does not provision storage or change filesystem durability. In particular, setting it to a path on Vercel's ephemeral deployment filesystem, including a temporary directory, does not provide durable receipts across instances or deployments. Use an external durable audit sink for Vercel.
+`CONTRACT_GOOGLE_FORM_LINK`, `CONTRACT_GOOGLE_SHEET_ID`, `CONTRACT_GOOGLE_SHEET_NAME`, and `CONTRACT_AUDIT_LOGS_DIR` support only the retained SPEC-09 compatibility endpoints. The live SPEC-10 UI does not use them.
 
 ## Contract request identity
 
-Protected contract routes accept these authentication modes:
+Entry creation and administrator routes accept these authentication modes:
 
 - `Authorization: Bearer <CONTRACTS_API_KEY>` when `CONTRACTS_API_KEY` is configured.
 - `X-Authenticated-User-Id: <verified-user-id>` from a trusted upstream gateway.
 - `X-User-Id: <local-user-id>` only when `NODE_ENV=development` exactly. Missing, `test`, `production`, and differently cased values fail closed.
 
-Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then development `X-User-Id`. A gateway or development identity is authoritative and replaces body `meta.userId` for audit attribution. A valid API key authenticates an unscoped server client and preserves body `meta.userId` as the attributed audit owner; that body value is attribution, not a credential.
+Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then development `X-User-Id`. Hosted client forms require their client token. Hosted user forms accept their user token or the authenticated owner. API-key callers are administrators; gateway/development administrators must be listed in `CONTRACT_ADMIN_USER_IDS`.
 
 Clients may send `X-Request-Id` for correlation. The backend generates one when omitted or invalid and returns the selected value as a response header. In production, the reverse proxy must strip inbound `X-Authenticated-User-Id` and add a value derived from its authenticated session.
 
