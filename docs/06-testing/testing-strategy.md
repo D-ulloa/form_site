@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Status: 2026-07-21.
+Status: 2026-07-27.
 
 ## Current coverage
 
@@ -19,9 +19,10 @@ The property workflow retains lightweight validation helpers. Contract Generatio
 
 ### Current Contract Generation coverage
 
-The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..52` top-level tests, `# tests 76` including nested subtests, `# pass 76`, and `# fail 0`. It covers:
+The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..57` top-level tests, `# tests 81` including nested subtests, `# pass 81`, and `# fail 0`. It covers:
 
 - SPEC-10 role splitting (`Inquilino`/`Garantes` vs. `Testigos`/`Contrato`), HMAC token storage and verification, entry creation, both role submissions, combined completion, admin inspection, token regeneration, and archive lifecycle.
+- SPEC-11 repeatable `inquilinos`/`garantes` arrays, schema upload slots, client-token-authorized presigning, paired/private DNI reference enforcement, approval-field rejection, IPC/IPL validation, and UTC-safe server date recalculation including leap years and zero/absent update intervals.
 - The retained SPEC-09 compatibility boundary, including:
 - Runtime contract configuration, public/private projection, malformed destination rejection, and strict service-account-only Google auth.
 - Strict request validation for unknown fields, no numeric coercion, email, impossible ISO dates, minimum limits, contract-type mismatch, and allowed `meta.origin` values.
@@ -37,9 +38,10 @@ The final backend suite runs with `cd backend && npm test`. The current TAP summ
 - Call-time `CONTRACT_AUDIT_LOGS_DIR` resolution, explicit test overrides, and blank-value fallback to `backend/logs`.
 - Schema-injected validation across all six field types, required `false`, select/pattern/length/max/email/date rules, and invalid schema rules.
 
-The frontend suite currently runs 20 Vitest cases. It covers:
+The frontend suite currently runs 24 Vitest cases. It covers:
 
 - Real ISO calendar dates; required, email, range, pattern, length, and select rules; number/default normalization; and all six rendered field controls.
+- Repeatable client blocks with one default item, add/remove behavior, two DNI controls per block, nested payload normalization, Ajuste options, read-only computed controls, and calendar-safe computed date previews.
 - Copy success and failure, normalized single-submit locking, retained data and focused server field errors, safe Sheet/audit receipt links, and Step B accessibility.
 - Authenticated inline audit loading and failure display while retaining the audit `href`.
 - `AgentModal` dialog labeling, cancellation, and accessibility.

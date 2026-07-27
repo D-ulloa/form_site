@@ -3,13 +3,12 @@ import { getContractRoleSchema, getContractSchemaDefinition } from '../config/co
 import type {
   ContractEntryRecord,
   ContractEntrySummary,
-  ContractFieldValue,
   ContractRole,
   ContractSubmissionMetadata,
   ContractValidationIssue,
 } from '../contracts/types.js';
-import { validateContractSubmissionAgainstSchema } from './validateContractSubmission.js';
 import type { ContractEntryRepository } from './contractEntryRepository.js';
+import { validateContractRoleSubmissionFields } from './validateContractRoleSubmission.js';
 import {
   generateContractAccessToken,
   hashContractAccessToken,
@@ -128,15 +127,25 @@ export async function createContractEntry(
   };
 }
 
+function sanitizeValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.replace(/[\u0000\u000B\u000C\u000E-\u001F\u007F]/gu, '');
+  }
+  if (Array.isArray(value)) return value.map(sanitizeValue);
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([name, nestedValue]) => [name, sanitizeValue(nestedValue)]),
+    );
+  }
+  return value;
+}
+
 function sanitizeFields(
-  fields: Readonly<Record<string, ContractFieldValue>>,
-): Readonly<Record<string, ContractFieldValue>> {
-  return Object.fromEntries(Object.entries(fields).map(([name, value]) => [
-    name,
-    typeof value === 'string'
-      ? value.replace(/[\u0000\u000B\u000C\u000E-\u001F\u007F]/gu, '')
-      : value,
-  ]));
+  fields: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  return Object.fromEntries(
+    Object.entries(fields).map(([name, value]) => [name, sanitizeValue(value)]),
+  );
 }
 
 export async function submitContractEntryRole(
@@ -150,21 +159,16 @@ export async function submitContractEntryRole(
   repository: ContractEntryRepository,
   dependencies: {
     readonly generateSubmissionId?: () => string;
+    readonly environment?: NodeJS.ProcessEnv;
   } = {},
 ): Promise<SubmitContractEntryRoleResult> {
   const roleSchema = getContractRoleSchema(input.entry.schemaId, input.role);
-  const validation = validateContractSubmissionAgainstSchema({
-    schemaId: roleSchema.schemaId,
-    contractType: roleSchema.contractType,
+  const validation = validateContractRoleSubmissionFields({
+    entry: input.entry,
+    role: input.role,
+    roleSchema,
     fields: input.fields,
-    meta: { userId: input.entry.createdBy, origin: 'ui' },
-  }, {
-    schemaId: roleSchema.schemaId,
-    contractType: roleSchema.contractType,
-    sections: roleSchema.sections,
-    columnMap: Object.fromEntries(roleSchema.sections.flatMap((section) =>
-      section.fields.map((field) => [field.name, field.label]))),
-  });
+  }, dependencies.environment);
   if (!validation.success) throw new ContractRoleValidationError(validation.errors);
 
   const submissionId = (dependencies.generateSubmissionId ?? randomUUID)();
@@ -172,7 +176,7 @@ export async function submitContractEntryRole(
     entryId: input.entry.id,
     authorizedTokenHash: input.authorizedTokenHash,
     role: input.role,
-    fields: sanitizeFields(validation.data.fields),
+    fields: sanitizeFields(validation.fields),
     metadata: input.metadata,
     submittedAt: input.metadata.receivedAt,
     submissionId,

@@ -9,6 +9,10 @@ import type {
   ContractValidationResult,
 } from '../contracts/types.js';
 import { ContractSchemaNotFoundError } from '../config/contractSchemas.js';
+import {
+  computeContractFormattedStart,
+  computeContractFormattedUpdate,
+} from './contractComputedDates.js';
 
 const ContractSubmissionRequestSchema = z
   .object({
@@ -123,6 +127,9 @@ function validateField(
         issues.push({ path, code: 'invalid_type', message: `${field.label} must be a finite number.` });
         return undefined;
       }
+      if (field.integer && !Number.isSafeInteger(value)) {
+        issues.push({ path, code: 'invalid_type', message: `${field.label} must be a whole number.` });
+      }
       if (field.min !== undefined && value < field.min) {
         issues.push({ path, code: 'min', message: `${field.label} must be at least ${field.min}.` });
       }
@@ -183,6 +190,7 @@ export function validateContractSubmissionAgainstSchema(
   }
 
   for (const field of definitions) {
+    if (field.computed) continue;
     const present = Object.prototype.hasOwnProperty.call(request.fields, field.name);
     const value = request.fields[field.name];
 
@@ -213,6 +221,33 @@ export function validateContractSubmissionAgainstSchema(
       code: 'unknown_field',
       message: `Field "${fieldName}" is not defined by schema "${schema.schemaId}".`,
     });
+  }
+  const formattedStartField = definitions.find(
+    (field) => field.computed === 'formatted_start',
+  );
+  if (formattedStartField) {
+    const startDate = validatedFields.contract_start_date;
+    if (typeof startDate === 'string') {
+      const computed = computeContractFormattedStart(startDate);
+      if (computed) validatedFields[formattedStartField.name] = computed;
+    }
+  }
+
+  const formattedUpdateField = definitions.find(
+    (field) => field.computed === 'formatted_update',
+  );
+  if (formattedUpdateField) {
+    const formattedStart = formattedStartField
+      ? validatedFields[formattedStartField.name]
+      : undefined;
+    const updateMonths = validatedFields.contract_update;
+    if (
+      typeof formattedStart === 'string' &&
+      (updateMonths === undefined || typeof updateMonths === 'number')
+    ) {
+      const computed = computeContractFormattedUpdate(formattedStart, updateMonths);
+      if (computed) validatedFields[formattedUpdateField.name] = computed;
+    }
   }
 
   if (issues.length > 0) {

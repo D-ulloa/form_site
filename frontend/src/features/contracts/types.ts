@@ -12,6 +12,7 @@ export interface ContractSelectOption {
 }
 
 export type ContractFieldOption = string | ContractSelectOption;
+export type ContractComputedField = 'formatted_start' | 'formatted_update';
 
 export interface ContractField {
   name: string;
@@ -24,11 +25,56 @@ export interface ContractField {
   pattern?: string;
   maxLength?: number;
   options?: ContractFieldOption[];
+  integer?: boolean;
+  readOnly?: boolean;
+  computed?: ContractComputedField;
+}
+
+export type ContractRepeatableCollection = 'inquilinos' | 'garantes';
+export type ContractDniImageSlot = 'front' | 'back';
+
+export interface ContractRepeatableDefinition {
+  name: ContractRepeatableCollection;
+  itemLabel: string;
+  addLabel: string;
+  minItems: 1;
+}
+
+export interface ContractDniUploadDefinition {
+  name: string;
+  label: string;
+  slot: ContractDniImageSlot;
+  required: boolean;
 }
 
 export interface ContractSection {
   title: string;
   fields: ContractField[];
+  repeatable?: ContractRepeatableDefinition;
+  uploads?: ContractDniUploadDefinition[];
+}
+
+export interface ContractDniImageReference {
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storagePath: string;
+  storageBucket: string;
+  publicPath: string;
+  slot: ContractDniImageSlot;
+}
+
+export interface ContractDniPresignedUpload extends ContractDniImageReference {
+  uploadUrl: string;
+}
+
+export interface ContractDniUploadDescriptor {
+  collection: ContractRepeatableCollection;
+  itemIndex: number;
+  slot: ContractDniImageSlot;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
 }
 
 export interface ContractPublicSchema {
@@ -39,7 +85,7 @@ export interface ContractPublicSchema {
 }
 
 export type ContractFieldValue = string | number | boolean;
-export type ContractFormValues = Record<string, ContractFieldValue>;
+export type ContractFormValues = Record<string, unknown>;
 
 export interface ContractSubmitRequest {
   contractType: string;
@@ -86,12 +132,45 @@ export function buildContractDefaultValues(
   schema: ContractSchemaSections,
   values: ContractFormValues = {},
 ): ContractFormValues {
-  return Object.fromEntries(
-    getContractFields(schema).map((field) => [
-      field.name,
-      values[field.name] ?? (field.type === 'boolean' ? false : ''),
-    ]),
-  );
+  const defaults: ContractFormValues = {};
+  for (const section of schema.sections) {
+    if (section.repeatable) {
+      const existing = values[section.repeatable.name];
+      const existingItems = Array.isArray(existing) ? existing : [];
+      defaults[section.repeatable.name] = (existingItems.length > 0 ? existingItems : [{}])
+        .map((item) => {
+          const source = typeof item === 'object' && item !== null
+            ? item as Record<string, unknown>
+            : {};
+          return {
+            ...Object.fromEntries(section.fields.map((field) => [
+              field.name,
+              source[field.name] ?? (field.type === 'boolean' ? false : ''),
+            ])),
+            ...Object.fromEntries((section.uploads ?? [])
+              .filter((upload) => source[upload.name] !== undefined)
+              .map((upload) => [upload.name, source[upload.name]])),
+          };
+        });
+      continue;
+    }
+    for (const field of section.fields) {
+      defaults[field.name] = values[field.name] ?? (field.type === 'boolean' ? false : '');
+    }
+  }
+  return defaults;
+}
+
+function normalizeFieldValue(field: ContractField, rawValue: unknown): ContractFieldValue | undefined {
+  if (field.computed) return undefined;
+  if (field.type === 'boolean') return rawValue === true;
+  if (rawValue === undefined || rawValue === '') return field.required ? '' : undefined;
+  if (field.type === 'number') {
+    const numberValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    return Number.isFinite(numberValue) ? numberValue : undefined;
+  }
+  const stringValue = String(rawValue).trim();
+  return stringValue !== '' || field.required ? stringValue : undefined;
 }
 
 export function normalizeContractFields(
@@ -101,31 +180,42 @@ export function normalizeContractFields(
   const normalized: Record<string, ContractFieldValue> = {};
 
   for (const field of getContractFields(schema)) {
-    const rawValue = values[field.name];
-
-    if (field.type === 'boolean') {
-      normalized[field.name] = rawValue === true;
-      continue;
-    }
-
-    if (rawValue === undefined || rawValue === '') {
-      if (field.required) normalized[field.name] = '';
-      continue;
-    }
-
-    if (field.type === 'number') {
-      const numberValue =
-        typeof rawValue === 'number' ? rawValue : Number(rawValue);
-      if (Number.isFinite(numberValue)) normalized[field.name] = numberValue;
-      continue;
-    }
-
-    const stringValue = String(rawValue).trim();
-    if (stringValue !== '' || field.required) {
-      normalized[field.name] = stringValue;
-    }
+    const value = normalizeFieldValue(field, values[field.name]);
+    if (value !== undefined) normalized[field.name] = value;
   }
 
+  return normalized;
+}
+
+export function normalizeContractRoleFields(
+  schema: ContractSchemaSections,
+  values: ContractFormValues,
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+  for (const section of schema.sections) {
+    if (!section.repeatable) {
+      for (const field of section.fields) {
+        const value = normalizeFieldValue(field, values[field.name]);
+        if (value !== undefined) normalized[field.name] = value;
+      }
+      continue;
+    }
+    const rawItems = values[section.repeatable.name];
+    normalized[section.repeatable.name] = (Array.isArray(rawItems) ? rawItems : []).map((item) => {
+      const source = typeof item === 'object' && item !== null
+        ? item as Record<string, unknown>
+        : {};
+      const normalizedItem: Record<string, unknown> = {};
+      for (const field of section.fields) {
+        const value = normalizeFieldValue(field, source[field.name]);
+        if (value !== undefined) normalizedItem[field.name] = value;
+      }
+      for (const upload of section.uploads ?? []) {
+        if (source[upload.name] !== undefined) normalizedItem[upload.name] = source[upload.name];
+      }
+      return normalizedItem;
+    });
+  }
   return normalized;
 }
 

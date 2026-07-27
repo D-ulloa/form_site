@@ -7,6 +7,9 @@ export type ContractFieldType =
   | 'select';
 
 export type ContractFieldValue = string | number | boolean;
+export type ContractComputedField =
+  | 'formatted_start'
+  | 'formatted_update';
 
 export interface ContractFieldDefinition {
   readonly name: string;
@@ -19,11 +22,46 @@ export interface ContractFieldDefinition {
   readonly pattern?: string;
   readonly maxLength?: number;
   readonly options?: readonly string[];
+  readonly integer?: boolean;
+  readonly readOnly?: boolean;
+  readonly computed?: ContractComputedField;
 }
 
 export interface ContractSectionDefinition {
   readonly title: string;
   readonly fields: readonly ContractFieldDefinition[];
+}
+
+export type ContractRepeatableCollection = 'inquilinos' | 'garantes';
+export type ContractDniImageSlot = 'front' | 'back';
+
+export interface ContractRepeatableDefinition {
+  readonly name: ContractRepeatableCollection;
+  readonly itemLabel: string;
+  readonly addLabel: string;
+  readonly minItems: 1;
+}
+
+export interface ContractDniUploadDefinition {
+  readonly name: string;
+  readonly label: string;
+  readonly slot: ContractDniImageSlot;
+  readonly required: boolean;
+}
+
+export interface ContractRoleSectionDefinition extends ContractSectionDefinition {
+  readonly repeatable?: ContractRepeatableDefinition;
+  readonly uploads?: readonly ContractDniUploadDefinition[];
+}
+
+export interface ContractDniImageReference {
+  readonly originalName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly storagePath: string;
+  readonly storageBucket: string;
+  readonly publicPath: string;
+  readonly slot: ContractDniImageSlot;
 }
 
 export interface ContractSchemaDefinition {
@@ -114,7 +152,7 @@ export interface ContractRoleSchema {
   readonly schemaId: string;
   readonly contractType: string;
   readonly role: ContractRole;
-  readonly sections: readonly ContractSectionDefinition[];
+  readonly sections: readonly ContractRoleSectionDefinition[];
 }
 
 export interface ContractEntryRecord {
@@ -128,8 +166,8 @@ export interface ContractEntryRecord {
   readonly clientFilled: boolean;
   readonly userSubmittedAt: string | null;
   readonly clientSubmittedAt: string | null;
-  readonly userSubmission: Readonly<Record<string, ContractFieldValue>> | null;
-  readonly clientSubmission: Readonly<Record<string, ContractFieldValue>> | null;
+  readonly userSubmission: Readonly<Record<string, unknown>> | null;
+  readonly clientSubmission: Readonly<Record<string, unknown>> | null;
   readonly combinedSubmission: Readonly<Record<string, unknown>> | null;
   readonly status: ContractEntryStatus;
   readonly archivedAt: string | null;

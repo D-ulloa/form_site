@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { useForm, type FieldError, type FieldErrors } from 'react-hook-form';
+import { useForm, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
 import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractFieldRenderer } from '../features/contracts/components/ContractFieldRenderer.tsx';
+import { ContractRepeatableSection } from '../features/contracts/components/ContractRepeatableSection.tsx';
 import {
   ContractRequestError,
   fetchContractRoleSchema,
@@ -14,21 +15,84 @@ import {
 import {
   buildContractDefaultValues,
   getContractEntryWaitingStatus,
-  getContractFields,
-  normalizeContractFields,
+  normalizeContractRoleFields,
   type ContractFormValues,
+  type ContractSection,
   type ContractRole,
 } from '../features/contracts/types.ts';
+import {
+  computeFormattedStart,
+  computeFormattedUpdate,
+} from '../features/contracts/utils/contractComputedDates.ts';
 
 function roleFromRoute(value: string | undefined): ContractRole | null {
   return value === 'user' || value === 'client' ? value : null;
 }
 
-function displayValue(value: string | number | boolean | undefined): string {
+function displayValue(value: unknown): string {
   if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (typeof value === 'object' && value !== null && 'originalName' in value) {
+    return `Imagen: ${String((value as Record<string, unknown>).originalName)}`;
+  }
   return value === undefined || value === '' ? '—' : String(value);
 }
 
+
+function ReadOnlyContractSection({
+  section,
+  values,
+}: {
+  section: ContractSection;
+  values: ContractFormValues;
+}) {
+  if (!section.repeatable) {
+    return (
+      <div>
+        <h2 className="text-sm font-semibold text-slate-200">{section.title}</h2>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+          {section.fields.map((field) => (
+            <div key={field.name} className="rounded-lg bg-black/15 p-3">
+              <dt className="text-xs text-slate-500">{field.label}</dt>
+              <dd className="mt-1 break-words text-sm text-slate-200">
+                {displayValue(values[field.name])}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  }
+
+  const rawItems = values[section.repeatable.name];
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-slate-200">{section.title}</h2>
+      <div className="mt-4 space-y-4">
+        {items.map((item, index) => {
+          const itemValues = typeof item === 'object' && item !== null
+            ? item as Record<string, unknown>
+            : {};
+          return (
+            <div key={index} className="rounded-xl border border-white/[0.08] p-4">
+              <h3 className="text-xs font-medium text-cyan-300">
+                {section.repeatable?.itemLabel} {index + 1}
+              </h3>
+              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                {[...section.fields, ...(section.uploads ?? [])].map((field) => (
+                  <div key={field.name} className="rounded-lg bg-black/15 p-3">
+                    <dt className="text-xs text-slate-500">{field.label}</dt>
+                    <dd className="mt-1 break-words text-sm text-slate-200">{displayValue(itemValues[field.name])}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 export function ContractFormPage() {
   const params = useParams<{ entryId: string; role: string }>();
   const location = useLocation();
@@ -44,8 +108,20 @@ export function ContractFormPage() {
     [entryId, location.search, role],
   );
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [pendingUploads, setPendingUploads] = useState<Set<string>>(() => new Set());
   const form = useForm<ContractFormValues>({ defaultValues: {} });
-  const { clearErrors, formState: { errors }, handleSubmit, register, reset, setError } = form;
+  const {
+    clearErrors,
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    reset,
+    setError,
+    setValue,
+  } = form;
+  const contractStartDate = useWatch({ control, name: 'contract_start_date' });
+  const contractUpdate = useWatch({ control, name: 'contract_update' });
 
   useEffect(() => {
     if (!token || !new URLSearchParams(location.search).has('token')) return;
@@ -69,7 +145,7 @@ export function ContractFormPage() {
     retry: false,
   });
   const submission = useMutation({
-    mutationFn: (fields: Record<string, string | number | boolean>) =>
+    mutationFn: (fields: Record<string, unknown>) =>
       submitContractRole(entryId, role as ContractRole, token, fields, agent?.agent_user_id),
   });
 
@@ -78,6 +154,23 @@ export function ContractFormPage() {
       reset(buildContractDefaultValues(schemaQuery.data, schemaQuery.data.values));
     }
   }, [reset, schemaQuery.data]);
+
+  useEffect(() => {
+    const formattedStart = computeFormattedStart(contractStartDate);
+    setValue('contract_formatted_start', formattedStart, { shouldValidate: false });
+    setValue(
+      'contract_formatted_update',
+      computeFormattedUpdate(formattedStart, contractUpdate),
+      { shouldValidate: false },
+    );
+  }, [contractStartDate, contractUpdate, setValue]);
+
+  const setUploadPending = (key: string, pending: boolean) => setPendingUploads((current) => {
+    const next = new Set(current);
+    if (pending) next.add(key);
+    else next.delete(key);
+    return next;
+  });
 
   if (!role) {
     return (
@@ -100,17 +193,34 @@ export function ContractFormPage() {
 
   const validSubmit = (values: ContractFormValues) => {
     if (!schema || submission.isPending) return;
+    if (pendingUploads.size > 0) {
+      setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
+      return;
+    }
+    const hasIncompleteDniPair = schema.sections.some((section) => {
+      if (!section.repeatable || (section.uploads?.length ?? 0) !== 2) return false;
+      const rawItems = values[section.repeatable.name];
+      if (!Array.isArray(rawItems)) return false;
+      return rawItems.some((item) => {
+        if (typeof item !== 'object' || item === null) return false;
+        const itemValues = item as Record<string, unknown>;
+        const uploadCount = (section.uploads ?? [])
+          .filter((upload) => itemValues[upload.name] !== undefined).length;
+        return uploadCount === 1;
+      });
+    });
+    if (hasIncompleteDniPair) {
+      setSubmitMessage('Cada DNI debe incluir Frente DNI y Dorso DNI.');
+      return;
+    }
     clearErrors();
     setSubmitMessage(null);
-    submission.mutate(normalizeContractFields(schema, values), {
+    submission.mutate(normalizeContractRoleFields(schema, values), {
       onSuccess: () => { void schemaQuery.refetch(); },
       onError: (error) => {
         if (error instanceof ContractRequestError) {
-          const names = new Set(getContractFields(schema).map((field) => field.name));
           error.fieldErrors.forEach((fieldError) => {
-            if (fieldError.field && names.has(fieldError.field)) {
-              setError(fieldError.field, { type: 'server', message: fieldError.message });
-            }
+            if (fieldError.field) setError(fieldError.field, { type: 'server', message: fieldError.message });
           });
         }
         setSubmitMessage(error.message);
@@ -184,42 +294,40 @@ export function ContractFormPage() {
                 {schema.readOnly ? (
                   <div className="space-y-8">
                     {schema.sections.map((section) => (
-                      <div key={section.title}>
-                        <h2 className="text-sm font-semibold text-slate-200">{section.title}</h2>
-                        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                          {section.fields.map((field) => (
-                            <div key={field.name} className="rounded-lg bg-black/15 p-3">
-                              <dt className="text-xs text-slate-500">{field.label}</dt>
-                              <dd className="mt-1 break-words text-sm text-slate-200">
-                                {displayValue(schema.values[field.name])}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </div>
+                      <ReadOnlyContractSection key={section.title} section={section} values={schema.values} />
                     ))}
                   </div>
                 ) : (
                   <form onSubmit={(event) => { void handleSubmit(validSubmit, invalidSubmit)(event); }} noValidate>
                     <div className="space-y-8">
-                      {schema.sections.map((section) => (
-                        <fieldset key={section.title} className="border-0 p-0">
-                          <legend className="mb-5 text-sm font-semibold text-slate-200">{section.title}</legend>
-                          <div className="grid gap-5 sm:grid-cols-2">
-                            {section.fields.map((field) => (
-                              <ContractFieldRenderer
-                                key={field.name}
-                                field={field}
-                                register={register}
-                                error={errors[field.name] as FieldError | undefined}
-                              />
-                            ))}
-                          </div>
-                        </fieldset>
-                      ))}
+                      {schema.sections.map((section) => section.repeatable ? (
+                        <ContractRepeatableSection
+                          key={section.repeatable.name}
+                          section={section}
+                          form={form}
+                          entryId={entryId}
+                          token={token}
+                          userId={agent?.agent_user_id}
+                          onUploadPendingChange={setUploadPending}
+                        />
+                      ) : (
+                          <fieldset key={section.title} className="border-0 p-0">
+                            <legend className="mb-5 text-sm font-semibold text-slate-200">{section.title}</legend>
+                            <div className="grid gap-5 sm:grid-cols-2">
+                              {section.fields.map((field) => (
+                                <ContractFieldRenderer
+                                  key={field.name}
+                                  field={field}
+                                  register={register}
+                                  error={errors[field.name] as FieldError | undefined}
+                                />
+                              ))}
+                            </div>
+                          </fieldset>
+                        ))}
                     </div>
                     <div className="mt-8 flex justify-end border-t border-white/[0.07] pt-5">
-                      <Button type="submit" loading={submission.isPending} disabled={submission.isPending}>
+                      <Button type="submit" loading={submission.isPending} disabled={submission.isPending || pendingUploads.size > 0}>
                         {submission.isPending ? 'Guardando…' : 'Enviar formulario'}
                       </Button>
                     </div>

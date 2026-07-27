@@ -1,6 +1,6 @@
 # Architecture
 
-Status: 2026-07-21.
+Status: 2026-07-27.
 
 ## Stack
 
@@ -24,7 +24,7 @@ Important frontend flows:
 - `NewPropertyPage`: composes section components and orchestrates form submission.
 - `SubmissionSuccessPage`: shows submission status and integration results.
 - `ContractEntryModal`: creates a contract entry and presents the hosted user form and copyable client link.
-- `ContractFormPage`: renders role-only fields and the JSON schema, then switches to read-only after submission.
+- `ContractFormPage`: renders role-only fields and the JSON schema, including repeatable client records, private front/back DNI uploads, and live read-only computed dates, then switches to read-only after submission.
 - `ContractAdminPage`: lists, inspects, archives, and regenerates role links for administrators.
 
 The contract UI contains no Supabase service key or token hashing secret. It consumes role-authorized schema routes and treats frontend validation as usability only; the backend remains authoritative.
@@ -45,7 +45,8 @@ Key backend responsibilities:
 - Validate incoming property payloads.
 - Create contract entries with independent HMAC-hashed user and client tokens.
 - Serve role-specific schemas only after token or owner authorization.
-- Validate and atomically persist each role submission to Supabase.
+- Validate flat user fields or strict repeatable client arrays, recalculate computed dates, and atomically persist each role submission to Supabase.
+- Authorize client DNI upload intents, issue private Supabase signed upload URLs, and validate stored object references against the current entry before persistence.
 - Assemble the combined submission when both roles are complete.
 - Enforce production HTTPS, per-entry/IP rate limiting, admin access, archive, and token regeneration.
 - Create a Google Drive folder and upload media.

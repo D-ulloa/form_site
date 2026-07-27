@@ -1,6 +1,6 @@
 # Project Overview
 
-Status: 2026-07-21.
+Status: 2026-07-27.
 
 This repository implements two internal workflows in an admin-style web application:
 
@@ -47,11 +47,12 @@ This repository implements two internal workflows in an admin-style web applicat
 1. An authenticated operator selects `Contract Generation`.
 2. `POST /api/contracts/create` creates a Supabase `contract_entries` row and returns user and client URLs.
 3. The operator opens the user form and copies the client link.
-4. Each hosted role page fetches only its assigned schema sections and submits independently.
-5. The backend validates the role token or user ownership, applies rate limiting, validates fields, and calls an atomic Supabase function.
-6. Supabase stores one immutable role audit row and updates the entry.
-7. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
-8. Configured administrators can list, inspect, archive, and regenerate role links from `/contracts/admin`.
+4. Each hosted role page fetches only its assigned schema sections and submits independently. The client starts with repeatable `Inquilino`/`Garante` records and private front/back DNI slots.
+5. The user schema constrains `Ajuste` to IPC/IPL and previews read-only dates that the backend recalculates authoritatively.
+6. The backend validates the role token or user ownership, applies rate limiting, validates fields and DNI references, and calls an atomic Supabase function.
+7. Supabase stores one immutable role audit row and updates the entry.
+8. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
+9. Configured administrators can list, inspect, archive, and regenerate role links from `/contracts/admin`.
 
 ## Code map
 

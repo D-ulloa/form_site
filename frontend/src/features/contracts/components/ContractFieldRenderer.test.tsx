@@ -74,6 +74,10 @@ describe('contract field helpers', () => {
     expect(validateContractField(allFieldTypes[1], 'not-an-email')).toContain('correo válido');
     expect(validateContractField(allFieldTypes[2], -1)).toContain('mayor o igual');
     expect(validateContractField(allFieldTypes[2], 11)).toContain('menor o igual');
+    expect(validateContractField(
+      makeField({ type: 'number', integer: true }),
+      1.5,
+    )).toContain('entero');
     expect(validateContractField(allFieldTypes[3], '2026-02-30')).toContain('fecha válida');
     expect(validateContractField(allFieldTypes[5], 'missing')).toContain('opciones');
 
@@ -156,5 +160,51 @@ describe('ContractFieldRenderer accessibility', () => {
       rules: { 'color-contrast': { enabled: false } },
     });
     expect(results.violations).toEqual([]);
+  });
+
+  it('renders Ajuste as IPC/IPL only and computed dates as readonly inputs', () => {
+    const specFields: ContractField[] = [
+      makeField({
+        name: 'contract_selection',
+        label: 'Ajuste',
+        type: 'select',
+        required: false,
+        options: ['IPC', 'IPL'],
+      }),
+      makeField({
+        name: 'contract_formatted_start',
+        label: 'Formateada_1',
+        type: 'date',
+        readOnly: true,
+        computed: 'formatted_start',
+      }),
+      makeField({
+        name: 'contract_formatted_update',
+        label: 'Formateada_2',
+        type: 'date',
+        required: false,
+        readOnly: true,
+        computed: 'formatted_update',
+      }),
+    ];
+
+    function SpecControls() {
+      const { register } = useForm<ContractFormValues>({
+        defaultValues: {
+          contract_selection: '',
+          contract_formatted_start: '2026-07-31',
+          contract_formatted_update: '2027-01-31',
+        },
+      });
+      return specFields.map((field) => (
+        <ContractFieldRenderer key={field.name} field={field} register={register} />
+      ));
+    }
+
+    render(<SpecControls />);
+    const adjustment = screen.getByLabelText(/^Ajuste/) as HTMLSelectElement;
+    expect(Array.from(adjustment.options).map((option) => option.value)).toEqual(['', 'IPC', 'IPL']);
+    expect((screen.getByLabelText(/^Formateada_1/) as HTMLInputElement).readOnly).toBe(true);
+    expect((screen.getByLabelText(/^Formateada_2/) as HTMLInputElement).readOnly).toBe(true);
   });
 });

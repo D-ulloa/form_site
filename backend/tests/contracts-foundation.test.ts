@@ -148,7 +148,8 @@ test('mapper follows schema order, escapes formulas, and emits optional blanks',
   const schema = getContractSchemaDefinition(RENT_CONTRACT_SCHEMA_ID);
   const mapped = mapContractFieldsToSheetRow(schema, validation.data.fields);
 
-  assert.equal(mapped.values.length, 33);
+  assert.equal(mapped.values.length, 32);
+  assert.equal(mapped.fieldNames.includes('approve_contract'), false);
   assert.deepEqual(mapped.fieldNames.slice(0, 3), [
     'tenant_full_name', 'tenant_dni', 'tenant_phone',
   ]);

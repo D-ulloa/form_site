@@ -30,6 +30,15 @@ import {
   toContractEntrySummary,
 } from '../services/contractEntryService.js';
 import {
+  CONTRACT_DNI_IMAGE_MIME_TYPES,
+  ContractDniUploadConfigurationError,
+  ContractDniUploadValidationError,
+  getContractDniMaxImageBytes,
+  issueContractDniUploadUrls,
+  type ContractDniPresignedUpload,
+  type ContractDniUploadDescriptor,
+} from '../services/contractDniUploadService.js';
+import {
   createContractSubmissionRateLimiter,
   type ContractSubmissionRateLimiter,
 } from '../services/contractSubmissionRateLimiter.js';
@@ -48,12 +57,42 @@ const CreateEntryBodySchema = z.object({
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
 }).strict();
+const DniPresignBodySchema = z.object({
+  uploads: z.array(z.object({
+    collection: z.enum(['inquilinos', 'garantes']),
+    itemIndex: z.number().int().nonnegative(),
+    slot: z.enum(['front', 'back']),
+    originalName: z.string().trim().min(1).max(256),
+    mimeType: z.string().refine((value) => CONTRACT_DNI_IMAGE_MIME_TYPES.has(value), {
+      message: 'DNI uploads accept image files only.',
+    }),
+    sizeBytes: z.number().int().positive(),
+  }).strict()).min(1).max(20),
+}).strict().superRefine((body, context) => {
+  const slots = new Set<string>();
+  body.uploads.forEach((upload, index) => {
+    const key = `${upload.collection}:${upload.itemIndex}:${upload.slot}`;
+    if (slots.has(key)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['uploads', index, 'slot'],
+        message: 'Each repeated entry accepts only one front and one back DNI image.',
+      });
+    }
+    slots.add(key);
+  });
+});
 
 export interface ContractEntriesRouterDependencies {
   readonly environment: NodeJS.ProcessEnv;
   readonly repository: ContractEntryRepository;
   readonly rateLimiter: ContractSubmissionRateLimiter;
   readonly now: () => Date;
+  readonly issueDniUploadUrls: (
+    entryId: string,
+    descriptors: readonly ContractDniUploadDescriptor[],
+    environment: NodeJS.ProcessEnv,
+  ) => Promise<readonly ContractDniPresignedUpload[]>;
 }
 
 function resolveDependencies(
@@ -65,6 +104,7 @@ function resolveDependencies(
     repository: overrides.repository ?? createContractEntryRepository(environment),
     rateLimiter: overrides.rateLimiter ?? createContractSubmissionRateLimiter(environment),
     now: overrides.now ?? (() => new Date()),
+    issueDniUploadUrls: overrides.issueDniUploadUrls ?? issueContractDniUploadUrls,
   };
 }
 
@@ -171,6 +211,15 @@ function sendError(res: Response, error: unknown): void {
     });
     return;
   }
+  if (error instanceof ContractDniUploadValidationError) {
+    res.status(400).json({
+      error: 'INVALID_DNI_UPLOAD',
+      message: error.message,
+      retriable: false,
+    });
+    return;
+  }
+
   if (error instanceof ContractAuthenticationError) {
     res.status(401).json({ error: 'AUTHENTICATION_REQUIRED', message: error.message, retriable: false });
     return;
@@ -199,6 +248,7 @@ function sendError(res: Response, error: unknown): void {
   }
   if (
     error instanceof ContractDatabaseConfigurationError ||
+    error instanceof ContractDniUploadConfigurationError ||
     error instanceof ContractPublicBaseUrlConfigurationError ||
     error instanceof ContractTokenConfigurationError
   ) {
@@ -317,6 +367,31 @@ export function createContractEntriesRouter(
     }
   });
 
+  router.post('/:entryId/dni-uploads/presign', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const entry = await loadEntry(req.params.entryId, dependencies.repository);
+      if (entry.status === 'archived') throw new ContractEntryStateError('archived');
+      if (entry.clientFilled) throw new ContractEntryStateError('already_submitted');
+      authorizeRoleAccess(req, entry, 'client', dependencies.environment);
+      const body = DniPresignBodySchema.parse(req.body);
+      const maxImageBytes = getContractDniMaxImageBytes(dependencies.environment);
+      if (body.uploads.some((upload) => upload.sizeBytes > maxImageBytes)) {
+        throw new ContractDniUploadValidationError(
+          'The DNI image size is outside the configured limit.',
+        );
+      }
+      const uploads = await dependencies.issueDniUploadUrls(
+        entry.id,
+        body.uploads,
+        dependencies.environment,
+      );
+      res.status(200).json({ uploads });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   router.get('/:entryId/schema', async (req, res) => {
     setPrivateHeaders(res);
     try {
@@ -377,7 +452,9 @@ export function createContractEntriesRouter(
           userAgent: (req.get('User-Agent') ?? '').slice(0, 512),
           receivedAt,
         },
-      }, dependencies.repository);
+      }, dependencies.repository, {
+        environment: dependencies.environment,
+      });
       res.status(200).json(result);
     } catch (error) {
       sendError(res, error);

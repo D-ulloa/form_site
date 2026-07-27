@@ -4,6 +4,8 @@ import type {
   ContractAdminEntryDetail,
   ContractApiErrorBody,
   ContractEntryLinks,
+  ContractDniPresignedUpload,
+  ContractDniUploadDescriptor,
   ContractEntrySummary,
   ContractFieldApiError,
   ContractPublicSchema,
@@ -43,6 +45,9 @@ const ContractFieldSchema = z
     pattern: z.string().optional(),
     maxLength: z.number().int().nonnegative().optional(),
     options: z.array(ContractOptionSchema).optional(),
+    integer: z.boolean().optional(),
+    readOnly: z.boolean().optional(),
+    computed: z.enum(['formatted_start', 'formatted_update']).optional(),
   })
   .superRefine((field, ctx) => {
     if (field.min !== undefined && field.max !== undefined && field.min > field.max) {
@@ -141,17 +146,49 @@ const ContractEntryLinksSchema = z.object({
   status: z.literal('open'),
 });
 
+const ContractRoleSectionSchema = z.object({
+  title: z.string().min(1),
+  fields: z.array(ContractFieldSchema).min(1),
+  repeatable: z.object({
+    name: z.enum(['inquilinos', 'garantes']),
+    itemLabel: z.string().min(1),
+    addLabel: z.string().min(1),
+    minItems: z.literal(1),
+  }).optional(),
+  uploads: z.array(z.object({
+    name: z.string().min(1),
+    label: z.string().min(1),
+    slot: z.enum(['front', 'back']),
+    required: z.boolean(),
+  })).max(2).optional(),
+});
+
+const ContractDniImageReferenceSchema = z.object({
+  originalName: z.string().min(1),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  storagePath: z.string().min(1),
+  storageBucket: z.string().min(1),
+  publicPath: z.string().min(1),
+  slot: z.enum(['front', 'back']),
+});
+
+const ContractDniPresignedUploadSchema = ContractDniImageReferenceSchema.extend({
+  uploadUrl: z.string().min(1),
+});
+
+const ContractDniPresignResponseSchema = z.object({
+  uploads: z.array(ContractDniPresignedUploadSchema).min(1),
+});
+
 const ContractRoleSchemaResponseSchema = z.object({
   schemaId: z.string().min(1),
   contractType: z.string().min(1),
   role: z.enum(['user', 'client']),
-  sections: z.array(z.object({
-    title: z.string().min(1),
-    fields: z.array(ContractFieldSchema).min(1),
-  })).min(1),
+  sections: z.array(ContractRoleSectionSchema).min(1),
   entry: ContractEntrySummarySchema,
   readOnly: z.boolean(),
-  values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  values: z.record(z.string(), z.unknown()),
 });
 
 const ContractRoleSubmitResponseSchema = z.object({
@@ -163,14 +200,8 @@ const ContractRoleSubmitResponseSchema = z.object({
 
 const ContractAdminDetailSchema = z.object({
   entry: ContractEntrySummarySchema,
-  userSubmission: z.record(
-    z.string(),
-    z.union([z.string(), z.number(), z.boolean()]),
-  ).nullable(),
-  clientSubmission: z.record(
-    z.string(),
-    z.union([z.string(), z.number(), z.boolean()]),
-  ).nullable(),
+  userSubmission: z.record(z.string(), z.unknown()).nullable(),
+  clientSubmission: z.record(z.string(), z.unknown()).nullable(),
   combinedSubmission: z.record(z.string(), z.unknown()).nullable(),
 });
 
@@ -397,11 +428,54 @@ export async function fetchContractRoleSchema(
   }
 }
 
+export async function requestContractDniUploadUrl(
+  entryId: string,
+  token: string | null,
+  descriptor: ContractDniUploadDescriptor,
+  userId?: string,
+): Promise<ContractDniPresignedUpload> {
+  try {
+    const response = await axios.post<unknown>(
+      `${CONTRACTS_API_PATH}/${encodeURIComponent(entryId)}/dni-uploads/presign`,
+      { uploads: [descriptor] },
+      {
+        withCredentials: true,
+        params: token ? { token } : undefined,
+        headers: identityHeaders(userId),
+      },
+    );
+    const parsed = parseResponse(
+      ContractDniPresignResponseSchema,
+      response.data,
+      'El servidor devolvió una referencia de carga de DNI inválida.',
+    );
+    const upload = parsed.uploads[0];
+    if (!upload) throw new Error('El servidor no devolvió la carga de DNI solicitada.');
+    return upload;
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function uploadContractDniImage(
+  file: File,
+  uploadUrl: string,
+): Promise<void> {
+  await axios.put(uploadUrl, file, {
+    headers: {
+      'Content-Type': file.type,
+      'x-upsert': 'false',
+    },
+    maxRedirects: 0,
+    validateStatus: (status) => status >= 200 && status < 300,
+  });
+}
+
 export async function submitContractRole(
   entryId: string,
   role: ContractRole,
   token: string | null,
-  fields: Record<string, string | number | boolean>,
+  fields: Record<string, unknown>,
   userId?: string,
 ): Promise<ContractRoleSubmitResponse> {
   try {

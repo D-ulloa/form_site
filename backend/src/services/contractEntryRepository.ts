@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   ContractEntryRecord,
-  ContractFieldValue,
   ContractRole,
   ContractSubmissionMetadata,
 } from '../contracts/types.js';
@@ -17,8 +16,8 @@ interface ContractEntryRow {
   client_filled: boolean;
   user_submitted_at: string | null;
   client_submitted_at: string | null;
-  user_submission: Readonly<Record<string, ContractFieldValue>> | null;
-  client_submission: Readonly<Record<string, ContractFieldValue>> | null;
+  user_submission: Readonly<Record<string, unknown>> | null;
+  client_submission: Readonly<Record<string, unknown>> | null;
   combined_submission: Readonly<Record<string, unknown>> | null;
   status: 'open' | 'complete' | 'archived';
   archived_at: string | null;
@@ -38,7 +37,7 @@ export interface SaveContractRoleSubmissionInput {
   readonly authorizedTokenHash: string | null;
   readonly entryId: string;
   readonly role: ContractRole;
-  readonly fields: Readonly<Record<string, ContractFieldValue>>;
+  readonly fields: Readonly<Record<string, unknown>>;
   readonly metadata: ContractSubmissionMetadata;
   readonly submittedAt: string;
 }

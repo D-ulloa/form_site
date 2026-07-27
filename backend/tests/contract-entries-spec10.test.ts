@@ -111,10 +111,20 @@ function valueFor(field: ContractFieldDefinition): ContractFieldValue {
   return `${field.name} value`;
 }
 
-function validRoleFields(role: ContractRole): Record<string, ContractFieldValue> {
+function validRoleFields(role: ContractRole): Record<string, unknown> {
   const schema = getContractRoleSchema('rent-contract-v1', role);
+  if (role === 'client') {
+    return Object.fromEntries(schema.sections.map((section) => [
+      section.repeatable?.name ?? section.title,
+      [Object.fromEntries(section.fields
+        .filter((field) => field.required && !field.computed)
+        .map((field) => [field.name, valueFor(field)]))],
+    ]));
+  }
   return Object.fromEntries(schema.sections.flatMap((section) =>
-    section.fields.filter((field) => field.required).map((field) => [field.name, valueFor(field)])));
+    section.fields
+      .filter((field) => field.required && !field.computed)
+      .map((field) => [field.name, valueFor(field)])));
 }
 
 function createApp(repository: ContractEntryRepository) {
@@ -191,10 +201,13 @@ test('create, both role submissions, admin inspection, token regeneration, and a
     'Inquilino', 'Garantes',
   ]);
 
+  const clientFields = validRoleFields('client');
+  const tenants = clientFields.inquilinos as Record<string, unknown>[];
+  tenants.push({ ...tenants[0] });
   const clientSubmission = await request(app)
     .post(`/api/contracts/${created.body.entryId}/submit`)
     .query({ role: 'client', token: clientToken })
-    .send({ fields: validRoleFields('client') });
+    .send({ fields: clientFields });
   assert.equal(clientSubmission.status, 200);
   assert.equal(clientSubmission.body.status, 'open');
 
@@ -223,6 +236,7 @@ test('create, both role submissions, admin inspection, token regeneration, and a
   assert.equal(detail.status, 200);
   assert.ok(detail.body.userSubmission);
   assert.ok(detail.body.clientSubmission);
+  assert.equal(detail.body.clientSubmission.inquilinos.length, 2);
   assert.equal('userTokenHash' in detail.body.entry, false);
 
   const regenerated = await request(app)

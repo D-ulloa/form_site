@@ -9,12 +9,12 @@ import { Input } from '../../../components/ui/Input.tsx';
 import { Select, type SelectOption } from '../../../components/ui/Select.tsx';
 import type {
   ContractField,
-  ContractFieldValue,
   ContractFormValues,
 } from '../types.ts';
 
 interface ContractFieldRendererProps {
   field: ContractField;
+  name?: string;
   register: UseFormRegister<ContractFormValues>;
   error?: FieldError;
   autoFocus?: boolean;
@@ -54,6 +54,7 @@ export function validateContractField(
   field: ContractField,
   value: unknown,
 ): true | string {
+  if (field.computed) return true;
   if (field.type === 'boolean') {
     if (typeof value !== 'boolean') return `${field.label} debe ser verdadero o falso.`;
     return true;
@@ -66,6 +67,9 @@ export function validateContractField(
   if (field.type === 'number') {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return `${field.label} debe ser un número válido.`;
+    }
+    if (field.integer && !Number.isSafeInteger(value)) {
+      return `${field.label} debe ser un número entero.`;
     }
     if (field.min !== undefined && value < field.min) {
       return `${field.label} debe ser mayor o igual a ${field.min}.`;
@@ -118,7 +122,7 @@ export function getContractFieldRules(
   field: ContractField,
 ): RegisterOptions<ContractFormValues> {
   return {
-    validate: (value: ContractFieldValue) => validateContractField(field, value),
+    validate: (value: unknown) => validateContractField(field, value),
     ...(field.type === 'number'
       ? {
           setValueAs: (value: unknown) =>
@@ -130,14 +134,16 @@ export function getContractFieldRules(
 
 export function ContractFieldRenderer({
   field,
+  name,
   register,
   error,
   autoFocus = false,
 }: ContractFieldRendererProps) {
-  const inputId = `contract-${field.name}`;
+  const fieldName = name ?? field.name;
+  const inputId = `contract-${fieldName.replace(/[^A-Za-z0-9_-]/gu, '-')}`;
   const errorId = `${inputId}-error`;
   const errorMessage = error?.message ? String(error.message) : undefined;
-  const registration = register(field.name, getContractFieldRules(field));
+  const registration = register(fieldName, getContractFieldRules(field));
 
   if (field.type === 'boolean') {
     return (
@@ -151,6 +157,7 @@ export function ContractFieldRenderer({
             aria-invalid={errorMessage ? true : undefined}
             aria-describedby={errorMessage ? errorId : undefined}
             autoFocus={autoFocus}
+            disabled={field.readOnly}
           />
           {field.required && (
             <span className="text-indigo-400" aria-hidden="true">
@@ -179,6 +186,7 @@ export function ContractFieldRenderer({
           required={field.required}
           error={errorMessage}
           autoFocus={autoFocus}
+          disabled={field.readOnly}
         />
       </div>
     );
@@ -196,11 +204,13 @@ export function ContractFieldRenderer({
         max={field.type === 'number' ? field.max : undefined}
         maxLength={field.maxLength}
         pattern={field.pattern}
-        step={field.type === 'number' ? 'any' : undefined}
+        step={field.type === 'number' ? (field.integer ? '1' : 'any') : undefined}
         inputMode={field.type === 'number' ? 'decimal' : undefined}
         autoComplete={field.type === 'email' ? 'email' : undefined}
         error={errorMessage}
         autoFocus={autoFocus}
+        readOnly={field.readOnly}
+        aria-readonly={field.readOnly || undefined}
       />
     </div>
   );

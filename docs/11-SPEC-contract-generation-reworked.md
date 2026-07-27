@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-27
 **Priority:** high
-**Status:** pending
+**Status:** implemented
 
 ---
 
@@ -193,6 +193,17 @@ Example payload fragment:
 - Backend test validating that DNI image uploads are accepted only as the front/back pair and capped at two per block.
 - Backend test recalculating `Formateada_1` and `Formateada_2` from `contract_start_date` and `contract_update`.
 - End-to-end test for one tenant and one guarantor submission plus an additional tenant or guarantor block.
+
+## Implementation notes
+
+- Repeatable client values are persisted as first-class `inquilinos` and `garantes` JSON arrays in the existing Supabase JSONB submission columns.
+- The role schema exposes repeatable-section and DNI-slot metadata only on the current client flow; retained SPEC-09 endpoints remain flat compatibility APIs.
+- DNI files upload directly to the private `contract-dni` Supabase bucket through signed URLs issued only after client-token authorization. Stored submissions retain private object metadata rather than expiring signed URLs.
+- A repeated record may omit DNI images or provide the complete front/back pair. A lone front or back image, a third image field, a non-image MIME type, an oversized image, or a reference outside the current contract entry is rejected.
+- `CONTRACT_DNI_STORAGE_BUCKET` changes the private bucket name and `CONTRACT_DNI_MAX_IMAGE_BYTES` changes the backend object limit; defaults are `contract-dni` and 10 MB.
+- `contract_formatted_start` and `contract_formatted_update` remain in the user role schema as read-only computed fields. The browser previews them, but the backend ignores incoming values and stores its own UTC calendar calculation.
+- `backend/supabase/migrations/20260727000000_contract_spec11.sql` provisions the default private bucket. Apply it after the SPEC-10 table/RPC migration.
+- Focused coverage lives in `backend/tests/contract-entries-spec11.test.ts` and `frontend/src/features/contracts/components/ContractRepeatableSection.test.tsx`.
 
 ## Notes
 

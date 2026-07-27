@@ -58,15 +58,34 @@ const sections = [
     title: 'Contrato',
     fields: [
       { name: 'contract_object', label: '1ra. Objeto', type: 'string', required: true },
-      { name: 'contract_months', label: 'meses', type: 'number', required: true, min: 1 },
+      { name: 'contract_months', label: 'meses', type: 'number', required: true, min: 1, integer: true },
       { name: 'contract_start_date', label: 'Inicio (MM/DD/AAAA)', type: 'date', required: true },
-      { name: 'contract_formatted_start', label: 'Formateada_1', type: 'date', required: true },
+      {
+        name: 'contract_formatted_start',
+        label: 'Formateada_1',
+        type: 'date',
+        required: true,
+        readOnly: true,
+        computed: 'formatted_start',
+      },
       { name: 'contract_rent_amount', label: 'Monto alquiler', type: 'number', required: true, min: 0, sensitive: true },
-      { name: 'contract_update', label: 'Actualización', type: 'number', required: false, min: 0 },
-      { name: 'contract_formatted_update', label: 'Formateada_2', type: 'date', required: false },
-      { name: 'contract_selection', label: 'Ajuste', type: 'string', required: false },
+      { name: 'contract_update', label: 'Actualización', type: 'number', required: false, min: 0, integer: true },
+      {
+        name: 'contract_formatted_update',
+        label: 'Formateada_2',
+        type: 'date',
+        required: false,
+        readOnly: true,
+        computed: 'formatted_update',
+      },
+      {
+        name: 'contract_selection',
+        label: 'Ajuste',
+        type: 'select',
+        required: false,
+        options: ['IPC', 'IPL'],
+      },
       { name: 'submission_date', label: 'Fecha Actual', type: 'date', required: true },
-      { name: 'approve_contract', label: 'Aprobar Contrato', type: 'string', required: true },
     ],
   },
 ] as const satisfies readonly {
@@ -167,6 +186,54 @@ export function getContractRoleSchema(
     .map((section) => ({
       title: publicTitles[section.title] ?? section.title,
       fields: section.fields,
+      ...(role === 'client' && section.title === 'Inquilino'
+        ? {
+            repeatable: {
+              name: 'inquilinos',
+              itemLabel: 'Inquilino',
+              addLabel: 'Agregar Inquilino',
+              minItems: 1,
+            } as const,
+            uploads: [
+              {
+                name: 'tenant_dni_front_image',
+                label: 'Frente DNI',
+                slot: 'front',
+                required: false,
+              },
+              {
+                name: 'tenant_dni_back_image',
+                label: 'Dorso DNI',
+                slot: 'back',
+                required: false,
+              },
+            ] as const,
+          }
+        : {}),
+      ...(role === 'client' && section.title === 'Garante'
+        ? {
+            repeatable: {
+              name: 'garantes',
+              itemLabel: 'Garante',
+              addLabel: 'Agregar Garante',
+              minItems: 1,
+            } as const,
+            uploads: [
+              {
+                name: 'guarantor_dni_front_image',
+                label: 'Frente DNI',
+                slot: 'front',
+                required: false,
+              },
+              {
+                name: 'guarantor_dni_back_image',
+                label: 'Dorso DNI',
+                slot: 'back',
+                required: false,
+              },
+            ] as const,
+          }
+        : {}),
     }));
 
   return {

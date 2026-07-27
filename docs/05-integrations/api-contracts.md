@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: 2026-07-21.
+Status: 2026-07-27.
 
 ## `POST /properties/submit`
 
@@ -64,7 +64,7 @@ Response body shape:
 - `413` for payload size violations.
 - `500` for backend failures.
 
-## SPEC-10 contract entry API
+## SPEC-10/SPEC-11 contract entry API
 
 All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary. Role reads and submits require the matching role token, except that an authenticated owner can use the user route without a token.
 
@@ -74,11 +74,32 @@ Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optio
 
 ### `GET /api/contracts/:entryId/schema?role=user|client&token=...`
 
-Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes`; user sections are `Testigos` and `Contrato`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
+Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. User sections are `Testigos` and `Contrato`; `contract_selection` is a select with `IPC`/`IPL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
+
+### `POST /api/contracts/:entryId/dni-uploads/presign?token=...`
+
+Client token required. Request: `{ "uploads": [{ "collection": "inquilinos|garantes", "itemIndex": 0, "slot": "front|back", "originalName": "dni.jpg", "mimeType": "image/jpeg", "sizeBytes": 1000 }] }`. A request may contain at most one front and one back descriptor for a collection/item index. Only configured raster image MIME types and positive sizes within `CONTRACT_DNI_MAX_IMAGE_BYTES` are accepted.
+
+Returns `{ "uploads": [{ uploadUrl, originalName, mimeType, sizeBytes, storagePath, storageBucket, publicPath, slot }] }`. `uploadUrl` is used for the direct `PUT` and must not be persisted. The remaining private reference is included in the corresponding repeated record at role submission time.
 
 ### `POST /api/contracts/:entryId/submit?role=user|client&token=...`
 
-Request: `{ "fields": { ... } }`. The server supplies entry, role, IP, user agent, and timestamps; caller-supplied metadata is not accepted. Success returns `{ submissionId, entryId, status, submittedAt }`. The transactional Supabase function writes `contract_submissions`, updates the role fields on `contract_entries`, and writes `combined_submission` when both roles are filled. Duplicate role submissions return `409`; throttled attempts return `429` and `Retry-After`.
+Request: `{ "fields": { ... } }`. User fields remain flat. Client fields use first-class arrays:
+
+```json
+{
+  "fields": {
+    "inquilinos": [{ "tenant_full_name": "Garcia, Juan" }],
+    "garantes": [{ "guarantor_full_name": "Perez, Maria" }]
+  }
+}
+```
+
+Both arrays require at least one strict object. Each object accepts only that section's scalar fields and its configured front/back references. DNI images are optional as a pair: neither may be present, or both must be present. A lone side, extra field/slot, non-image MIME type, oversized object, wrong bucket/path, or reference belonging to another entry returns `400`.
+
+The user payload must not contain `approve_contract`. `contract_selection`, when present, must be `IPC` or `IPL`. Caller-provided `contract_formatted_start`/`contract_formatted_update` values are ignored: the server stores `Formateada_1` as the last calendar day before the `contract_start_date` month and stores `Formateada_2` as that date plus the optional nonnegative whole-number `contract_update` months.
+
+The server supplies entry, role, IP, user agent, and timestamps; caller-supplied metadata is not accepted. Success returns `{ submissionId, entryId, status, submittedAt }`. The transactional Supabase function writes `contract_submissions`, updates the role fields on `contract_entries`, and writes `combined_submission` when both roles are filled. Duplicate role submissions return `409`; throttled attempts return `429` and `Retry-After`.
 
 ### Administrator endpoints
 

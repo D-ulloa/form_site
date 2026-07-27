@@ -1,6 +1,6 @@
 # Environment
 
-Status: 2026-07-21.
+Status: 2026-07-27.
 
 ## Backend environment variables
 
@@ -30,10 +30,14 @@ Contract Generation values:
 - `CONTRACT_ADMIN_USER_IDS` — comma-separated trusted gateway user IDs allowed to use the admin API and UI.
 - `CONTRACT_SUBMISSION_RATE_LIMIT` — allowed attempts per IP/entry window (default `10`).
 - `CONTRACT_SUBMISSION_RATE_WINDOW_MS` — limiter window (default `900000`).
+- `CONTRACT_DNI_STORAGE_BUCKET` — private Supabase Storage bucket for SPEC-11 DNI images (default `contract-dni`).
+- `CONTRACT_DNI_MAX_IMAGE_BYTES` — maximum size of one DNI image (default `10485760`, 10 MB). Keep this aligned with the bucket object limit.
 
-Apply `backend/supabase/migrations/20260724000000_contract_entries.sql` before enabling the flow. The migration enables RLS and grants the atomic submission function only to `service_role`; browsers never write Supabase tables directly.
+Apply `backend/supabase/migrations/20260724000000_contract_entries.sql` and then `backend/supabase/migrations/20260727000000_contract_spec11.sql` before enabling the flow. The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
 
-`CONTRACT_GOOGLE_FORM_LINK`, `CONTRACT_GOOGLE_SHEET_ID`, `CONTRACT_GOOGLE_SHEET_NAME`, and `CONTRACT_AUDIT_LOGS_DIR` support only the retained SPEC-09 compatibility endpoints. The live SPEC-10 UI does not use them.
+If `CONTRACT_DNI_STORAGE_BUCKET` is changed from `contract-dni`, provision an equivalent private bucket with the configured size and MIME restrictions; the migration creates only the default bucket.
+
+`CONTRACT_GOOGLE_FORM_LINK`, `CONTRACT_GOOGLE_SHEET_ID`, `CONTRACT_GOOGLE_SHEET_NAME`, and `CONTRACT_AUDIT_LOGS_DIR` support only the retained SPEC-09 compatibility endpoints. The live SPEC-10/SPEC-11 UI does not use them.
 
 ## Contract request identity
 
