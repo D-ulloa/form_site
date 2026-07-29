@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useForm, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
@@ -10,13 +10,20 @@ import { ContractRepeatableSection } from '../features/contracts/components/Cont
 import {
   ContractRequestError,
   fetchContractRoleSchema,
+  requestContractEvidenceUploadUrls,
   submitContractRole,
+  uploadContractEvidenceFile,
 } from '../features/contracts/services/contractApi.ts';
 import {
   buildContractDefaultValues,
   getContractEntryWaitingStatus,
+  getContractFileReceivers,
+  getMissingContractEvidence,
   getMissingContractSubsections,
+  isContractEvidenceFileReference,
   normalizeContractRoleFields,
+  type ContractEvidenceUploadDescriptor,
+  type ContractFileReceiverDefinition,
   type ContractFormValues,
   type ContractSection,
   type ContractRole,
@@ -38,6 +45,43 @@ function displayValue(value: unknown): string {
   return value === undefined || value === '' ? '—' : String(value);
 }
 
+function formatFileSize(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function ReadOnlyEvidenceFiles({
+  receiver,
+  values,
+}: {
+  receiver: ContractFileReceiverDefinition;
+  values: Record<string, unknown>;
+}) {
+  const rawFiles = values[receiver.name];
+  const files = Array.isArray(rawFiles)
+    ? rawFiles.filter(isContractEvidenceFileReference)
+    : [];
+  if (files.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs font-medium text-slate-400">{receiver.label}</p>
+      <ul className="mt-2 space-y-2">
+        {files.map((file, index) => (
+          <li
+            key={`${file.storagePath}-${index}`}
+            className="rounded-lg bg-black/15 p-3 text-xs text-slate-300"
+          >
+            <span className="break-all">{file.filename}</span>
+            <span className="ml-2 text-slate-500">{formatFileSize(file.size)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function fieldsOutsideSubsections(section: ContractSection) {
   const groupedNames = new Set(
     section.subsections?.flatMap((subsection) => subsection.fieldNames) ?? [],
@@ -51,6 +95,100 @@ function fieldsInSubsection(section: ContractSection, fieldNames: string[]) {
     const field = fieldsByName.get(fieldName);
     return field ? [field] : [];
   });
+}
+
+interface PendingEvidenceUpload {
+  itemIndex: number;
+  receiverName: ContractFileReceiverDefinition['name'];
+  file: File;
+}
+
+function collectPendingEvidenceUploads(
+  schema: { sections: ContractSection[] },
+  values: ContractFormValues,
+): PendingEvidenceUpload[] {
+  const pending: PendingEvidenceUpload[] = [];
+  const guarantorSection = schema.sections.find(
+    (section) => section.repeatable?.name === 'garantes',
+  );
+  if (!guarantorSection) return pending;
+  const items = Array.isArray(values.garantes) ? values.garantes : [];
+
+  items.forEach((item, itemIndex) => {
+    if (typeof item !== 'object' || item === null) return;
+    const itemValues = item as Record<string, unknown>;
+    getContractFileReceivers(guarantorSection).forEach((receiver) => {
+      const files = itemValues[receiver.name];
+      if (!Array.isArray(files)) return;
+      files.forEach((file) => {
+        if (typeof File !== 'undefined' && file instanceof File) {
+          pending.push({ itemIndex, receiverName: receiver.name, file });
+        }
+      });
+    });
+  });
+
+  return pending;
+}
+
+async function replaceFilesWithEvidenceReferences(
+  schema: { sections: ContractSection[] },
+  values: ContractFormValues,
+  entryId: string,
+  token: string | null,
+  userId?: string,
+): Promise<ContractFormValues> {
+  const pending = collectPendingEvidenceUploads(schema, values);
+  if (pending.length === 0) return values;
+
+  const descriptors: ContractEvidenceUploadDescriptor[] = pending.map((upload) => ({
+    collection: 'garantes',
+    itemIndex: upload.itemIndex,
+    field: upload.receiverName,
+    filename: upload.file.name,
+    mimeType: upload.file.type,
+    size: upload.file.size,
+  }));
+  const presigned = await requestContractEvidenceUploadUrls(
+    entryId,
+    token,
+    descriptors,
+    userId,
+  );
+  if (presigned.length !== pending.length) {
+    throw new Error('El servidor no devolvió todas las referencias de carga.');
+  }
+
+  await Promise.all(pending.map((upload, index) => {
+    const target = presigned[index];
+    if (!target) throw new Error('Falta una referencia de carga.');
+    return uploadContractEvidenceFile(upload.file, target.uploadUrl);
+  }));
+
+  const nextItems = (Array.isArray(values.garantes) ? values.garantes : []).map((item) =>
+    typeof item === 'object' && item !== null
+      ? { ...item as Record<string, unknown> }
+      : {});
+
+  pending.forEach((upload, index) => {
+    const target = presigned[index];
+    const item = nextItems[upload.itemIndex];
+    if (!target || !item) throw new Error('No se pudo asociar el archivo cargado.');
+    const current = item[upload.receiverName];
+    const references = Array.isArray(current)
+      ? current.filter(isContractEvidenceFileReference)
+      : [];
+    references.push({
+      filename: target.filename,
+      mimeType: target.mimeType,
+      size: target.size,
+      storagePath: target.storagePath,
+      storageBucket: target.storageBucket,
+    });
+    item[upload.receiverName] = references;
+  });
+
+  return { ...values, garantes: nextItems };
 }
 
 function ReadOnlyFieldList({
@@ -106,6 +244,13 @@ function ReadOnlyContractSection({
               fields={fieldsInSubsection(section, subsection.fieldNames)}
               values={values}
             />
+            {(subsection.fileReceivers ?? []).map((receiver) => (
+              <ReadOnlyEvidenceFiles
+                key={receiver.name}
+                receiver={receiver}
+                values={values}
+              />
+            ))}
           </section>
         ))}
       </div>
@@ -135,14 +280,31 @@ function ReadOnlyContractSection({
                 <section
                   key={subsection.title}
                   className="mt-4 rounded-lg border border-white/[0.07] p-3"
+                  aria-labelledby={
+                    `${section.repeatable?.name}-${index}-${subsection.title}`
+                      .replace(/\s+/gu, '-')
+                  }
                 >
-                  <h4 className="text-xs font-semibold text-slate-300">
+                  <h4
+                    id={
+                      `${section.repeatable?.name}-${index}-${subsection.title}`
+                        .replace(/\s+/gu, '-')
+                    }
+                    className="text-xs font-semibold text-slate-300"
+                  >
                     {subsection.title}
                   </h4>
                   <ReadOnlyFieldList
                     fields={fieldsInSubsection(section, subsection.fieldNames)}
                     values={itemValues}
                   />
+                  {(subsection.fileReceivers ?? []).map((receiver) => (
+                    <ReadOnlyEvidenceFiles
+                      key={receiver.name}
+                      receiver={receiver}
+                      values={itemValues}
+                    />
+                  ))}
                 </section>
               ))}
               {(section.uploads?.length ?? 0) > 0 && (
@@ -170,7 +332,10 @@ export function ContractFormPage() {
     [entryId, location.search, role],
   );
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [reconciledMessage, setReconciledMessage] = useState<string | null>(null);
   const [pendingUploads, setPendingUploads] = useState<Set<string>>(() => new Set());
+  const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const initializedFormKey = useRef<string | null>(null);
   const form = useForm<ContractFormValues>({ defaultValues: {} });
   const {
     clearErrors,
@@ -213,9 +378,13 @@ export function ContractFormPage() {
 
   useEffect(() => {
     if (schemaQuery.data) {
-      reset(buildContractDefaultValues(schemaQuery.data, schemaQuery.data.values));
+      const formKey = `${entryId}:${role ?? ''}:${token ?? ''}:${schemaQuery.data.schemaId}`;
+      if (initializedFormKey.current !== formKey || schemaQuery.data.readOnly) {
+        reset(buildContractDefaultValues(schemaQuery.data, schemaQuery.data.values));
+        initializedFormKey.current = formKey;
+      }
     }
-  }, [reset, schemaQuery.data]);
+  }, [entryId, reset, role, schemaQuery.data, token]);
 
   useEffect(() => {
     const formattedStart = computeFormattedStart(contractStartDate);
@@ -246,6 +415,7 @@ export function ContractFormPage() {
 
   const schema = schemaQuery.data;
   const roleLabel = role === 'user' ? 'usuario' : 'cliente';
+  const formLocked = submission.isPending || evidenceUploading;
 
   const invalidSubmit = (fieldErrors: FieldErrors<ContractFormValues>) => {
     const first = Object.keys(fieldErrors)[0];
@@ -253,8 +423,8 @@ export function ContractFormPage() {
     setSubmitMessage('Revisá los campos marcados antes de guardar.');
   };
 
-  const validSubmit = (values: ContractFormValues) => {
-    if (!schema || submission.isPending) return;
+  const validSubmit = async (values: ContractFormValues) => {
+    if (!schema || submission.isPending || evidenceUploading) return;
     clearErrors();
     if (pendingUploads.size > 0) {
       setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
@@ -299,18 +469,75 @@ export function ContractFormPage() {
       );
       return;
     }
+    const missingEvidence = getMissingContractEvidence(schema, values);
+    if (missingEvidence.length > 0) {
+      missingEvidence.forEach(({ collection, itemIndex }) => {
+        setError(`${collection}.${itemIndex}._files`, {
+          type: 'required',
+          message:
+            'Adjuntá al menos un archivo en Recibo de sueldo o Garantía propietaria.',
+        });
+      });
+      const firstMissing = missingEvidence[0];
+      if (firstMissing) {
+        document.getElementById(
+          `${firstMissing.collection}-${firstMissing.itemIndex}-recibo_sueldo_files`,
+        )?.focus();
+      }
+      setSubmitMessage(
+        'Cada garante debe adjuntar al menos un archivo en Recibo de sueldo o Garantía propietaria.',
+      );
+      return;
+    }
     setSubmitMessage(null);
-    submission.mutate(normalizeContractRoleFields(schema, values), {
-      onSuccess: () => { void schemaQuery.refetch(); },
-      onError: (error) => {
-        if (error instanceof ContractRequestError) {
-          error.fieldErrors.forEach((fieldError) => {
-            if (fieldError.field) setError(fieldError.field, { type: 'server', message: fieldError.message });
-          });
+    setReconciledMessage(null);
+    setEvidenceUploading(true);
+    let finalSubmitAttempted = false;
+    try {
+      const uploadedValues = await replaceFilesWithEvidenceReferences(
+        schema,
+        values,
+        entryId,
+        token,
+        agent?.agent_user_id,
+      );
+      if (uploadedValues !== values && uploadedValues.garantes !== undefined) {
+        setValue('garantes', uploadedValues.garantes, {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+      }
+      finalSubmitAttempted = true;
+      await submission.mutateAsync(normalizeContractRoleFields(schema, uploadedValues));
+      void schemaQuery.refetch();
+    } catch (error) {
+      if (finalSubmitAttempted) {
+        const reconciliation = await schemaQuery.refetch();
+        if (reconciliation.data?.readOnly) {
+          setSubmitMessage(null);
+          setReconciledMessage(
+            'El formulario ya había sido recibido y se actualizó a modo de solo lectura.',
+          );
+          return;
         }
-        setSubmitMessage('Revisá los campos marcados e intentá guardar nuevamente.');
-      },
-    });
+      }
+      if (error instanceof ContractRequestError) {
+        error.fieldErrors.forEach((fieldError) => {
+          if (fieldError.field) {
+            setError(fieldError.field, { type: 'server', message: fieldError.message });
+          }
+        });
+      }
+      setSubmitMessage(
+        error instanceof ContractRequestError && error.fieldErrors.length > 0
+          ? 'Revisá los campos marcados e intentá guardar nuevamente.'
+          : finalSubmitAttempted
+            ? 'No se pudo confirmar el guardado. Verificamos el estado y podés intentar nuevamente.'
+            : 'No se pudieron subir los archivos. Intentá guardar nuevamente.',
+      );
+    } finally {
+      setEvidenceUploading(false);
+    }
   };
 
   return (
@@ -368,6 +595,14 @@ export function ContractFormPage() {
               </div>
             )}
 
+            {reconciledMessage && (
+              <div className="mb-6">
+                <AlertInline variant="success" title="Formulario guardado">
+                  {reconciledMessage}
+                </AlertInline>
+              </div>
+            )}
+
             {submitMessage && (
               <div className="mb-6">
                 <AlertInline variant="error" title="No se pudo guardar">{submitMessage}</AlertInline>
@@ -394,42 +629,29 @@ export function ContractFormPage() {
                     }}
                     noValidate
                   >
-                    <div className="space-y-8">
-                      {schema.sections.map((section) => section.repeatable ? (
-                        <ContractRepeatableSection
-                          key={section.repeatable.name}
-                          section={section}
-                          form={form}
-                          entryId={entryId}
-                          token={token}
-                          userId={agent?.agent_user_id}
-                          onUploadPendingChange={setUploadPending}
-                        />
-                      ) : (
-                          <fieldset key={section.title} className="border-0 p-0">
-                            <legend className="mb-5 text-sm font-semibold text-slate-200">{section.title}</legend>
-                            {fieldsOutsideSubsections(section).length > 0 && (
-                              <div className="grid gap-5 sm:grid-cols-2">
-                                {fieldsOutsideSubsections(section).map((field) => (
-                                  <ContractFieldRenderer
-                                    key={field.name}
-                                    field={field}
-                                    register={register}
-                                    error={errors[field.name] as FieldError | undefined}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {section.subsections?.map((subsection) => (
-                              <fieldset
-                                key={subsection.title}
-                                className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
-                              >
-                                <legend className="px-1 text-sm font-semibold text-slate-200">
-                                  {subsection.title}
-                                </legend>
-                                <div className="mt-3 grid gap-5 sm:grid-cols-2">
-                                  {fieldsInSubsection(section, subsection.fieldNames).map((field) => (
+                    <fieldset
+                      disabled={formLocked}
+                      aria-busy={formLocked}
+                      className="border-0 p-0"
+                    >
+                      <legend className="sr-only">Datos del formulario</legend>
+                      <div className="space-y-8">
+                        {schema.sections.map((section) => section.repeatable ? (
+                          <ContractRepeatableSection
+                            key={section.repeatable.name}
+                            section={section}
+                            form={form}
+                            entryId={entryId}
+                            token={token}
+                            userId={agent?.agent_user_id}
+                            onUploadPendingChange={setUploadPending}
+                          />
+                        ) : (
+                            <fieldset key={section.title} className="border-0 p-0">
+                              <legend className="mb-5 text-sm font-semibold text-slate-200">{section.title}</legend>
+                              {fieldsOutsideSubsections(section).length > 0 && (
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                  {fieldsOutsideSubsections(section).map((field) => (
                                     <ContractFieldRenderer
                                       key={field.name}
                                       field={field}
@@ -438,14 +660,41 @@ export function ContractFormPage() {
                                     />
                                   ))}
                                 </div>
-                              </fieldset>
-                            ))}
-                          </fieldset>
-                        ))}
-                    </div>
+                              )}
+                              {section.subsections?.map((subsection) => (
+                                <fieldset
+                                  key={subsection.title}
+                                  className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
+                                >
+                                  <legend className="px-1 text-sm font-semibold text-slate-200">
+                                    {subsection.title}
+                                  </legend>
+                                  <div className="mt-3 grid gap-5 sm:grid-cols-2">
+                                    {fieldsInSubsection(section, subsection.fieldNames).map((field) => (
+                                      <ContractFieldRenderer
+                                        key={field.name}
+                                        field={field}
+                                        register={register}
+                                        error={errors[field.name] as FieldError | undefined}
+                                      />
+                                    ))}
+                                  </div>
+                                </fieldset>
+                              ))}
+                            </fieldset>
+                          ))}
+                      </div>
+                    </fieldset>
                     <div className="mt-8 flex justify-end border-t border-white/[0.07] pt-5">
-                      <Button type="submit" loading={submission.isPending} disabled={submission.isPending || pendingUploads.size > 0}>
-                        {submission.isPending ? 'Guardando…' : 'Guardar'}
+                      <Button
+                        type="submit"
+                        loading={formLocked}
+                        disabled={
+                          formLocked ||
+                          pendingUploads.size > 0
+                        }
+                      >
+                        {formLocked ? 'Guardando…' : 'Guardar'}
                       </Button>
                     </div>
                   </form>

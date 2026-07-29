@@ -47,9 +47,18 @@ export interface ContractDniUploadDefinition {
   required: boolean;
 }
 
+export interface ContractFileReceiverDefinition {
+  name: 'recibo_sueldo_files' | 'garantia_propietaria_files';
+  label: string;
+  maxFiles: 2;
+  maxSizeBytes: number;
+  acceptedMimeTypes: string[];
+}
+
 export interface ContractSubsectionDefinition {
   title: string;
   fieldNames: string[];
+  fileReceivers?: ContractFileReceiverDefinition[];
 }
 
 export interface ContractSection {
@@ -81,6 +90,40 @@ export interface ContractDniUploadDescriptor {
   originalName: string;
   mimeType: string;
   sizeBytes: number;
+}
+
+export interface ContractEvidenceFileReference {
+  filename: string;
+  mimeType: string;
+  size: number;
+  storagePath: string;
+  storageBucket: string;
+}
+
+export type ContractEvidenceFileValue = File | ContractEvidenceFileReference;
+
+export function isContractEvidenceFileReference(
+  value: unknown,
+): value is ContractEvidenceFileReference {
+  return typeof value === 'object' && value !== null &&
+    typeof (value as Record<string, unknown>).filename === 'string' &&
+    typeof (value as Record<string, unknown>).mimeType === 'string' &&
+    typeof (value as Record<string, unknown>).size === 'number' &&
+    typeof (value as Record<string, unknown>).storagePath === 'string' &&
+    typeof (value as Record<string, unknown>).storageBucket === 'string';
+}
+
+export interface ContractEvidenceUploadDescriptor {
+  collection: 'garantes';
+  itemIndex: number;
+  field: ContractFileReceiverDefinition['name'];
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface ContractEvidencePresignedUpload extends ContractEvidenceFileReference {
+  uploadUrl: string;
 }
 
 export interface ContractPublicSchema {
@@ -134,6 +177,14 @@ export function getContractFields(schema: ContractSchemaSections): ContractField
   return schema.sections.flatMap((section) => section.fields);
 }
 
+export function getContractFileReceivers(
+  section: ContractSection,
+): ContractFileReceiverDefinition[] {
+  return section.subsections?.flatMap(
+    (subsection) => subsection.fileReceivers ?? [],
+  ) ?? [];
+}
+
 export function buildContractDefaultValues(
   schema: ContractSchemaSections,
   values: ContractFormValues = {},
@@ -156,6 +207,9 @@ export function buildContractDefaultValues(
             ...Object.fromEntries((section.uploads ?? [])
               .filter((upload) => source[upload.name] !== undefined)
               .map((upload) => [upload.name, source[upload.name]])),
+            ...Object.fromEntries(getContractFileReceivers(section)
+              .filter((receiver) => source[receiver.name] !== undefined)
+              .map((receiver) => [receiver.name, source[receiver.name]])),
           };
         });
       continue;
@@ -219,6 +273,11 @@ export function normalizeContractRoleFields(
       for (const upload of section.uploads ?? []) {
         if (source[upload.name] !== undefined) normalizedItem[upload.name] = source[upload.name];
       }
+      for (const receiver of getContractFileReceivers(section)) {
+        if (source[receiver.name] !== undefined) {
+          normalizedItem[receiver.name] = source[receiver.name];
+        }
+      }
       return normalizedItem;
     });
   }
@@ -261,6 +320,39 @@ export function getMissingContractSubsections(
           itemIndex,
         });
       }
+    });
+  }
+
+  return missing;
+}
+
+export interface MissingContractEvidence {
+  collection: 'garantes';
+  itemIndex: number;
+}
+
+export function getMissingContractEvidence(
+  schema: ContractSchemaSections,
+  values: ContractFormValues,
+): MissingContractEvidence[] {
+  const missing: MissingContractEvidence[] = [];
+
+  for (const section of schema.sections) {
+    if (section.repeatable?.name !== 'garantes') continue;
+    const receivers = getContractFileReceivers(section);
+    if (receivers.length === 0) continue;
+    const rawItems = values.garantes;
+    const items = Array.isArray(rawItems) ? rawItems : [];
+
+    items.forEach((item, itemIndex) => {
+      const itemValues = typeof item === 'object' && item !== null
+        ? item as Record<string, unknown>
+        : {};
+      const totalFiles = receivers.reduce((total, receiver) => {
+        const files = itemValues[receiver.name];
+        return total + (Array.isArray(files) ? files.length : 0);
+      }, 0);
+      if (totalFiles === 0) missing.push({ collection: 'garantes', itemIndex });
     });
   }
 
@@ -326,9 +418,10 @@ export interface ContractInspectionField {
 export interface ContractInspectionSubsection {
   title: string;
   fields: ContractInspectionField[];
+  media: ContractInspectionEvidenceMedia[];
 }
 
-export interface ContractInspectionMedia {
+export interface ContractInspectionDniMedia {
   fieldName: string;
   label: string;
   slot: ContractDniImageSlot;
@@ -338,6 +431,20 @@ export interface ContractInspectionMedia {
   viewUrl: string;
   expiresAt: string;
 }
+
+export interface ContractInspectionEvidenceMedia {
+  fieldName: ContractFileReceiverDefinition['name'];
+  label: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  viewUrl: string;
+  expiresAt: string;
+}
+
+export type ContractInspectionMedia =
+  | ContractInspectionDniMedia
+  | ContractInspectionEvidenceMedia;
 
 export interface ContractInspectionItem {
   index: number;

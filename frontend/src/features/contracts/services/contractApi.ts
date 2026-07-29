@@ -6,6 +6,8 @@ import type {
   ContractEntryLinks,
   ContractDniPresignedUpload,
   ContractDniUploadDescriptor,
+  ContractEvidencePresignedUpload,
+  ContractEvidenceUploadDescriptor,
   ContractEntrySummary,
   ContractFieldApiError,
   ContractPublicSchema,
@@ -18,6 +20,7 @@ import type {
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const CONTRACTS_API_PATH = `${API_PREFIX}/api/contracts`;
+const CONTRACT_EVIDENCE_PRESIGN_BATCH_SIZE = 20;
 
 const ContractOptionSchema = z.union([
   z.string().min(1, 'option value cannot be empty'),
@@ -164,6 +167,13 @@ const ContractRoleSectionSchema = z.object({
   subsections: z.array(z.object({
     title: z.string().min(1),
     fieldNames: z.array(z.string().min(1)).min(1),
+    fileReceivers: z.array(z.object({
+      name: z.enum(['recibo_sueldo_files', 'garantia_propietaria_files']),
+      label: z.string().min(1),
+      maxFiles: z.literal(2),
+      maxSizeBytes: z.number().int().positive(),
+      acceptedMimeTypes: z.array(z.string().min(1)).min(1),
+    })).optional(),
   })).min(1).optional(),
 });
 
@@ -183,6 +193,22 @@ const ContractDniPresignedUploadSchema = ContractDniImageReferenceSchema.extend(
 
 const ContractDniPresignResponseSchema = z.object({
   uploads: z.array(ContractDniPresignedUploadSchema).min(1),
+});
+
+const ContractEvidenceFileReferenceSchema = z.object({
+  filename: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number().int().positive(),
+  storagePath: z.string().min(1),
+  storageBucket: z.string().min(1),
+});
+
+const ContractEvidencePresignedUploadSchema = ContractEvidenceFileReferenceSchema.extend({
+  uploadUrl: z.string().min(1),
+});
+
+const ContractEvidencePresignResponseSchema = z.object({
+  uploads: z.array(ContractEvidencePresignedUploadSchema).min(1),
 });
 
 const ContractRoleSchemaResponseSchema = z.object({
@@ -209,12 +235,25 @@ const ContractInspectionFieldSchema = z.object({
   value: z.unknown(),
 });
 
+const ContractInspectionEvidenceMediaSchema = z.object({
+  fieldName: z.enum(['recibo_sueldo_files', 'garantia_propietaria_files']),
+  label: z.string().min(1),
+  filename: z.string().min(1),
+  mimeType: z.string().min(1),
+  size: z.number().int().positive(),
+  viewUrl: z.string().url().refine((value) => /^https?:\/\//iu.test(value), {
+    message: 'viewUrl must use http or https',
+  }),
+  expiresAt: z.string().min(1),
+});
+
 const ContractInspectionSubsectionSchema = z.object({
   title: z.string().min(1),
   fields: z.array(ContractInspectionFieldSchema),
+  media: z.array(ContractInspectionEvidenceMediaSchema).default([]),
 });
 
-const ContractInspectionMediaSchema = z.object({
+const ContractInspectionDniMediaSchema = z.object({
   fieldName: z.string().min(1),
   label: z.string().min(1),
   slot: z.enum(['front', 'back']),
@@ -232,7 +271,7 @@ const ContractInspectionItemSchema = z.object({
   label: z.string().min(1),
   fields: z.array(ContractInspectionFieldSchema),
   subsections: z.array(ContractInspectionSubsectionSchema),
-  media: z.array(ContractInspectionMediaSchema),
+  media: z.array(ContractInspectionDniMediaSchema),
 });
 
 const ContractInspectionSectionSchema = z.object({
@@ -513,6 +552,62 @@ export async function requestContractDniUploadUrl(
 }
 
 export async function uploadContractDniImage(
+  file: File,
+  uploadUrl: string,
+): Promise<void> {
+  await axios.put(uploadUrl, file, {
+    headers: {
+      'Content-Type': file.type,
+      'x-upsert': 'false',
+    },
+    maxRedirects: 0,
+    validateStatus: (status) => status >= 200 && status < 300,
+  });
+}
+
+export async function requestContractEvidenceUploadUrls(
+  entryId: string,
+  token: string | null,
+  descriptors: ContractEvidenceUploadDescriptor[],
+  userId?: string,
+): Promise<ContractEvidencePresignedUpload[]> {
+  try {
+    const uploads: ContractEvidencePresignedUpload[] = [];
+    for (
+      let start = 0;
+      start < descriptors.length;
+      start += CONTRACT_EVIDENCE_PRESIGN_BATCH_SIZE
+    ) {
+      const batch = descriptors.slice(
+        start,
+        start + CONTRACT_EVIDENCE_PRESIGN_BATCH_SIZE,
+      );
+      const response = await axios.post<unknown>(
+        `${CONTRACTS_API_PATH}/${encodeURIComponent(entryId)}/evidence-uploads/presign`,
+        { uploads: batch },
+        {
+          withCredentials: true,
+          params: token ? { token } : undefined,
+          headers: identityHeaders(userId),
+        },
+      );
+      const parsed = parseResponse(
+        ContractEvidencePresignResponseSchema,
+        response.data,
+        'El servidor devolvió referencias de carga de comprobantes inválidas.',
+      ).uploads;
+      if (parsed.length !== batch.length) {
+        throw new Error('El servidor no devolvió todas las referencias de carga.');
+      }
+      uploads.push(...parsed);
+    }
+    return uploads;
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
+export async function uploadContractEvidenceFile(
   file: File,
   uploadUrl: string,
 ): Promise<void> {

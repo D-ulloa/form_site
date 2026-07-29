@@ -8,10 +8,13 @@ import {
 import type {
   ContractDniImageReference,
   ContractDniUploadDefinition,
+  ContractEvidenceFileValue,
   ContractFormValues,
   ContractSection,
 } from '../types.ts';
+import { isContractEvidenceFileReference } from '../types.ts';
 import { ContractFieldRenderer } from './ContractFieldRenderer.tsx';
+import { ContractFileReceiver } from './ContractFileReceiver.tsx';
 
 const ACCEPTED_DNI_TYPES = [
   'image/jpeg',
@@ -58,9 +61,23 @@ function nestedFieldError(
     if (typeof current !== 'object' || current === null) return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
-  return typeof current === 'object' && current !== null && 'type' in current
-    ? current as FieldError
-    : undefined;
+  return firstNestedFieldError(current);
+}
+
+function firstNestedFieldError(value: unknown): FieldError | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  if ('type' in value) return value as FieldError;
+
+  const nestedValues = Array.isArray(value)
+    ? value
+    : Object.entries(value)
+      .filter(([key]) => key !== 'ref')
+      .map(([, nested]) => nested);
+  for (const nested of nestedValues) {
+    const error = firstNestedFieldError(nested);
+    if (error) return error;
+  }
+  return undefined;
 }
 
 function fieldsOutsideSubsections(section: ContractSection) {
@@ -85,6 +102,13 @@ function isDniReference(value: unknown): value is ContractDniImageReference {
   return typeof value === 'object' && value !== null &&
     typeof (value as Record<string, unknown>).storagePath === 'string' &&
     typeof (value as Record<string, unknown>).originalName === 'string';
+}
+
+function asEvidenceFiles(value: unknown): ContractEvidenceFileValue[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((file): file is ContractEvidenceFileValue =>
+    (typeof File !== 'undefined' && file instanceof File) ||
+    isContractEvidenceFileReference(file));
 }
 
 function ContractDniUploadControl({
@@ -279,6 +303,30 @@ export function ContractRepeatableSection({
                     />
                   ))}
                 </div>
+                {(subsection.fileReceivers ?? []).map((receiver) => {
+                  const fieldPath = `${repeatable.name}.${index}.${receiver.name}`;
+                  return (
+                    <ContractFileReceiver
+                      key={receiver.name}
+                      definition={receiver}
+                      files={asEvidenceFiles(item[receiver.name])}
+                      error={nestedFieldError(
+                        form.formState.errors,
+                        repeatable.name,
+                        index,
+                        receiver.name,
+                      )?.message?.toString()}
+                      idPrefix={`${repeatable.name}-${index}`}
+                      onFilesChange={(next) => {
+                        form.clearErrors(`${repeatable.name}.${index}._files`);
+                        form.setValue(fieldPath, next, {
+                          shouldDirty: true,
+                          shouldValidate: false,
+                        });
+                      }}
+                    />
+                  );
+                })}
               </section>
             ))}
             {(() => {
@@ -291,6 +339,19 @@ export function ContractRepeatableSection({
               return subsectionError?.message ? (
                 <p className="mt-4 text-sm text-red-400" role="alert">
                   {String(subsectionError.message)}
+                </p>
+              ) : null;
+            })()}
+            {(() => {
+              const evidenceError = nestedFieldError(
+                form.formState.errors,
+                repeatable.name,
+                index,
+                '_files',
+              );
+              return evidenceError?.message ? (
+                <p className="mt-4 text-sm text-red-400" role="alert">
+                  {String(evidenceError.message)}
                 </p>
               ) : null;
             })()}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import * as axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import type {
@@ -31,6 +31,7 @@ const userSubmission: ContractInspectionSubmission = {
         type: 'number',
         value: 24,
       }],
+      media: [],
     }],
     items: [],
   }],
@@ -64,6 +65,41 @@ const clientSubmission: ContractInspectionSubmission = {
         viewUrl: 'https://storage.example.test/signed/dni-front',
         expiresAt: '2026-07-29T13:15:00.000Z',
       }],
+    }],
+  }, {
+    title: 'Garantes',
+    fields: [],
+    subsections: [],
+    items: [{
+      index: 0,
+      label: 'Garante 1',
+      fields: [],
+      subsections: [{
+        title: 'Recibo de sueldo',
+        fields: [],
+        media: [{
+          fieldName: 'recibo_sueldo_files',
+          label: 'Subir recibo de sueldo',
+          filename: 'recibo.png',
+          mimeType: 'image/png',
+          size: 4096,
+          viewUrl: 'https://storage.example.test/signed/receipt',
+          expiresAt: '2026-07-29T13:15:00.000Z',
+        }],
+      }, {
+        title: 'Garantía propietaria',
+        fields: [],
+        media: [{
+          fieldName: 'garantia_propietaria_files',
+          label: 'Subir garantía propietaria',
+          filename: 'titulo.pdf',
+          mimeType: 'application/pdf',
+          size: 8192,
+          viewUrl: 'https://storage.example.test/signed/deed',
+          expiresAt: '2026-07-29T13:15:00.000Z',
+        }],
+      }],
+      media: [],
     }],
   }],
 };
@@ -134,6 +170,26 @@ describe('SPEC-13 contract inspection details', () => {
     expect(screen.getByText('No hay datos de formulario enviados')).toBeTruthy();
     expect(container.querySelector('[data-inspection-field]')).toBeNull();
     expect(container.querySelector('[data-inspection-media]')).toBeNull();
+  });
+
+  it('groups SPEC-14 image and PDF evidence with the corresponding subsection', () => {
+    render(
+      <ContractInspectionDetails inspection={inspection([clientSubmission])} />,
+    );
+
+    const salary = screen.getByRole('region', { name: 'Recibo de sueldo' });
+    const property = screen.getByRole('region', { name: 'Garantía propietaria' });
+
+    expect(within(salary).getByRole('img', {
+      name: 'Subir recibo de sueldo: recibo.png',
+    })).toHaveProperty('src', 'https://storage.example.test/signed/receipt');
+    expect(within(salary).getByRole('link', {
+      name: 'Ver Subir recibo de sueldo: recibo.png',
+    })).toHaveProperty('href', 'https://storage.example.test/signed/receipt');
+    expect(within(property).getByLabelText('Archivo PDF: titulo.pdf')).toBeTruthy();
+    expect(within(property).getByRole('link', {
+      name: 'Ver Subir garantía propietaria: titulo.pdf',
+    })).toHaveProperty('href', 'https://storage.example.test/signed/deed');
   });
 
   it('has no axe violations in populated or empty inspection states', async () => {

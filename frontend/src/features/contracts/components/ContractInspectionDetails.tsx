@@ -31,6 +31,14 @@ function formatFileSize(sizeBytes: number): string {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function mediaFilename(file: ContractInspectionMedia): string {
+  return 'filename' in file ? file.filename : file.originalName;
+}
+
+function mediaSize(file: ContractInspectionMedia): number {
+  return 'size' in file ? file.size : file.sizeBytes;
+}
+
 function FieldList({ fields }: { fields: ContractInspectionField[] }) {
   if (fields.length === 0) return null;
   return (
@@ -78,6 +86,7 @@ function SubsectionList({
           </h6>
         )}
         <FieldList fields={subsection.fields} />
+        <MediaList media={subsection.media} />
       </section>
     );
   });
@@ -89,37 +98,48 @@ function MediaList({ media }: { media: ContractInspectionMedia[] }) {
     <section className="mt-4 border-t border-white/[0.07] pt-4">
       <h6 className="text-xs font-semibold text-slate-300">Medios asociados</h6>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {media.map((file) => (
+        {media.map((file, index) => {
+          const filename = mediaFilename(file);
+          return (
           <article
-            key={`${file.fieldName}-${file.slot}`}
+            key={`${file.fieldName}-${'slot' in file ? file.slot : index}`}
             data-inspection-media={file.fieldName}
             className="overflow-hidden rounded-lg border border-white/[0.08] bg-black/15"
           >
             {file.mimeType.startsWith('image/') && (
               <img
                 src={file.viewUrl}
-                alt={`${file.label}: ${file.originalName}`}
+                alt={`${file.label}: ${filename}`}
                 className="h-28 w-full bg-black/20 object-cover"
                 loading="lazy"
               />
             )}
+            {file.mimeType === 'application/pdf' && (
+              <div
+                className="flex h-20 items-center justify-center bg-red-500/[0.06] text-xs font-bold text-red-300"
+                aria-label={`Archivo PDF: ${filename}`}
+              >
+                PDF
+              </div>
+            )}
             <div className="p-3">
               <p className="text-xs font-medium text-slate-300">{file.label}</p>
               <p className="mt-1 break-all text-xs text-slate-500">
-                {file.originalName} · {formatFileSize(file.sizeBytes)}
+                {filename} · {formatFileSize(mediaSize(file))}
               </p>
               <a
                 href={file.viewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`Ver ${file.label}: ${file.originalName}`}
+                aria-label={`Ver ${file.label}: ${filename}`}
                 className="mt-2 inline-flex text-xs font-medium text-cyan-400 hover:text-cyan-300"
               >
                 Ver archivo original
               </a>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

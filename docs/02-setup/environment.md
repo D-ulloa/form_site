@@ -1,6 +1,6 @@
 # Environment
 
-Status: 2026-07-27.
+Status: 2026-07-29.
 
 ## Backend environment variables
 
@@ -28,16 +28,24 @@ Contract Generation values:
 - `CONTRACT_TOKEN_SECRET` — at least 32 random characters used to HMAC role tokens. Rotate only with a deliberate token-regeneration plan.
 - `CONTRACTS_API_KEY` — optional server-to-server bearer credential; never expose it through `VITE_*`.
 - `CONTRACT_ADMIN_USER_IDS` — comma-separated trusted gateway user IDs allowed to use the admin API and UI.
-- `CONTRACT_SUBMISSION_RATE_LIMIT` — allowed attempts per IP/entry window (default `10`).
-- `CONTRACT_SUBMISSION_RATE_WINDOW_MS` — limiter window (default `900000`).
+- `CONTRACT_SUBMISSION_RATE_LIMIT` — allowed attempts per IP/entry and limiter namespace (default `10`). Role submits and SPEC-14 evidence preflights use independent counters.
+- `CONTRACT_SUBMISSION_RATE_WINDOW_MS` — window shared by those independent counters (default `900000`).
 - `CONTRACT_DNI_STORAGE_BUCKET` — private Supabase Storage bucket for SPEC-11 DNI images (default `contract-dni`).
 - `CONTRACT_DNI_MAX_IMAGE_BYTES` — maximum size of one DNI image (default `10485760`, 10 MB). Keep this aligned with the bucket object limit.
+- `CONTRACT_EVIDENCE_STORAGE_BUCKET` — separate private Supabase Storage bucket for SPEC-14 guarantor evidence (default `contract-evidence`).
+- `CONTRACT_EVIDENCE_MAX_FILE_BYTES` — maximum size of one salary-receipt or property-guarantee file (default `10485760`, 10 MB). Keep this aligned with the evidence bucket object limit.
 
-Apply `backend/supabase/migrations/20260724000000_contract_entries.sql` and then `backend/supabase/migrations/20260727000000_contract_spec11.sql` before enabling the flow. The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
+Apply these migrations in order before enabling the complete flow:
 
-If `CONTRACT_DNI_STORAGE_BUCKET` is changed from `contract-dni`, provision an equivalent private bucket with the configured size and MIME restrictions; the migration creates only the default bucket.
+1. `backend/supabase/migrations/20260724000000_contract_entries.sql`
+2. `backend/supabase/migrations/20260727000000_contract_spec11.sql`
+3. `backend/supabase/migrations/20260729000000_contract_spec14.sql`
 
-`CONTRACT_GOOGLE_FORM_LINK`, `CONTRACT_GOOGLE_SHEET_ID`, `CONTRACT_GOOGLE_SHEET_NAME`, and `CONTRACT_AUDIT_LOGS_DIR` support only the retained SPEC-09 compatibility endpoints. The live SPEC-10/SPEC-11 UI does not use them.
+The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket; the third provisions the default private evidence bucket with the SPEC-14 MIME allowlist. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
+
+If either storage bucket setting changes from its default, provision an equivalent private bucket with the matching size and MIME restrictions. The migrations create only `contract-dni` and `contract-evidence`.
+
+`CONTRACT_GOOGLE_FORM_LINK`, `CONTRACT_GOOGLE_SHEET_ID`, `CONTRACT_GOOGLE_SHEET_NAME`, and `CONTRACT_AUDIT_LOGS_DIR` support only the retained SPEC-09 compatibility endpoints. The live SPEC-10 through SPEC-14 UI does not use them.
 
 ## Contract request identity
 
@@ -47,7 +55,7 @@ Entry creation and administrator routes accept these authentication modes:
 - `X-Authenticated-User-Id: <verified-user-id>` from a trusted upstream gateway.
 - `X-User-Id: <local-user-id>` only when `NODE_ENV=development` exactly. Missing, `test`, `production`, and differently cased values fail closed.
 
-Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then development `X-User-Id`. Hosted client forms require their client token. Hosted user forms accept their user token or the authenticated owner. API-key callers are administrators; gateway/development administrators must be listed in `CONTRACT_ADMIN_USER_IDS`.
+Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then development `X-User-Id`. Hosted client forms and their DNI/evidence upload-preflight endpoints require the client token. Hosted user forms accept their user token or the authenticated owner. API-key callers are administrators; gateway/development administrators must be listed in `CONTRACT_ADMIN_USER_IDS`.
 
 Clients may send `X-Request-Id` for correlation. The backend generates one when omitted or invalid and returns the selected value as a response header. In production, the reverse proxy must strip inbound `X-Authenticated-User-Id` and add a value derived from its authenticated session.
 

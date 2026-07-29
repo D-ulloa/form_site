@@ -8,6 +8,7 @@ import {
 import type {
   ContractDniImageReference,
   ContractEntryRecord,
+  ContractEvidenceFileReference,
   ContractRole,
 } from '../contracts/types.js';
 import {
@@ -44,6 +45,20 @@ import {
   type ContractDniSignedView,
   type ContractDniUploadDescriptor,
 } from '../services/contractDniUploadService.js';
+import {
+  CONTRACT_EVIDENCE_FILE_MIME_TYPE_SET,
+  ContractEvidenceUploadConfigurationError,
+  ContractEvidenceUploadValidationError,
+  ContractEvidenceVerificationUnavailableError,
+  getContractEvidenceMaxFileBytes,
+  issueContractEvidenceUploadUrls,
+  issueContractEvidenceViewUrl,
+  verifyContractEvidenceReferences,
+  type ContractEvidencePresignedUpload,
+  type ContractEvidenceReferenceVerifier,
+  type ContractEvidenceSignedView,
+  type ContractEvidenceUploadDescriptor,
+} from '../services/contractEvidenceUploadService.js';
 import {
   buildContractAdminInspection,
   getContractSubmissionRecordsByRole,
@@ -92,6 +107,35 @@ const DniPresignBodySchema = z.object({
     slots.add(key);
   });
 });
+const EvidencePresignBodySchema = z.object({
+  uploads: z.array(z.object({
+    collection: z.literal('garantes'),
+    itemIndex: z.number().int().nonnegative(),
+    field: z.enum(['recibo_sueldo_files', 'garantia_propietaria_files']),
+    filename: z.string().trim().min(1).max(256),
+    mimeType: z.string().refine(
+      (value) => CONTRACT_EVIDENCE_FILE_MIME_TYPE_SET.has(value),
+      {
+        message: 'Evidence uploads accept PDF, JPG, PNG, GIF, WEBP, BMP, or TIFF files only.',
+      },
+    ),
+    size: z.number().int().positive(),
+  }).strict()).min(1).max(20),
+}).strict().superRefine((body, context) => {
+  const receiverCounts = new Map<string, number>();
+  body.uploads.forEach((upload, index) => {
+    const key = `${upload.collection}:${upload.itemIndex}:${upload.field}`;
+    const count = (receiverCounts.get(key) ?? 0) + 1;
+    receiverCounts.set(key, count);
+    if (count > 2) {
+      context.addIssue({
+        code: 'custom',
+        path: ['uploads', index, 'field'],
+        message: 'Each evidence receiver accepts at most two files.',
+      });
+    }
+  });
+});
 
 export interface ContractEntriesRouterDependencies {
   readonly environment: NodeJS.ProcessEnv;
@@ -107,6 +151,16 @@ export interface ContractEntriesRouterDependencies {
     reference: ContractDniImageReference,
     environment: NodeJS.ProcessEnv,
   ) => Promise<ContractDniSignedView>;
+  readonly issueEvidenceUploadUrls: (
+    entryId: string,
+    descriptors: readonly ContractEvidenceUploadDescriptor[],
+    environment: NodeJS.ProcessEnv,
+  ) => Promise<readonly ContractEvidencePresignedUpload[]>;
+  readonly issueEvidenceViewUrl: (
+    reference: ContractEvidenceFileReference,
+    environment: NodeJS.ProcessEnv,
+  ) => Promise<ContractEvidenceSignedView>;
+  readonly verifyEvidenceReferences: ContractEvidenceReferenceVerifier;
 }
 
 function resolveDependencies(
@@ -120,6 +174,12 @@ function resolveDependencies(
     now: overrides.now ?? (() => new Date()),
     issueDniUploadUrls: overrides.issueDniUploadUrls ?? issueContractDniUploadUrls,
     issueDniViewUrl: overrides.issueDniViewUrl ?? issueContractDniViewUrl,
+    issueEvidenceUploadUrls:
+      overrides.issueEvidenceUploadUrls ?? issueContractEvidenceUploadUrls,
+    issueEvidenceViewUrl:
+      overrides.issueEvidenceViewUrl ?? issueContractEvidenceViewUrl,
+    verifyEvidenceReferences:
+      overrides.verifyEvidenceReferences ?? verifyContractEvidenceReferences,
   };
 }
 
@@ -234,6 +294,22 @@ function sendError(res: Response, error: unknown): void {
     });
     return;
   }
+  if (error instanceof ContractEvidenceUploadValidationError) {
+    res.status(400).json({
+      error: 'INVALID_EVIDENCE_UPLOAD',
+      message: error.message,
+      retriable: false,
+    });
+    return;
+  }
+  if (error instanceof ContractEvidenceVerificationUnavailableError) {
+    res.status(503).json({
+      error: 'EVIDENCE_VERIFICATION_UNAVAILABLE',
+      message: error.message,
+      retriable: true,
+    });
+    return;
+  }
 
   if (error instanceof ContractAuthenticationError) {
     res.status(401).json({ error: 'AUTHENTICATION_REQUIRED', message: error.message, retriable: false });
@@ -264,6 +340,7 @@ function sendError(res: Response, error: unknown): void {
   if (
     error instanceof ContractDatabaseConfigurationError ||
     error instanceof ContractDniUploadConfigurationError ||
+    error instanceof ContractEvidenceUploadConfigurationError ||
     error instanceof ContractPublicBaseUrlConfigurationError ||
     error instanceof ContractTokenConfigurationError
   ) {
@@ -343,7 +420,10 @@ export function createContractEntriesRouter(
         entry,
         submissions,
         dependencies.environment,
-        { issueDniViewUrl: dependencies.issueDniViewUrl },
+        {
+          issueDniViewUrl: dependencies.issueDniViewUrl,
+          issueEvidenceViewUrl: dependencies.issueEvidenceViewUrl,
+        },
       );
       res.status(200).json({
         entry: toContractEntrySummary(entry),
@@ -416,6 +496,46 @@ export function createContractEntriesRouter(
     }
   });
 
+  router.post('/:entryId/evidence-uploads/presign', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const entry = await loadEntry(req.params.entryId, dependencies.repository);
+      if (entry.status === 'archived') throw new ContractEntryStateError('archived');
+      if (entry.clientFilled) throw new ContractEntryStateError('already_submitted');
+      authorizeRoleAccess(req, entry, 'client', dependencies.environment);
+      // Repeatable role schemas do not define a maximum guarantor count. This
+      // evidence-specific bucket bounds preflight issuance without consuming
+      // final-submit attempts; a durable per-entry quota would require storage.
+      const rateLimit = dependencies.rateLimiter.check(
+        `evidence:${normalizeContractRequestIp(req.ip)}:${entry.id}`,
+      );
+      if (!rateLimit.allowed) {
+        res.set('Retry-After', String(rateLimit.retryAfterSeconds));
+        res.status(429).json({
+          error: 'RATE_LIMITED',
+          message: 'Too many evidence upload requests. Try again later.',
+          retriable: true,
+        });
+        return;
+      }
+      const body = EvidencePresignBodySchema.parse(req.body);
+      const maxFileBytes = getContractEvidenceMaxFileBytes(dependencies.environment);
+      if (body.uploads.some((upload) => upload.size > maxFileBytes)) {
+        throw new ContractEvidenceUploadValidationError(
+          'The evidence file size is outside the configured limit.',
+        );
+      }
+      const uploads = await dependencies.issueEvidenceUploadUrls(
+        entry.id,
+        body.uploads,
+        dependencies.environment,
+      );
+      res.status(200).json({ uploads });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   router.get('/:entryId/schema', async (req, res) => {
     setPrivateHeaders(res);
     try {
@@ -423,7 +543,11 @@ export function createContractEntriesRouter(
       const entry = await loadEntry(req.params.entryId, dependencies.repository);
       if (entry.status === 'archived') throw new ContractEntryStateError('archived');
       authorizeRoleAccess(req, entry, role, dependencies.environment);
-      const roleSchema = getContractRoleSchema(entry.schemaId, role);
+      const roleSchema = getContractRoleSchema(
+        entry.schemaId,
+        role,
+        dependencies.environment,
+      );
       const roleFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
       const values = role === 'user' ? entry.userSubmission : entry.clientSubmission;
       res.status(200).json({
@@ -478,6 +602,7 @@ export function createContractEntriesRouter(
         },
       }, dependencies.repository, {
         environment: dependencies.environment,
+        verifyEvidenceReferences: dependencies.verifyEvidenceReferences,
       });
       res.status(200).json(result);
     } catch (error) {

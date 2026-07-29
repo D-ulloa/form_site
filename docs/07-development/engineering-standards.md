@@ -1,6 +1,6 @@
 # Engineering Standards
 
-Status: 2026-07-21.
+Status: 2026-07-29.
 
 ## Project conventions
 
@@ -19,6 +19,7 @@ Status: 2026-07-21.
 - Maintain explicit route structure: `/`, `/properties/new`, `/properties/success/:submissionId`.
 - Persist agent metadata in localStorage via `AgentContext`.
 - Render contract controls from the public schema and normalize values before transport. Client validation must never replace backend validation.
+- Keep SPEC-14 evidence receivers passive during file selection. Begin the signed upload preflight only from the explicit form submission action, lock the editable form during the save sequence, promote successful uploads to stable form-state references for retry, and remove `uploadUrl` before constructing the role payload.
 - Do not add `CONTRACTS_API_KEY` or any other server secret to `VITE_*` configuration.
 
 ## Backend standards
@@ -33,6 +34,9 @@ Status: 2026-07-21.
 - Gateway/development principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped; do not conflate attribution with authentication.
 - Configure `TRUST_PROXY_HOPS` to the exact known proxy count before relying on `req.ip` in audits. Keep it `0` for direct connections.
 - Validate SPEC-10 fields against role-specific schema projections and write them only through the server-side atomic Supabase function.
+- Independently validate contract media references before persistence: exact field and MIME allowlists, positive configured sizes, per-receiver counts, uniqueness, private bucket, entry/role/repeatable-item/filename path ownership, and live private-object MIME/size metadata.
+- Keep DNI and guarantor evidence in separate private buckets. Persist only stable bucket/path metadata; never persist signed upload or administrator view URLs.
+- Sign administrator media views only after validating the stored reference, return short-lived URLs, and omit storage bucket/path details from the normalized inspection response.
 - Generate 32-byte role tokens, store only HMAC hashes, compare them in constant time, and return regenerated raw URLs once.
 - Enforce HTTPS in production, `no-store`/`no-referrer` response headers, and per-IP/entry submission rate limits.
 - Restrict contract administration to the server API key or configured `CONTRACT_ADMIN_USER_IDS`.

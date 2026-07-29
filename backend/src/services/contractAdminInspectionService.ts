@@ -1,6 +1,7 @@
 import { getContractRoleSchema } from '../config/contractSchemas.js';
 import type {
   ContractAdminInspection,
+  ContractAdminInspectionEvidenceMedia,
   ContractAdminInspectionField,
   ContractAdminInspectionItem,
   ContractAdminInspectionMedia,
@@ -10,7 +11,9 @@ import type {
   ContractDniImageReference,
   ContractDniUploadDefinition,
   ContractEntryRecord,
+  ContractEvidenceFileReference,
   ContractFieldDefinition,
+  ContractFileReceiverDefinition,
   ContractRepeatableCollection,
   ContractRole,
   ContractRoleSectionDefinition,
@@ -23,6 +26,14 @@ import {
   issueContractDniViewUrl,
   type ContractDniSignedView,
 } from './contractDniUploadService.js';
+import {
+  CONTRACT_EVIDENCE_FILE_MIME_TYPE_SET,
+  getContractEvidenceMaxFileBytes,
+  getContractEvidenceStorageBucket,
+  isContractEvidenceStoragePath,
+  issueContractEvidenceViewUrl,
+  type ContractEvidenceSignedView,
+} from './contractEvidenceUploadService.js';
 
 const INSPECTION_ROLE_ORDER = ['user', 'client'] as const satisfies readonly ContractRole[];
 
@@ -31,6 +42,10 @@ export interface ContractAdminInspectionDependencies {
     reference: ContractDniImageReference,
     environment: NodeJS.ProcessEnv,
   ) => Promise<ContractDniSignedView>;
+  readonly issueEvidenceViewUrl: (
+    reference: ContractEvidenceFileReference,
+    environment: NodeJS.ProcessEnv,
+  ) => Promise<ContractEvidenceSignedView>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -104,6 +119,62 @@ function parseStoredDniReference(
   };
 }
 
+function parseStoredEvidenceReference(
+  raw: unknown,
+  context: {
+    readonly entryId: string;
+    readonly itemIndex: number;
+    readonly definition: ContractFileReceiverDefinition;
+    readonly environment: NodeJS.ProcessEnv;
+  },
+): ContractEvidenceFileReference | null {
+  if (!isRecord(raw)) return null;
+
+  const filename = raw.filename;
+  const mimeType = raw.mimeType;
+  const size = raw.size;
+  const storagePath = raw.storagePath;
+  const storageBucket = raw.storageBucket;
+  if (
+    typeof filename !== 'string' ||
+    filename.trim() === '' ||
+    typeof mimeType !== 'string' ||
+    !CONTRACT_EVIDENCE_FILE_MIME_TYPE_SET.has(mimeType) ||
+    !context.definition.acceptedMimeTypes.includes(mimeType) ||
+    typeof size !== 'number' ||
+    !Number.isSafeInteger(size) ||
+    size <= 0 ||
+    size > getContractEvidenceMaxFileBytes(context.environment) ||
+    size > context.definition.maxSizeBytes ||
+    typeof storagePath !== 'string' ||
+    typeof storageBucket !== 'string'
+  ) {
+    return null;
+  }
+
+  const expectedBucket = getContractEvidenceStorageBucket(context.environment);
+  if (
+    storageBucket !== expectedBucket ||
+    !isContractEvidenceStoragePath({
+      entryId: context.entryId,
+      itemIndex: context.itemIndex,
+      field: context.definition.name,
+      filename,
+      storagePath,
+    })
+  ) {
+    return null;
+  }
+
+  return {
+    filename,
+    mimeType,
+    size,
+    storagePath,
+    storageBucket,
+  };
+}
+
 function inspectField(
   field: ContractFieldDefinition,
   values: Readonly<Record<string, unknown>>,
@@ -134,18 +205,73 @@ function inspectUngroupedFields(
     .map((field) => inspectField(field, values));
 }
 
-function inspectSubsections(
+async function inspectSubsectionEvidence(
+  receiver: ContractFileReceiverDefinition,
+  values: Readonly<Record<string, unknown>>,
+  entry: ContractEntryRecord,
+  itemIndex: number | null,
+  environment: NodeJS.ProcessEnv,
+  dependencies: ContractAdminInspectionDependencies,
+): Promise<readonly ContractAdminInspectionEvidenceMedia[]> {
+  if (itemIndex === null) return [];
+  const rawFiles = values[receiver.name];
+  if (!Array.isArray(rawFiles) || rawFiles.length > receiver.maxFiles) return [];
+
+  const media: ContractAdminInspectionEvidenceMedia[] = [];
+  for (const rawFile of rawFiles) {
+    const reference = parseStoredEvidenceReference(rawFile, {
+      entryId: entry.id,
+      itemIndex,
+      definition: receiver,
+      environment,
+    });
+    if (!reference) continue;
+    const signed = await dependencies.issueEvidenceViewUrl(reference, environment);
+    media.push({
+      fieldName: receiver.name,
+      label: receiver.label,
+      filename: reference.filename,
+      mimeType: reference.mimeType,
+      size: reference.size,
+      viewUrl: signed.viewUrl,
+      expiresAt: signed.expiresAt,
+    });
+  }
+  return media;
+}
+
+async function inspectSubsections(
   section: ContractRoleSectionDefinition,
   values: Readonly<Record<string, unknown>>,
-): readonly ContractAdminInspectionSubsection[] {
+  entry: ContractEntryRecord,
+  itemIndex: number | null,
+  environment: NodeJS.ProcessEnv,
+  dependencies: ContractAdminInspectionDependencies,
+): Promise<readonly ContractAdminInspectionSubsection[]> {
   const fieldsByName = new Map(section.fields.map((field) => [field.name, field]));
-  return (section.subsections ?? []).map((subsection) => ({
-    title: subsection.title,
-    fields: subsection.fieldNames.flatMap((fieldName) => {
-      const field = fieldsByName.get(fieldName);
-      return field ? [inspectField(field, values)] : [];
-    }),
-  }));
+  const subsections: ContractAdminInspectionSubsection[] = [];
+  for (const subsection of section.subsections ?? []) {
+    const media: ContractAdminInspectionEvidenceMedia[] = [];
+    for (const receiver of subsection.fileReceivers ?? []) {
+      media.push(...await inspectSubsectionEvidence(
+        receiver,
+        values,
+        entry,
+        itemIndex,
+        environment,
+        dependencies,
+      ));
+    }
+    subsections.push({
+      title: subsection.title,
+      fields: subsection.fieldNames.flatMap((fieldName) => {
+        const field = fieldsByName.get(fieldName);
+        return field ? [inspectField(field, values)] : [];
+      }),
+      media,
+    });
+  }
+  return subsections;
 }
 
 async function inspectMedia(
@@ -196,7 +322,14 @@ async function inspectItem(
     index,
     label: `${section.repeatable?.itemLabel ?? section.title} ${index + 1}`,
     fields: inspectUngroupedFields(section, values),
-    subsections: inspectSubsections(section, values),
+    subsections: await inspectSubsections(
+      section,
+      values,
+      entry,
+      index,
+      environment,
+      dependencies,
+    ),
     media: await inspectMedia(section, values, entry, environment, dependencies),
   };
 }
@@ -212,7 +345,14 @@ async function inspectSection(
     return {
       title: section.title,
       fields: inspectUngroupedFields(section, submission),
-      subsections: inspectSubsections(section, submission),
+      subsections: await inspectSubsections(
+        section,
+        submission,
+        entry,
+        null,
+        environment,
+        dependencies,
+      ),
       items: [],
     };
   }
@@ -257,7 +397,11 @@ async function inspectSubmission(
   environment: NodeJS.ProcessEnv,
   dependencies: ContractAdminInspectionDependencies,
 ): Promise<ContractAdminInspectionSubmission> {
-  const roleSchema = getContractRoleSchema(entry.schemaId, submission.role);
+  const roleSchema = getContractRoleSchema(
+    entry.schemaId,
+    submission.role,
+    environment,
+  );
   const sections: ContractAdminInspectionSection[] = [];
   for (const section of roleSchema.sections) {
     sections.push(await inspectSection(
@@ -284,6 +428,8 @@ export async function buildContractAdminInspection(
 ): Promise<ContractAdminInspection> {
   const dependencies: ContractAdminInspectionDependencies = {
     issueDniViewUrl: dependencyOverrides.issueDniViewUrl ?? issueContractDniViewUrl,
+    issueEvidenceViewUrl:
+      dependencyOverrides.issueEvidenceViewUrl ?? issueContractEvidenceViewUrl,
   };
   const submissionsByRole = getContractSubmissionRecordsByRole(entry.id, submissions);
   const inspectedSubmissions: ContractAdminInspectionSubmission[] = [];

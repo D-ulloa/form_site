@@ -64,9 +64,9 @@ Response body shape:
 - `413` for payload size violations.
 - `500` for backend failures.
 
-## SPEC-10 through SPEC-13 contract entry API
+## SPEC-10 through SPEC-14 contract entry API
 
-All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary. Role reads and submits require the matching role token, except that an authenticated owner can use the user route without a token.
+All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
 
 ### `POST /api/contracts/create`
 
@@ -74,13 +74,55 @@ Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optio
 
 ### `GET /api/contracts/:entryId/schema?role=user|client&token=...`
 
-Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. User sections are `Propietario` and `Contrato`; the latter exposes `Vigencia`, `Canon`, and `Ajuste` subsection metadata in form order. `contract_selection` is a select with `IPC`/`IPL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
+Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. Each `Garantes` subsection also exposes its SPEC-14 `fileReceivers` metadata: `name`, Spanish `label`, `maxFiles: 2`, `maxSizeBytes`, and the exact accepted MIME list. User sections are `Propietario` and `Contrato`; the latter exposes `Vigencia`, `Canon`, and `Ajuste` subsection metadata in form order. `contract_selection` is a select with `IPC`/`IPL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
 
 ### `POST /api/contracts/:entryId/dni-uploads/presign?token=...`
 
 Client token required. Request: `{ "uploads": [{ "collection": "inquilinos|garantes", "itemIndex": 0, "slot": "front|back", "originalName": "dni.jpg", "mimeType": "image/jpeg", "sizeBytes": 1000 }] }`. A request may contain at most one front and one back descriptor for a collection/item index. Only configured raster image MIME types and positive sizes within `CONTRACT_DNI_MAX_IMAGE_BYTES` are accepted.
 
 Returns `{ "uploads": [{ uploadUrl, originalName, mimeType, sizeBytes, storagePath, storageBucket, publicPath, slot }] }`. `uploadUrl` is used for the direct `PUT` and must not be persisted. The remaining private reference is included in the corresponding repeated record at role submission time.
+
+### `POST /api/contracts/:entryId/evidence-uploads/presign?token=...`
+
+Client token required. This endpoint is called only after the user explicitly submits the client form; selecting files does not call it.
+
+Request:
+
+```json
+{
+  "uploads": [
+    {
+      "collection": "garantes",
+      "itemIndex": 0,
+      "field": "recibo_sueldo_files",
+      "filename": "recibo-julio.pdf",
+      "mimeType": "application/pdf",
+      "size": 245760
+    }
+  ]
+}
+```
+
+`field` must be `recibo_sueldo_files` or `garantia_propietaria_files`. Each descriptor requires a nonnegative guarantor index, a nonempty filename, one of `application/pdf`, `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/bmp`, or `image/tiff`, and a positive safe-integer size no greater than `CONTRACT_EVIDENCE_MAX_FILE_BYTES`. A request may include at most 20 descriptors and at most two for the same guarantor/field receiver.
+
+Response:
+
+```json
+{
+  "uploads": [
+    {
+      "filename": "recibo-julio.pdf",
+      "mimeType": "application/pdf",
+      "size": 245760,
+      "storagePath": "contracts/entry-id/client/garantes/0/recibo_sueldo_files/uuid-recibo-julio.pdf",
+      "storageBucket": "contract-evidence",
+      "uploadUrl": "https://storage.example/signed-upload"
+    }
+  ]
+}
+```
+
+The response preserves descriptor order. The browser sends each file directly to its `uploadUrl`, removes that transient property, and includes the remaining stable reference in the matching guarantor array. The route rejects archived or already-submitted client entries and never makes the private bucket public. It uses the contract limiter under an independent `evidence:<ip>:<entryId>` key, so upload preflights do not consume role-submit attempts; the default eleventh preflight within 15 minutes returns retriable `429`.
 
 ### `POST /api/contracts/:entryId/submit?role=user|client&token=...`
 
@@ -90,12 +132,29 @@ Request: `{ "fields": { ... } }`. User fields remain flat. Client fields use fir
 {
   "fields": {
     "inquilinos": [{ "tenant_full_name": "Garcia, Juan" }],
-    "garantes": [{ "guarantor_full_name": "Perez, Maria" }]
+    "garantes": [
+      {
+        "guarantor_full_name": "Perez, Maria",
+        "guarantor_company": "Empresa SA",
+        "recibo_sueldo_files": [
+          {
+            "filename": "recibo-julio.pdf",
+            "mimeType": "application/pdf",
+            "size": 245760,
+            "storagePath": "contracts/entry-id/client/garantes/0/recibo_sueldo_files/uuid-recibo-julio.pdf",
+            "storageBucket": "contract-evidence"
+          }
+        ],
+        "garantia_propietaria_files": []
+      }
+    ]
   }
 }
 ```
 
-Both arrays require at least one strict object. Each object accepts only that section's scalar fields and its configured front/back references. DNI images are optional as a pair: neither may be present, or both must be present. A lone side, extra field/slot, non-image MIME type, oversized object, wrong bucket/path, or reference belonging to another entry returns `400`.
+Both repeatable arrays require at least one strict object. Each object accepts only that section's scalar fields, configured front/back references, and configured evidence arrays. DNI images are optional as a pair: neither may be present, or both must be present. A lone side, extra field/slot, non-image MIME type, oversized object, wrong bucket/path, or reference belonging to another entry returns `400`.
+
+Every guarantor must retain the existing SPEC-12 scalar-subsection rule and also provide at least one evidence reference across `recibo_sueldo_files` and `garantia_propietaria_files`. Each evidence array accepts zero to two strict `{ filename, mimeType, size, storagePath, storageBucket }` objects. The backend revalidates the exact MIME set, configured size, private bucket, entry/client/guarantor-index/field/filename-scoped path, and path uniqueness. It then reads each private object's Storage metadata with concurrency capped at four and requires exact MIME/byte-size matches before persistence. Unknown properties, transient `uploadUrl` values, duplicate paths, a missing/mismatched object, a third file, or no evidence across the pair return `400`; a Storage outage or incomplete metadata returns retriable `503 EVIDENCE_VERIFICATION_UNAVAILABLE`.
 
 The user payload must not contain `approve_contract`. `contract_selection`, when present, must be `IPC` or `IPL`. Caller-provided `contract_formatted_start`/`contract_formatted_update` values are ignored: the server stores `Formateada_1` as the last calendar day before the `contract_start_date` month and stores `Formateada_2` as that date plus the optional nonnegative whole-number `contract_update` months.
 
@@ -148,6 +207,28 @@ The API key is an administrator. Gateway and development identities must also ap
 ```
 
 The server reconstructs section and field order from the authoritative role schema rather than JSONB object-key order. When both rows exist, `user` is returned before `client`; partial entries include only the available role, and entries without submissions return `hasSubmissions: false` with an empty array. Repeatable sections expose ordered `items`. Valid stored DNI references appear under their item’s `media` array with labels, file metadata, and a short-lived signed `viewUrl`; bucket names and storage paths are not included in that inspection model.
+
+SPEC-14 evidence appears in the `media` array of the matching guarantor subsection:
+
+```json
+{
+  "title": "Recibo de sueldo",
+  "fields": [],
+  "media": [
+    {
+      "fieldName": "recibo_sueldo_files",
+      "label": "Subir recibo de sueldo",
+      "filename": "recibo-julio.pdf",
+      "mimeType": "application/pdf",
+      "size": 245760,
+      "viewUrl": "https://storage.example/signed-view",
+      "expiresAt": "2026-07-29T13:10:00.000Z"
+    }
+  ]
+}
+```
+
+The server validates each stored evidence reference before signing it. Evidence view URLs expire after ten minutes; `storageBucket`, `storagePath`, and upload URLs are omitted from the normalized inspection response.
 
 ## Legacy SPEC-09 contract endpoint authorization
 

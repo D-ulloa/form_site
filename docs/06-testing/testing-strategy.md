@@ -19,12 +19,13 @@ The property workflow retains lightweight validation helpers. Contract Generatio
 
 ### Current Contract Generation coverage
 
-The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..66` top-level tests, `# tests 90` including nested subtests, `# pass 90`, and `# fail 0`. It covers:
+The backend suite runs with `cd backend && npm test`. It covers:
 
 - SPEC-10 role splitting (`Inquilino`/`Garantes` vs. `Testigos`/`Contrato`), HMAC token storage and verification, entry creation, both role submissions, combined completion, admin inspection, token regeneration, and archive lifecycle.
 - SPEC-11 repeatable `inquilinos`/`garantes` arrays, schema upload slots, client-token-authorized presigning, paired/private DNI reference enforcement, approval-field rejection, IPC/IPL validation, and UTC-safe server date recalculation including leap years and zero/absent update intervals.
 - SPEC-12 Spanish-only hosted-form UI, `Propietario` presentation, compact contract-generation actions, hidden role-schema panels, guarantor subsection rendering, and per-guarantor salary-receipt/property-guarantee validation in both the browser and backend.
 - SPEC-13 `Contrato` subdivision metadata, manual-only entry creation, immutable submission-row reads, schema-defined user/client inspection order, every partial/empty state, and validated short-lived DNI viewing URLs.
+- SPEC-14 per-guarantor file-receiver metadata, exact evidence MIME and configurable size limits, client-token-authorized/rate-limited evidence presigning, strict path and live Storage-metadata verification, duplicate-reference rejection, typed verification outages, two-files-per-receiver and one-file-per-guarantor rules, and subsection-grouped administrator signed views without storage-location leakage.
 - The retained SPEC-09 compatibility boundary, including:
 - Runtime contract configuration, public/private projection, malformed destination rejection, and strict service-account-only Google auth.
 - Strict request validation for unknown fields, no numeric coercion, email, impossible ISO dates, minimum limits, contract-type mismatch, and allowed `meta.origin` values.
@@ -40,10 +41,11 @@ The final backend suite runs with `cd backend && npm test`. The current TAP summ
 - Call-time `CONTRACT_AUDIT_LOGS_DIR` resolution, explicit test overrides, and blank-value fallback to `backend/logs`.
 - Schema-injected validation across all six field types, required `false`, select/pattern/length/max/email/date rules, and invalid schema rules.
 
-The frontend suite currently runs 38 Vitest cases. It covers:
+The frontend suite covers:
 
 - Real ISO calendar dates; required, email, range, pattern, length, and select rules; number/default normalization; and all six rendered field controls.
 - Repeatable client blocks with one default item, add/remove behavior, two DNI controls per block, nested payload normalization, Ajuste options, read-only computed controls, and calendar-safe computed date previews.
+- Passive salary-receipt/property-guarantee receivers, exact type and 10 MB default validation, cumulative two-file limits, removal and previews, multi-guarantor evidence isolation, submit-time form locking and presign/upload sequencing, stable-reference retry without duplicate uploads, ambiguous-response reconciliation, nested server errors, and admin grouping.
 - Editable and read-only `Vigencia`, `Canon`, and `Ajuste` groups; passive contract-entry opening with an explicit creation action; and structured administrator inspection for both, partial, empty, and media states.
 - Copy success and failure, normalized single-submit locking, retained data and focused server field errors, safe Sheet/audit receipt links, and Step B accessibility.
 - Authenticated inline audit loading and failure display while retaining the audit `href`.
@@ -54,7 +56,7 @@ The frontend suite currently runs 38 Vitest cases. It covers:
 
 - Unit tests for `frontend/src/features/properties/schemas/propertySchema.ts` and media validation hooks.
 - Integration tests for `backend/src/routes/properties.ts` and `backend/src/services/createPropertySubmission.ts`.
-- Additional staging coverage for the Supabase migration/RPC and RLS grants.
+- Additional staging coverage for the Supabase database migration/RPC, RLS grants, and the private `contract-dni`/`contract-evidence` bucket restrictions.
 - End-to-end tests covering the full property submission path, including Drive/Sheets/Make integration if feasible.
 - Accessibility checks for the hosted role form, entry modal, and contract admin UI; legacy two-step modal tests remain compatibility coverage.
 - An optional staging test against a least-privileged sandbox spreadsheet. Never point automated tests at a production contract sheet.
@@ -70,3 +72,5 @@ The frontend suite currently runs 38 Vitest cases. It covers:
 - `cd backend && npm run build`
 
 Tests that write audits use a temporary directory and remove their own fixtures; they must not modify committed historical files under `backend/logs/`.
+
+Focused SPEC-14 backend coverage lives in `backend/tests/contract-entries-spec14.test.ts`.

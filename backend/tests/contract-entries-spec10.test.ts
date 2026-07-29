@@ -125,9 +125,25 @@ function valueFor(field: ContractFieldDefinition): ContractFieldValue {
   return `${field.name} value`;
 }
 
-function validRoleFields(role: ContractRole): Record<string, unknown> {
+function evidenceReference(entryId: string) {
+  const storagePath = `contracts/${entryId}/client/garantes/0/`
+    + 'recibo_sueldo_files/22222222-2222-4222-8222-222222222222-recibo.pdf';
+  return {
+    filename: 'recibo.pdf',
+    mimeType: 'application/pdf',
+    size: 1000,
+    storagePath,
+    storageBucket: 'contract-evidence',
+  };
+}
+
+function validRoleFields(
+  role: ContractRole,
+  entryId?: string,
+): Record<string, unknown> {
   const schema = getContractRoleSchema('rent-contract-v1', role);
   if (role === 'client') {
+    assert.ok(entryId);
     return Object.fromEntries(schema.sections.map((section) => [
       section.repeatable?.name ?? section.title,
       [{
@@ -135,7 +151,10 @@ function validRoleFields(role: ContractRole): Record<string, unknown> {
         .filter((field) => field.required && !field.computed)
         .map((field) => [field.name, valueFor(field)])),
         ...(section.repeatable?.name === 'garantes'
-          ? { guarantor_company: 'Empresa de prueba' }
+          ? {
+              guarantor_company: 'Empresa de prueba',
+              recibo_sueldo_files: [evidenceReference(entryId)],
+            }
           : {}),
       }],
     ]));
@@ -153,6 +172,11 @@ function createApp(repository: ContractEntryRepository) {
     environment: ENVIRONMENT,
     repository,
     now: () => new Date('2026-07-24T12:00:00.000Z'),
+    issueEvidenceViewUrl: async () => ({
+      viewUrl: 'https://storage.example.test/evidence',
+      expiresAt: '2026-07-24T12:10:00.000Z',
+    }),
+    verifyEvidenceReferences: async () => [],
   }));
   return app;
 }
@@ -220,7 +244,7 @@ test('create, both role submissions, admin inspection, token regeneration, and a
     'Inquilino', 'Garantes',
   ]);
 
-  const clientFields = validRoleFields('client');
+  const clientFields = validRoleFields('client', created.body.entryId as string);
   const tenants = clientFields.inquilinos as Record<string, unknown>[];
   tenants.push({ ...tenants[0] });
   const clientSubmission = await request(app)

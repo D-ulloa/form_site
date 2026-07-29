@@ -3,11 +3,18 @@ import { getContractRoleSchema, getContractSchemaDefinition } from '../config/co
 import type {
   ContractEntryRecord,
   ContractEntrySummary,
+  ContractEvidenceFileField,
+  ContractEvidenceFileReference,
   ContractRole,
   ContractSubmissionMetadata,
   ContractValidationIssue,
 } from '../contracts/types.js';
 import type { ContractEntryRepository } from './contractEntryRepository.js';
+import {
+  verifyContractEvidenceReferences,
+  type ContractEvidenceReferenceVerificationTarget,
+  type ContractEvidenceReferenceVerifier,
+} from './contractEvidenceUploadService.js';
 import { validateContractRoleSubmissionFields } from './validateContractRoleSubmission.js';
 import {
   generateContractAccessToken,
@@ -148,6 +155,35 @@ function sanitizeFields(
   );
 }
 
+const CONTRACT_EVIDENCE_FIELDS = [
+  'recibo_sueldo_files',
+  'garantia_propietaria_files',
+] as const satisfies readonly ContractEvidenceFileField[];
+
+function collectContractEvidenceReferences(
+  fields: Readonly<Record<string, unknown>>,
+): readonly ContractEvidenceReferenceVerificationTarget[] {
+  const guarantors = fields.garantes;
+  if (!Array.isArray(guarantors)) return [];
+
+  const targets: ContractEvidenceReferenceVerificationTarget[] = [];
+  guarantors.forEach((rawGuarantor, itemIndex) => {
+    if (typeof rawGuarantor !== 'object' || rawGuarantor === null) return;
+    const guarantor = rawGuarantor as Readonly<Record<string, unknown>>;
+    for (const field of CONTRACT_EVIDENCE_FIELDS) {
+      const rawReferences = guarantor[field];
+      if (!Array.isArray(rawReferences)) continue;
+      rawReferences.forEach((rawReference, fileIndex) => {
+        targets.push({
+          path: `fields.garantes.${itemIndex}.${field}.${fileIndex}`,
+          reference: rawReference as ContractEvidenceFileReference,
+        });
+      });
+    }
+  });
+  return targets;
+}
+
 export async function submitContractEntryRole(
   input: {
     readonly entry: ContractEntryRecord;
@@ -160,16 +196,31 @@ export async function submitContractEntryRole(
   dependencies: {
     readonly generateSubmissionId?: () => string;
     readonly environment?: NodeJS.ProcessEnv;
+    readonly verifyEvidenceReferences?: ContractEvidenceReferenceVerifier;
   } = {},
 ): Promise<SubmitContractEntryRoleResult> {
-  const roleSchema = getContractRoleSchema(input.entry.schemaId, input.role);
+  const environment = dependencies.environment ?? process.env;
+  const roleSchema = getContractRoleSchema(
+    input.entry.schemaId,
+    input.role,
+    environment,
+  );
   const validation = validateContractRoleSubmissionFields({
     entry: input.entry,
     role: input.role,
     roleSchema,
     fields: input.fields,
-  }, dependencies.environment);
+  }, environment);
   if (!validation.success) throw new ContractRoleValidationError(validation.errors);
+  if (input.role === 'client') {
+    const evidenceErrors = await (
+      dependencies.verifyEvidenceReferences ?? verifyContractEvidenceReferences
+    )(
+      collectContractEvidenceReferences(validation.fields),
+      environment,
+    );
+    if (evidenceErrors.length > 0) throw new ContractRoleValidationError(evidenceErrors);
+  }
 
   const submissionId = (dependencies.generateSubmissionId ?? randomUUID)();
   const entry = await repository.saveRoleSubmission({

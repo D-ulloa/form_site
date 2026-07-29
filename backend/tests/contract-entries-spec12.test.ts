@@ -45,6 +45,18 @@ function requiredFields(
   );
 }
 
+function evidenceReference() {
+  const storagePath = `contracts/${ENTRY.id}/client/garantes/0/`
+    + 'recibo_sueldo_files/22222222-2222-4222-8222-222222222222-recibo.pdf';
+  return {
+    filename: 'recibo.pdf',
+    mimeType: 'application/pdf',
+    size: 1000,
+    storagePath,
+    storageBucket: 'contract-evidence',
+  };
+}
+
 function clientFields(guarantorFields: Record<string, unknown>) {
   const schema = getContractRoleSchema('rent-contract-v1', 'client');
   const tenantSection = schema.sections.find(
@@ -60,6 +72,7 @@ function clientFields(guarantorFields: Record<string, unknown>) {
     inquilinos: [requiredFields(tenantSection.fields)],
     garantes: [{
       ...requiredFields(guarantorSection.fields),
+      recibo_sueldo_files: [evidenceReference()],
       ...guarantorFields,
     }],
   };
@@ -76,7 +89,10 @@ test('SPEC-12 schema exposes Propietario and the two guarantor subsections', () 
     'Propietario',
     'Contrato',
   ]);
-  assert.deepEqual(guarantors?.subsections, [
+  assert.deepEqual(guarantors?.subsections?.map(({ title, fieldNames }) => ({
+    title,
+    fieldNames,
+  })), [
     {
       title: 'Recibo de sueldo',
       fieldNames: [

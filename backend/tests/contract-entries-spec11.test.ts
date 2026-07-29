@@ -62,6 +62,18 @@ function requiredFields(fields: readonly ContractFieldDefinition[]): Record<stri
     .map((field) => [field.name, valueFor(field)]));
 }
 
+function evidenceReference() {
+  const storagePath = `contracts/${ENTRY_ID}/client/garantes/0/`
+    + 'recibo_sueldo_files/33333333-3333-4333-8333-333333333333-recibo.pdf';
+  return {
+    filename: 'recibo.pdf',
+    mimeType: 'application/pdf',
+    size: 1000,
+    storagePath,
+    storageBucket: 'contract-evidence',
+  };
+}
+
 function validClientFields(): Record<string, unknown> {
   const schema = getContractRoleSchema('rent-contract-v1', 'client');
   return Object.fromEntries(schema.sections.map((section) => [
@@ -69,7 +81,10 @@ function validClientFields(): Record<string, unknown> {
     [{
       ...requiredFields(section.fields),
       ...(section.repeatable?.name === 'garantes'
-        ? { guarantor_company: 'Empresa de prueba' }
+        ? {
+            guarantor_company: 'Empresa de prueba',
+            recibo_sueldo_files: [evidenceReference()],
+          }
         : {}),
     }],
   ]));

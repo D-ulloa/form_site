@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import * as axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useForm } from 'react-hook-form';
 import type { ContractFormValues, ContractSection } from '../types.ts';
 import {
   buildContractDefaultValues,
+  getMissingContractEvidence,
   getMissingContractSubsections,
   normalizeContractRoleFields,
 } from '../types.ts';
@@ -90,10 +91,40 @@ const guarantorSection: ContractSection = {
     {
       title: 'Recibo de sueldo',
       fieldNames: ['guarantor_company'],
+      fileReceivers: [{
+        name: 'recibo_sueldo_files',
+        label: 'Subir recibo de sueldo',
+        maxFiles: 2,
+        maxSizeBytes: 10 * 1024 * 1024,
+        acceptedMimeTypes: [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'image/bmp',
+          'image/tiff',
+        ],
+      }],
     },
     {
       title: 'Garantía propietaria',
       fieldNames: ['property_type'],
+      fileReceivers: [{
+        name: 'garantia_propietaria_files',
+        label: 'Subir garantía propietaria',
+        maxFiles: 2,
+        maxSizeBytes: 10 * 1024 * 1024,
+        acceptedMimeTypes: [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'image/bmp',
+          'image/tiff',
+        ],
+      }],
     },
   ],
 };
@@ -129,6 +160,32 @@ function GuarantorHarness() {
         onUploadPendingChange={() => undefined}
       />
     </form>
+  );
+}
+
+function NestedEvidenceErrorHarness() {
+  const form = useForm<ContractFormValues>({
+    defaultValues: buildContractDefaultValues({ sections: [guarantorSection] }),
+  });
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => form.setError('garantes.0.recibo_sueldo_files.0', {
+          type: 'server',
+          message: 'El archivo no pertenece a esta entrada.',
+        })}
+      >
+        Mostrar error anidado
+      </button>
+      <ContractRepeatableSection
+        section={guarantorSection}
+        form={form}
+        entryId="11111111-1111-4111-8111-111111111111"
+        token="client-token"
+        onUploadPendingChange={() => undefined}
+      />
+    </>
   );
 }
 
@@ -200,10 +257,12 @@ describe('SPEC-12 guarantor subsections', () => {
   it('groups guarantor fields under the two Spanish subsection headings', () => {
     render(<GuarantorHarness />);
 
-    expect(screen.getByRole('heading', { name: 'Recibo de sueldo' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Garantía propietaria' })).toBeTruthy();
-    expect(screen.getByLabelText('Empresa')).toBeTruthy();
-    expect(screen.getByLabelText('Tipo de propiedad')).toBeTruthy();
+    const salary = screen.getByRole('region', { name: 'Recibo de sueldo' });
+    const property = screen.getByRole('region', { name: 'Garantía propietaria' });
+    expect(within(salary).getByLabelText('Empresa')).toBeTruthy();
+    expect(within(salary).getByLabelText('Subir recibo de sueldo')).toBeTruthy();
+    expect(within(property).getByLabelText('Tipo de propiedad')).toBeTruthy();
+    expect(within(property).getByLabelText('Subir garantía propietaria')).toBeTruthy();
   });
 
   it('requires data in at least one guarantor subsection for every item', () => {
@@ -225,5 +284,73 @@ describe('SPEC-12 guarantor subsections', () => {
         {},
       ],
     })).toEqual([{ collection: 'garantes', itemIndex: 2 }]);
+  });
+
+  it('requires at least one evidence file across both receivers for each guarantor', () => {
+    const schema = { sections: [guarantorSection] };
+    const receipt = new File(['receipt'], 'recibo.pdf', { type: 'application/pdf' });
+    const property = new File(['deed'], 'titulo.png', { type: 'image/png' });
+
+    expect(getMissingContractEvidence(schema, {
+      garantes: [{}, { recibo_sueldo_files: [] }],
+    })).toEqual([
+      { collection: 'garantes', itemIndex: 0 },
+      { collection: 'garantes', itemIndex: 1 },
+    ]);
+    expect(getMissingContractEvidence(schema, {
+      garantes: [{ recibo_sueldo_files: [receipt] }],
+    })).toEqual([]);
+    expect(getMissingContractEvidence(schema, {
+      garantes: [{ garantia_propietaria_files: [property] }],
+    })).toEqual([]);
+    expect(getMissingContractEvidence(schema, {
+      garantes: [{
+        recibo_sueldo_files: [receipt],
+        garantia_propietaria_files: [property],
+      }],
+    })).toEqual([]);
+  });
+
+  it('retains stable evidence arrays while normalizing guarantor payloads', () => {
+    const receipt = {
+      filename: 'recibo.pdf',
+      mimeType: 'application/pdf',
+      size: 1024,
+      storagePath: 'entry/garantes/0/recibo.pdf',
+      storageBucket: 'contract-evidence',
+    };
+
+    expect(normalizeContractRoleFields(
+      { sections: [guarantorSection] },
+      {
+        garantes: [{
+          guarantor_full_name: 'Pérez, Ana',
+          guarantor_company: 'Empresa SA',
+          recibo_sueldo_files: [receipt],
+          ignored: 'value',
+        }],
+      },
+    )).toEqual({
+      garantes: [{
+        guarantor_full_name: 'Pérez, Ana',
+        guarantor_company: 'Empresa SA',
+        recibo_sueldo_files: [receipt],
+      }],
+    });
+  });
+
+  it('surfaces a nested backend evidence error at the receiver root', () => {
+    render(<NestedEvidenceErrorHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar error anidado' }));
+
+    const salary = screen.getByRole('region', { name: 'Recibo de sueldo' });
+    expect(within(salary).getByRole('alert').textContent).toContain(
+      'El archivo no pertenece a esta entrada.',
+    );
+    expect(
+      within(salary).getByLabelText('Subir recibo de sueldo')
+        .getAttribute('aria-invalid'),
+    ).toBe('true');
   });
 });

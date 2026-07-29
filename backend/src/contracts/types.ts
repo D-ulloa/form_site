@@ -34,6 +34,9 @@ export interface ContractSectionDefinition {
 
 export type ContractRepeatableCollection = 'inquilinos' | 'garantes';
 export type ContractDniImageSlot = 'front' | 'back';
+export type ContractEvidenceFileField =
+  | 'recibo_sueldo_files'
+  | 'garantia_propietaria_files';
 
 export interface ContractRepeatableDefinition {
   readonly name: ContractRepeatableCollection;
@@ -49,9 +52,18 @@ export interface ContractDniUploadDefinition {
   readonly required: boolean;
 }
 
+export interface ContractFileReceiverDefinition {
+  readonly name: ContractEvidenceFileField;
+  readonly label: string;
+  readonly maxFiles: 2;
+  readonly maxSizeBytes: number;
+  readonly acceptedMimeTypes: readonly string[];
+}
+
 export interface ContractSubsectionDefinition {
   readonly title: string;
   readonly fieldNames: readonly string[];
+  readonly fileReceivers?: readonly ContractFileReceiverDefinition[];
 }
 
 export interface ContractRoleSectionDefinition extends ContractSectionDefinition {
@@ -68,6 +80,14 @@ export interface ContractDniImageReference {
   readonly storageBucket: string;
   readonly publicPath: string;
   readonly slot: ContractDniImageSlot;
+}
+
+export interface ContractEvidenceFileReference {
+  readonly filename: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly storagePath: string;
+  readonly storageBucket: string;
 }
 
 export interface ContractSchemaDefinition {
@@ -217,6 +237,17 @@ export interface ContractAdminInspectionField {
 export interface ContractAdminInspectionSubsection {
   readonly title: string;
   readonly fields: readonly ContractAdminInspectionField[];
+  readonly media: readonly ContractAdminInspectionEvidenceMedia[];
+}
+
+export interface ContractAdminInspectionEvidenceMedia {
+  readonly fieldName: ContractEvidenceFileField;
+  readonly label: string;
+  readonly filename: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly viewUrl: string;
+  readonly expiresAt: string;
 }
 
 export interface ContractAdminInspectionMedia {

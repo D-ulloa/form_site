@@ -3,6 +3,8 @@ import type {
   ContractDniImageReference,
   ContractDniUploadDefinition,
   ContractEntryRecord,
+  ContractEvidenceFileReference,
+  ContractFileReceiverDefinition,
   ContractRole,
   ContractRoleSectionDefinition,
   ContractRoleSchema,
@@ -13,6 +15,12 @@ import {
   getContractDniMaxImageBytes,
   getContractDniStorageBucket,
 } from './contractDniUploadService.js';
+import {
+  CONTRACT_EVIDENCE_FILE_MIME_TYPE_SET,
+  getContractEvidenceMaxFileBytes,
+  getContractEvidenceStorageBucket,
+  isContractEvidenceStoragePath,
+} from './contractEvidenceUploadService.js';
 import { validateContractSubmissionAgainstSchema } from './validateContractSubmission.js';
 
 const DniImageReferenceSchema = z.object({
@@ -23,6 +31,14 @@ const DniImageReferenceSchema = z.object({
   storageBucket: z.string().trim().min(1).max(128),
   publicPath: z.string().trim().min(1).max(1200),
   slot: z.enum(['front', 'back']),
+}).strict();
+
+const EvidenceFileReferenceSchema = z.object({
+  filename: z.string().trim().min(1).max(256),
+  mimeType: z.string().trim().min(1).max(128),
+  size: z.number().int().positive(),
+  storagePath: z.string().trim().min(1).max(1024),
+  storageBucket: z.string().trim().min(1).max(128),
 }).strict();
 
 export type ContractRoleFieldsValidationResult =
@@ -108,6 +124,74 @@ function validateDniReference(
   return errors.length > 0 ? { errors } : { value, errors: [] };
 }
 
+function validateEvidenceReference(
+  raw: unknown,
+  definition: ContractFileReceiverDefinition,
+  context: {
+    readonly entryId: string;
+    readonly itemIndex: number;
+    readonly path: string;
+    readonly environment: NodeJS.ProcessEnv;
+  },
+): {
+  readonly value?: ContractEvidenceFileReference;
+  readonly errors: readonly ContractValidationIssue[];
+} {
+  const parsed = EvidenceFileReferenceSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      errors: [issue(
+        context.path,
+        'invalid_type',
+        `${definition.label} debe contener una referencia de archivo válida.`,
+      )],
+    };
+  }
+
+  const value = parsed.data;
+  const errors: ContractValidationIssue[] = [];
+  const expectedBucket = getContractEvidenceStorageBucket(context.environment);
+
+  if (
+    !CONTRACT_EVIDENCE_FILE_MIME_TYPE_SET.has(value.mimeType) ||
+    !definition.acceptedMimeTypes.includes(value.mimeType)
+  ) {
+    errors.push(issue(
+      context.path,
+      'invalid_type',
+      `${definition.label} solo acepta PDF, JPG, PNG, GIF, WEBP, BMP o TIFF.`,
+    ));
+  }
+  if (
+    value.size > definition.maxSizeBytes ||
+    value.size > getContractEvidenceMaxFileBytes(context.environment)
+  ) {
+    errors.push(issue(
+      context.path,
+      'max',
+      `${definition.label} supera el tamaño máximo permitido.`,
+    ));
+  }
+  if (
+    value.storageBucket !== expectedBucket ||
+    !isContractEvidenceStoragePath({
+      entryId: context.entryId,
+      itemIndex: context.itemIndex,
+      field: definition.name,
+      filename: value.filename,
+      storagePath: value.storagePath,
+    })
+  ) {
+    errors.push(issue(
+      context.path,
+      'invalid_type',
+      `${definition.label} no pertenece a esta entrada de contrato.`,
+    ));
+  }
+
+  return errors.length > 0 ? { errors } : { value, errors: [] };
+}
+
 function sectionSchema(
   roleSchema: ContractRoleSchema,
   section: ContractRoleSectionDefinition,
@@ -147,6 +231,10 @@ function validateRepeatedSection(
   const errors: ContractValidationIssue[] = [];
   const fieldNames = new Set(section.fields.map((field) => field.name));
   const uploadNames = new Set((section.uploads ?? []).map((upload) => upload.name));
+  const fileReceiverNames = new Set<string>(
+    section.subsections?.flatMap((subsection) =>
+      subsection.fileReceivers?.map((receiver) => receiver.name) ?? []) ?? [],
+  );
 
   raw.forEach((item, index) => {
     const itemPath = `${collectionPath}.${index}`;
@@ -204,6 +292,55 @@ function validateRepeatedSection(
       errors.push(issue(itemPath, 'max', `${repeatable.itemLabel} accepts at most two DNI images.`));
     }
 
+    let evidenceFileCount = 0;
+    for (const subsection of section.subsections ?? []) {
+      for (const receiver of subsection.fileReceivers ?? []) {
+        const receiverPath = `${itemPath}.${receiver.name}`;
+        const rawFiles = item[receiver.name];
+        if (rawFiles === undefined || rawFiles === null) {
+          validatedItem[receiver.name] = [];
+          continue;
+        }
+        if (!Array.isArray(rawFiles)) {
+          errors.push(issue(
+            receiverPath,
+            'invalid_type',
+            `${receiver.label} debe ser una lista de archivos.`,
+          ));
+          validatedItem[receiver.name] = [];
+          continue;
+        }
+        if (rawFiles.length > receiver.maxFiles) {
+          errors.push(issue(
+            receiverPath,
+            'max',
+            `${receiver.label} acepta hasta ${receiver.maxFiles} archivos.`,
+          ));
+        }
+
+        const validatedFiles: ContractEvidenceFileReference[] = [];
+        rawFiles.forEach((rawFile, fileIndex) => {
+          const fileValidation = validateEvidenceReference(rawFile, receiver, {
+            entryId: entry.id,
+            itemIndex: index,
+            path: `${receiverPath}.${fileIndex}`,
+            environment,
+          });
+          errors.push(...fileValidation.errors);
+          if (fileValidation.value) validatedFiles.push(fileValidation.value);
+        });
+        evidenceFileCount += validatedFiles.length;
+        validatedItem[receiver.name] = validatedFiles;
+      }
+    }
+    if (fileReceiverNames.size > 0 && evidenceFileCount === 0) {
+      errors.push(issue(
+        `${itemPath}._files`,
+        'required',
+        'Subí al menos un archivo entre Recibo de sueldo y Garantía propietaria.',
+      ));
+    }
+
     if (
       section.subsections?.length &&
       !section.subsections.some((subsection) =>
@@ -218,7 +355,11 @@ function validateRepeatedSection(
     }
 
     for (const fieldName of Object.keys(item)) {
-      if (!fieldNames.has(fieldName) && !uploadNames.has(fieldName)) {
+      if (
+        !fieldNames.has(fieldName) &&
+        !uploadNames.has(fieldName) &&
+        !fileReceiverNames.has(fieldName)
+      ) {
         errors.push(issue(
           `${itemPath}.${fieldName}`,
           'unknown_field',

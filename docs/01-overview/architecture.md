@@ -24,8 +24,8 @@ Important frontend flows:
 - `NewPropertyPage`: composes section components and orchestrates form submission.
 - `SubmissionSuccessPage`: shows submission status and integration results.
 - `ContractEntryModal`: remains passive until its dedicated create action is clicked, then presents the hosted user form and copyable client link.
-- `ContractFormPage`: renders role-only fields, including repeatable client records, private front/back DNI uploads, live read-only computed dates, and the user-side `Contrato` subdivisions, then switches to read-only after submission.
-- `ContractAdminPage`: lists entries; renders selected immutable submissions in schema order with partial/empty states and signed media views; and archives or regenerates role links for administrators.
+- `ContractFormPage`: renders role-only fields, including repeatable client records, private front/back DNI uploads, passive per-guarantor supporting-file receivers, live read-only computed dates, and the user-side `Contrato` subdivisions, then switches to read-only after submission. Supporting files remain local until the explicit `Guardar` action performs the upload preflight; the form locks during that sequence and retains stable references for safe retry.
+- `ContractAdminPage`: lists entries; renders selected immutable submissions in schema order with partial/empty states, DNI media, and supporting files grouped under their guarantor subdivisions with signed views; and archives or regenerates role links for administrators.
 
 The contract UI contains no Supabase service key or token hashing secret. It consumes role-authorized schema routes and treats frontend validation as usability only; the backend remains authoritative.
 
@@ -46,8 +46,9 @@ Key backend responsibilities:
 - Create contract entries with independent HMAC-hashed user and client tokens.
 - Serve role-specific schemas only after token or owner authorization.
 - Validate flat user fields or strict repeatable client arrays, recalculate computed dates, and atomically persist each role submission to Supabase.
-- Authorize client DNI upload intents, issue private Supabase signed upload URLs, and validate stored object references against the current entry before persistence.
-- Read immutable role submissions for administrator inspection, reconstruct their form order from the authoritative schema, and sign validated private DNI references for short-lived viewing.
+- Authorize client DNI and supporting-file upload intents, rate-limit the supporting-file preflight, issue private Supabase signed upload URLs, and validate supporting-file paths plus actual private Storage MIME/size metadata before persistence.
+- Validate the exact supporting-file MIME allowlist, configurable per-file limit, maximum of two files per receiver, and minimum of one file across both receivers for every guarantor.
+- Read immutable role submissions for administrator inspection, reconstruct their form order from the authoritative schema, and sign validated private media references for short-lived viewing without returning storage locations.
 - Assemble the combined submission when both roles are complete.
 - Enforce production HTTPS, per-entry/IP rate limiting, admin access, archive, and token regeneration.
 - Create a Google Drive folder and upload media.
@@ -59,7 +60,7 @@ Property Google operations may use configured user OAuth with a service-account 
 
 ## Current contract authorization boundary
 
-SPEC-10 entry creation requires the existing trusted gateway, exact-development identity, or server API key. Hosted client forms require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes require the server API key or a gateway/development identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
+SPEC-10 through SPEC-14 entry creation requires the existing trusted gateway, exact-development identity, or server API key. Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes require the server API key or a gateway/development identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
 
 ## Legacy SPEC-09 authorization boundary
 
@@ -84,7 +85,7 @@ The production proxy must remove client-supplied `X-Authenticated-User-Id` value
 ## Runtime boundary
 
 - Frontend UI is stateless beyond local agent persistence.
-- Backend persists SPEC-10 contract state and audits in Supabase; property-flow logs and legacy SPEC-09 audits may still use disk.
+- Backend persists current contract state and audits in Supabase, while contract DNI and supporting files live in separate private Supabase Storage buckets; property-flow logs and legacy SPEC-09 audits may still use disk.
 - The canonical schema for submission validation is expressed in `frontend/src/features/properties/schemas/propertySchema.ts` and validated in `backend/src/services/validatePropertyPayload.ts`.
 - Contract configuration is backend-authoritative. SPEC-10 role projections expose only assigned fields; legacy public projections omit `spreadsheetId`, `sheetName`, and `columnMap`.
 - Legacy contract audit reads and writes resolve `CONTRACT_AUDIT_LOGS_DIR` at call time. Leave it blank for `backend/logs`, or point it at an actual mounted persistent volume.

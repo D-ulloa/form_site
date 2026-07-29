@@ -1,12 +1,14 @@
 # Runtime Files
 
-Status: 2026-07-21.
+Status: 2026-07-29.
 
 ## Persisted runtime artifacts
 
 - Supabase `contract_entries` — current contract lifecycle, role payloads, and combined payload.
 - Supabase `contract_submissions` — immutable one-per-role submission audits.
 - Supabase `contract_events` — creation, role submission, completion, archive, and token-regeneration events.
+- Supabase Storage `contract-dni` — default private SPEC-11 bucket for front/back DNI images.
+- Supabase Storage `contract-evidence` — default private SPEC-14 bucket for guarantor salary-receipt and property-guarantee evidence.
 
 - `backend/logs/` — default local JSON location for property submissions and successful contract appends.
 - `CONTRACT_AUDIT_LOGS_DIR` — optional contract-only audit location. The logger resolves it at call time for both persistence and retrieval; blank or unset falls back to `backend/logs`.
@@ -26,6 +28,7 @@ For gateway and development authentication, the stored `userId` is the authentic
 - `backend/.env.example` — template environment values.
 - `scheme.json` and `scheme_reworked.json` — canonical property schema references used by validation and integration logic.
 - The backend contract registry — canonical contract fields, constraints, sensitivity markers, and private Sheet mapping.
+- `backend/supabase/migrations/20260729000000_contract_spec14.sql` — provisions the default private evidence bucket, 10 MB object limit, and exact PDF/image MIME allowlist.
 
 ## Temporary or generated files
 
@@ -38,6 +41,8 @@ For gateway and development authentication, the stored `userId` is the authentic
 - The backend uses exclusive file creation for contract audit records so an existing receipt is not silently replaced.
 - The contract logger creates the selected audit directory recursively. Configure a writable absolute mount path; changing the environment variable only selects a path.
 - Contract audits are available only through the authenticated audit API; the logs directory is not served statically.
+- Current contract submission JSON persists stable private media metadata. Signed upload URLs and ten-minute administrator view URLs are transient and are never stored in the contract tables.
+- A direct evidence upload that succeeds before a final role submission fails can remain unreferenced in Storage. Only references accepted into immutable submission JSON are exposed through administrator inspection.
 - Local disk is not durable on many serverless and container deployments. Production must use a mounted persistent volume or forward audit records to durable storage. A successful Sheet append followed by a disk failure requires operational reconciliation because the append cannot be rolled back.
 - `CONTRACT_AUDIT_LOGS_DIR` does not make Vercel's ephemeral filesystem durable. A Vercel path may disappear between instances or deployments even when the variable is stable; use an external durable store there.
 - An ambiguous Google append failure may also leave a row without an audit file because the backend persists the audit only after Google returns an appended range. Check the Sheet before retrying; this append path has no idempotency or deduplication store.

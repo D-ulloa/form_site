@@ -12,6 +12,10 @@ import {
   isValidContractSheetName,
   isValidContractSpreadsheetId,
 } from './contractEnvironmentValidation.js';
+import {
+  CONTRACT_EVIDENCE_FILE_MIME_TYPES,
+  getContractEvidenceMaxFileBytes,
+} from '../services/contractEvidenceUploadService.js';
 
 export const RENT_CONTRACT_SCHEMA_ID = 'rent-contract-v1';
 
@@ -172,6 +176,7 @@ export function getContractSchemaDefinition(
 export function getContractRoleSchema(
   schemaId: string,
   role: ContractRole,
+  environment: NodeJS.ProcessEnv = process.env,
 ): ContractRoleSchema {
   const schema = getContractSchemaDefinition(schemaId);
   const selectedTitles = role === 'client'
@@ -274,6 +279,15 @@ export function getContractRoleSchema(
                     'guarantor_employee_id',
                     'guarantor_company_registration',
                   ],
+                  fileReceivers: [
+                    {
+                      name: 'recibo_sueldo_files',
+                      label: 'Subir recibo de sueldo',
+                      maxFiles: 2,
+                      maxSizeBytes: getContractEvidenceMaxFileBytes(environment),
+                      acceptedMimeTypes: CONTRACT_EVIDENCE_FILE_MIME_TYPES,
+                    },
+                  ],
                 },
                 {
                   title: 'Garantía propietaria',
@@ -282,6 +296,15 @@ export function getContractRoleSchema(
                     'property_province',
                     'property_address',
                     'property_type',
+                  ],
+                  fileReceivers: [
+                    {
+                      name: 'garantia_propietaria_files',
+                      label: 'Subir garantía propietaria',
+                      maxFiles: 2,
+                      maxSizeBytes: getContractEvidenceMaxFileBytes(environment),
+                      acceptedMimeTypes: CONTRACT_EVIDENCE_FILE_MIME_TYPES,
+                    },
                   ],
                 },
               ] as const,
