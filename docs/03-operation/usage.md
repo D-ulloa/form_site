@@ -20,13 +20,14 @@ The main workflow is:
 The Contract Generation workflow is:
 
 1. Select `Generar contrato` on `/`; opening the section does not create a database entry.
-2. Click `Generar nueva entrada para contrato` to make the authenticated create call.
-3. Open the hosted user form and copy the client link from the entry card.
-4. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI image pair for each record.
-5. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
-6. Each submit is independently validated and stored in Supabase.
-7. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
-8. Configured administrators use `/contracts/admin` to inspect schema-ordered submissions and associated media, archive entries, or regenerate links.
+2. From that passive section, `Administrar contratos` can open `/contracts/admin` without creating an entry.
+3. To start a new contract, click `Generar nueva entrada para contrato` to make the authenticated create call.
+4. Open the hosted user form and copy the client link from the entry card.
+5. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI image pair for each record.
+6. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
+7. Each submit is independently validated and stored in Supabase.
+8. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
+9. Configured administrators use `/contracts/admin` to inspect schema-ordered submissions and associated media, archive entries, or regenerate links.
 
 ## Backend endpoints
 

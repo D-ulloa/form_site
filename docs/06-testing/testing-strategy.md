@@ -40,7 +40,7 @@ The final backend suite runs with `cd backend && npm test`. The current TAP summ
 - Call-time `CONTRACT_AUDIT_LOGS_DIR` resolution, explicit test overrides, and blank-value fallback to `backend/logs`.
 - Schema-injected validation across all six field types, required `false`, select/pattern/length/max/email/date rules, and invalid schema rules.
 
-The frontend suite currently runs 37 Vitest cases. It covers:
+The frontend suite currently runs 38 Vitest cases. It covers:
 
 - Real ISO calendar dates; required, email, range, pattern, length, and select rules; number/default normalization; and all six rendered field controls.
 - Repeatable client blocks with one default item, add/remove behavior, two DNI controls per block, nested payload normalization, Ajuste options, read-only computed controls, and calendar-safe computed date previews.

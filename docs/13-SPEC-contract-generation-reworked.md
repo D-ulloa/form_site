@@ -167,7 +167,7 @@ The admin inspection output must be organized and readable.
 ## Implementation notes
 
 - `contract_object` remains visible as the ungrouped field at the start of `Contrato`; the three new subdivisions contain only the fields listed in this spec.
-- Opening the contract modal is passive. A guarded `Generar nueva entrada para contrato` action is the only initial UI trigger for entry creation.
+- Opening the contract modal is passive. It exposes `Administrar contratos` without creating an entry, while a guarded `Generar nueva entrada para contrato` action remains the only initial UI trigger for entry creation.
 - Administrator detail reads the selected entry and its immutable `contract_submissions` rows from Supabase, then reconstructs user-first form order from the backend-authoritative role schemas.
 - Entry listing reads Supabase in batches so older entries are not hidden by a fixed result cap.
 - Valid private DNI references receive administrator-only, short-lived signed view URLs. The normalized inspection model omits storage paths and bucket details.

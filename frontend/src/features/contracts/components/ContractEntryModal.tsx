@@ -73,6 +73,11 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
     creation.mutate();
   };
 
+  const openContractAdministration = () => {
+    close();
+    navigate('/contracts/admin');
+  };
+
   if (!open) return null;
 
   return (
@@ -112,14 +117,23 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
                 Creá una entrada cuando estés listo para completar y compartir los formularios.
               </p>
             </div>
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button type="button" variant="ghost" onClick={close}>Cerrar</Button>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
               <Button
                 type="button"
-                onClick={createEntry}
+                variant="ghost"
+                onClick={openContractAdministration}
               >
-                Generar nueva entrada para contrato
+                Administrar contratos
               </Button>
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                <Button type="button" variant="ghost" onClick={close}>Cerrar</Button>
+                <Button
+                  type="button"
+                  onClick={createEntry}
+                >
+                  Generar nueva entrada para contrato
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -194,7 +208,7 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
             )}
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-              <Button type="button" variant="ghost" onClick={() => { close(); navigate('/contracts/admin'); }}>
+              <Button type="button" variant="ghost" onClick={openContractAdministration}>
                 Administrar contratos
               </Button>
               <Button type="button" onClick={close}>Listo</Button>
