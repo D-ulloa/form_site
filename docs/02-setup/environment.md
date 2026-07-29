@@ -8,7 +8,7 @@ The backend loads environment variables from `.env` using `dotenv` in `backend/s
 
 Required / recommended values:
 
-- `NODE_ENV` — backend runtime mode. The `X-User-Id` development authentication path is enabled only when this value is exactly `development`; `npm run dev` sets it explicitly.
+- `NODE_ENV` — backend runtime mode. The `X-User-Id` development authentication path is enabled when this value is exactly `development`; `npm run dev` sets it explicitly.
 - `PORT` — HTTP port for the backend (default `3001`).
 - `TRUST_PROXY_HOPS` — number of trusted reverse-proxy hops used by Express when resolving `req.ip` for audits (default `0`, disabled). Only a nonnegative safe integer is accepted; invalid values become `0`.
 - `GOOGLE_CLIENT_ID` — OAuth client ID for Google API user authentication.
@@ -27,7 +27,8 @@ Contract Generation values:
 - `CONTRACT_PUBLIC_BASE_URL` — frontend origin used in generated user and client links, for example `https://app.example.com`.
 - `CONTRACT_TOKEN_SECRET` — at least 32 random characters used to HMAC role tokens. Rotate only with a deliberate token-regeneration plan.
 - `CONTRACTS_API_KEY` — optional server-to-server bearer credential; never expose it through `VITE_*`.
-- `CONTRACT_ADMIN_USER_IDS` — comma-separated trusted gateway user IDs allowed to use the admin API and UI.
+- `CONTRACT_ALLOW_INSECURE_AGENT_ID` — dangerous opt-in for hosted previews that accepts the browser-controlled `X-User-Id` header when set to exactly `true`. Leave unset or `false` for secure deployments.
+- `CONTRACT_ADMIN_USER_IDS` — comma-separated user IDs allowed to use the admin API and UI.
 - `CONTRACT_SUBMISSION_RATE_LIMIT` — allowed attempts per IP/entry and limiter namespace (default `10`). Role submits and SPEC-14 evidence preflights use independent counters.
 - `CONTRACT_SUBMISSION_RATE_WINDOW_MS` — window shared by those independent counters (default `900000`).
 - `CONTRACT_DNI_STORAGE_BUCKET` — private Supabase Storage bucket for SPEC-11 DNI images (default `contract-dni`).
@@ -53,11 +54,14 @@ Entry creation and administrator routes accept these authentication modes:
 
 - `Authorization: Bearer <CONTRACTS_API_KEY>` when `CONTRACTS_API_KEY` is configured.
 - `X-Authenticated-User-Id: <verified-user-id>` from a trusted upstream gateway.
-- `X-User-Id: <local-user-id>` only when `NODE_ENV=development` exactly. Missing, `test`, `production`, and differently cased values fail closed.
+- `X-User-Id: <local-user-id>` when `NODE_ENV=development` exactly.
+- `X-User-Id: <agent-id>` outside development only when the backend has the explicit insecure opt-in `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`.
 
-Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then development `X-User-Id`. Hosted client forms and their DNI/evidence upload-preflight endpoints require the client token. Hosted user forms accept their user token or the authenticated owner. API-key callers are administrators; gateway/development administrators must be listed in `CONTRACT_ADMIN_USER_IDS`.
+Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then `X-User-Id`. Hosted client forms and their DNI/evidence upload-preflight endpoints require the client token. Hosted user forms accept their user token or the authenticated owner. API-key callers are administrators; user-scoped administrators must be listed in `CONTRACT_ADMIN_USER_IDS`.
 
 Clients may send `X-Request-Id` for correlation. The backend generates one when omitted or invalid and returns the selected value as a response header. In production, the reverse proxy must strip inbound `X-Authenticated-User-Id` and add a value derived from its authenticated session.
+
+The hosted agent-ID opt-in does not authenticate a person: any caller can spoof any agent ID, including an ID listed in `CONTRACT_ADMIN_USER_IDS`. Use it only with disposable preview data, and remove both insecure flags before handling real contracts.
 
 Set `TRUST_PROXY_HOPS` to the exact number of known reverse-proxy hops between the client and Express. Leaving it at `0` ignores forwarded addresses for `req.ip`; setting it too high can let an untrusted caller influence the IP stored in contract audits.
 
@@ -68,7 +72,9 @@ The frontend uses Vite and sets the API prefix in `frontend/src/features/propert
 - development: no prefix.
 - production: `/_/backend`.
 
-No contract secret is configured in the frontend. Vite development sends the configured agent ID as `X-User-Id`, so the backend must also run with `NODE_ENV=development`. Production relies on the same-origin trusted gateway/session boundary.
+No contract secret is configured in the frontend. Vite development sends the configured agent ID as `X-User-Id`, so the backend must also run with `NODE_ENV=development`. Production relies on the same-origin trusted gateway/session boundary by default.
+
+For an intentionally insecure hosted preview, set `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` on the frontend and `CONTRACT_ALLOW_INSECURE_AGENT_ID=true` on the backend. Both values are case-sensitive. The Vite variable is embedded at build time, so redeploy after changing it.
 
 ## Example
 

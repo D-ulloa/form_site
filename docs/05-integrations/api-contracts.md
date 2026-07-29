@@ -66,7 +66,7 @@ Response body shape:
 
 ## SPEC-10 through SPEC-14 contract entry API
 
-All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
+All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary by default; an intentionally insecure preview can opt into caller-supplied agent IDs. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
 
 ### `POST /api/contracts/create`
 
@@ -167,7 +167,7 @@ The server supplies entry, role, IP, user agent, and timestamps; caller-supplied
 - `POST /api/contracts/admin/entries/:entryId/archive`
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate`
 
-The API key is an administrator. Gateway and development identities must also appear in `CONTRACT_ADMIN_USER_IDS`. Read responses never expose token hashes. A regenerated raw URL is returned once.
+The API key is an administrator. Every user-scoped identity must also appear in `CONTRACT_ADMIN_USER_IDS`; this means an insecure preview caller can spoof an administrator ID. Read responses never expose token hashes. A regenerated raw URL is returned once.
 
 `GET /api/contracts/admin/entries/:entryId` reads the selected entry and its immutable `contract_submissions` rows from Supabase. It retains the compatibility properties `entry`, `userSubmission`, `clientSubmission`, and `combinedSubmission`, and adds an ordered inspection model:
 
@@ -237,12 +237,13 @@ The server validates each stored evidence reference before signing it. Evidence 
 - `Authorization: Bearer <CONTRACTS_API_KEY>`
 - `X-Authenticated-User-Id: <verified-user-id>` from a trusted gateway
 - `X-User-Id: <local-user-id>` only when backend `NODE_ENV=development` exactly
+- `X-User-Id: <agent-id>` outside development only with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`
 
 `X-Request-Id` is optional on protected requests. The backend generates a request ID when it is absent and records it in the audit. A production proxy must strip caller-supplied `X-Authenticated-User-Id` before inserting a verified value.
 
-Authentication precedence is gateway header, Bearer authorization, then development header. A present trusted gateway identity wins even when a forwarded authorization value is malformed. An explicit malformed, unconfigured, or wrong Bearer value fails without falling back to `X-User-Id`.
+Authentication precedence is gateway header, Bearer authorization, then `X-User-Id`. A present trusted gateway identity wins even when a forwarded authorization value is malformed. An explicit malformed, unconfigured, or wrong Bearer value fails without falling back to `X-User-Id`.
 
-Gateway and development principals are user-scoped: the route replaces body `meta.userId` with the authenticated header identity, records that owner in the audit, and permits audit reads only for the same owner. The bearer key authenticates an unscoped internal client, preserves explicit body `meta.userId` for audit attribution, and may read any contract audit. It must never be embedded in frontend source or a `VITE_*` variable.
+Gateway, development, and insecure-agent principals are user-scoped: the route replaces body `meta.userId` with the authenticated header identity, records that owner in the audit, and permits audit reads only for the same owner. The bearer key authenticates an unscoped internal client, preserves explicit body `meta.userId` for audit attribution, and may read any contract audit. It must never be embedded in frontend source or a `VITE_*` variable.
 
 ## `GET /api/contracts/schemas/:schemaId`
 
@@ -316,7 +317,7 @@ The following shows the envelope and representative field types. A valid `rent-c
 - `fields` is flat. Unknown fields, missing required fields, type mismatches, invalid dates/emails/patterns, out-of-range numbers, and select values outside `options` are rejected.
 - Dates use the ISO wire format `YYYY-MM-DD`.
 - The backend validates independently of the browser and escapes formula-leading string values before mapping.
-- `meta.userId` does not grant authorization. Gateway/development authentication replaces it for audit attribution; API-key authentication deliberately preserves it as explicit business attribution.
+- `meta.userId` does not grant authorization. User-scoped header authentication replaces it for audit attribution; API-key authentication deliberately preserves it as explicit business attribution.
 
 ### Success response
 
@@ -382,7 +383,7 @@ All fields marked `sensitive` are redacted in both `fields` and `mappedRow`. The
 
 The route resolves `CONTRACT_AUDIT_LOGS_DIR` at read time, matching the submission logger's call-time write resolution. Blank or unset uses `backend/logs`. The setting must refer to genuinely persistent storage when audit durability is required; it does not make Vercel's ephemeral filesystem persistent.
 
-Gateway and development principals can retrieve only an audit whose stored `userId` matches their authenticated header identity. The API-key principal is intentionally unscoped. Audit responses use `Cache-Control: no-store`, return `X-Request-Id`, and set `X-Content-Type-Options: nosniff`.
+User-scoped principals can retrieve only an audit whose stored `userId` matches their authenticated header identity. The API-key principal is intentionally unscoped. Audit responses use `Cache-Control: no-store`, return `X-Request-Id`, and set `X-Content-Type-Options: nosniff`.
 
 - `200` when the audit exists.
 - `400` for an invalid submission ID.
@@ -401,8 +402,8 @@ Property API calls are implemented in `frontend/src/features/properties/services
 - In development, the frontend sends requests to the current origin.
 - In production, it prefixes requests with `/_/backend`.
 - The public contract schema call does not send a credential.
-- Protected browser calls rely on the same-origin authenticated gateway in production and the local identity header only when the backend has exact `NODE_ENV=development`.
-- Development submit and audit fetches send `X-User-Id` from the configured agent; the backend accepts it only with exact `NODE_ENV=development`. Production sends neither that header nor a browser API key.
+- Protected browser calls rely on the same-origin authenticated gateway in production by default and use the local identity header when the backend has exact `NODE_ENV=development`.
+- With `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true`, the production bundle also sends `X-User-Id` from the configured agent. The backend accepts it outside development only with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`. Production never sends a browser API key.
 - Selecting the receipt's audit link is intercepted to make an authenticated, same-origin request and render the returned redacted JSON inline. The underlying safe `href` remains available.
 
 ## Integration contracts

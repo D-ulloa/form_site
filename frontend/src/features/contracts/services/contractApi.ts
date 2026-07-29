@@ -17,6 +17,7 @@ import type {
   ContractSubmitRequest,
   ContractSubmitResponse,
 } from '../types.ts';
+import { contractIdentityHeaders } from './contractIdentity.ts';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const CONTRACTS_API_PATH = `${API_PREFIX}/api/contracts`;
@@ -305,10 +306,6 @@ function parseResponse<T>(schema: z.ZodType<T>, value: unknown, message: string)
   return result.data;
 }
 
-function identityHeaders(userId?: string): Record<string, string> | undefined {
-  return import.meta.env.DEV && userId ? { 'X-User-Id': userId } : undefined;
-}
-
 export class ContractRequestError extends Error {
   status: number | undefined;
   retriable: boolean;
@@ -449,7 +446,7 @@ export async function submitContract(
       {
         headers: {
           'Content-Type': 'application/json',
-          ...(import.meta.env.DEV ? { 'X-User-Id': request.meta.userId } : {}),
+          ...contractIdentityHeaders(request.meta.userId),
         },
       },
     );
@@ -470,10 +467,7 @@ export async function fetchContractAudit(
     const isSameOrigin = resolvedUrl.origin === window.location.origin;
     const response = await axios.get<unknown>(normalizedUrl, {
       withCredentials: true,
-      headers:
-        import.meta.env.DEV && isSameOrigin
-          ? { 'X-User-Id': userId }
-          : undefined,
+      headers: isSameOrigin ? contractIdentityHeaders(userId) : undefined,
     });
     return response.data;
   } catch (error) {
@@ -485,7 +479,7 @@ export async function createContractEntry(userId: string): Promise<ContractEntry
   try {
     const response = await axios.post<unknown>(`${CONTRACTS_API_PATH}/create`, {}, {
       withCredentials: true,
-      headers: identityHeaders(userId),
+      headers: contractIdentityHeaders(userId),
     });
     return parseResponse(
       ContractEntryLinksSchema,
@@ -509,7 +503,7 @@ export async function fetchContractRoleSchema(
       {
         withCredentials: true,
         params: { role, ...(token ? { token } : {}) },
-        headers: identityHeaders(userId),
+        headers: contractIdentityHeaders(userId),
       },
     );
     return parseResponse(
@@ -535,7 +529,7 @@ export async function requestContractDniUploadUrl(
       {
         withCredentials: true,
         params: token ? { token } : undefined,
-        headers: identityHeaders(userId),
+        headers: contractIdentityHeaders(userId),
       },
     );
     const parsed = parseResponse(
@@ -588,7 +582,7 @@ export async function requestContractEvidenceUploadUrls(
         {
           withCredentials: true,
           params: token ? { token } : undefined,
-          headers: identityHeaders(userId),
+          headers: contractIdentityHeaders(userId),
         },
       );
       const parsed = parseResponse(
@@ -635,7 +629,7 @@ export async function submitContractRole(
       {
         withCredentials: true,
         params: { role, ...(token ? { token } : {}) },
-        headers: identityHeaders(userId),
+        headers: contractIdentityHeaders(userId),
       },
     );
     return parseResponse(
@@ -654,7 +648,7 @@ export async function listContractEntries(
   try {
     const response = await axios.get<unknown>(`${CONTRACTS_API_PATH}/admin/entries`, {
       withCredentials: true,
-      headers: identityHeaders(userId),
+      headers: contractIdentityHeaders(userId),
     });
     return parseResponse(
       z.object({ entries: z.array(ContractEntrySummarySchema) }),
@@ -673,7 +667,7 @@ export async function fetchContractAdminEntry(
   try {
     const response = await axios.get<unknown>(
       `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}`,
-      { withCredentials: true, headers: identityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId) },
     );
     return parseResponse(
       ContractAdminDetailSchema,
@@ -693,7 +687,7 @@ export async function archiveContractEntry(
     const response = await axios.post<unknown>(
       `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/archive`,
       {},
-      { withCredentials: true, headers: identityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId) },
     );
     return parseResponse(
       z.object({ entry: ContractEntrySummarySchema }),
@@ -714,7 +708,7 @@ export async function regenerateContractToken(
     const response = await axios.post<unknown>(
       `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/tokens/${role}/regenerate`,
       {},
-      { withCredentials: true, headers: identityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId) },
     );
     return parseResponse(
       z.object({ role: z.enum(['user', 'client']), url: z.string().url() }),

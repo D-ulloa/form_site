@@ -30,8 +30,8 @@ Status: 2026-07-29.
 - Persist property logs and legacy SPEC-09 audits under `backend/logs/`; persist SPEC-10 contract entries, immutable role audits, and events in Supabase.
 - Use environment variables only for secrets and external service configuration.
 - Authenticate contract submit/audit routes before validation or filesystem access. Never trust a request-body user ID as the authenticated principal.
-- Keep `X-Authenticated-User-Id` behind a proxy that strips caller-supplied values. Accept `X-User-Id` only when `NODE_ENV` is exactly `development`.
-- Gateway/development principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped; do not conflate attribution with authentication.
+- Keep `X-Authenticated-User-Id` behind a proxy that strips caller-supplied values. Accept `X-User-Id` only when `NODE_ENV` is exactly `development`, except for a deliberately insecure preview with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`; never make that flag the default.
+- Gateway, development, and explicitly enabled insecure-agent principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped; do not conflate attribution with authentication.
 - Configure `TRUST_PROXY_HOPS` to the exact known proxy count before relying on `req.ip` in audits. Keep it `0` for direct connections.
 - Validate SPEC-10 fields against role-specific schema projections and write them only through the server-side atomic Supabase function.
 - Independently validate contract media references before persistence: exact field and MIME allowlists, positive configured sizes, per-receiver counts, uniqueness, private bucket, entry/role/repeatable-item/filename path ownership, and live private-object MIME/size metadata.

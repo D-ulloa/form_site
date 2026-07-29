@@ -50,11 +50,11 @@ Legacy SPEC-09 compatibility endpoints:
 
 Property endpoints are implemented in `backend/src/routes/properties.ts`; current Contract Generation endpoints are in `backend/src/routes/contractEntries.ts`; legacy SPEC-09 endpoints remain in `backend/src/routes/contracts.ts`.
 
-Legacy SPEC-09 submit and audit calls require a valid bearer API key, a trusted gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. `X-Request-Id` is optional and supports correlation. The public schema route does not require authentication.
+Legacy SPEC-09 submit and audit calls require a valid bearer API key, a trusted gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. An insecure preview can accept the last header outside development by setting `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`. `X-Request-Id` is optional and supports correlation. The public schema route does not require authentication.
 
-In development, the frontend derives `X-User-Id` from the configured agent for current owner/admin requests and legacy submit/audit requests. In production, it sends no API key or identity header and relies on the same-origin gateway to authenticate the request and inject `X-Authenticated-User-Id`. The gateway identity has precedence over forwarded authorization.
+In development, the frontend derives `X-User-Id` from the configured agent for current owner/admin requests and legacy submit/audit requests. In production, it sends no API key and relies on the same-origin gateway by default. Setting `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` makes a production bundle send the browser-controlled agent ID instead. The gateway identity has precedence over forwarded authorization.
 
-For legacy SPEC-09, gateway and development identities replace the submitted `meta.userId` before audit creation and may read only audits with that resulting owner. A valid API key preserves the submitted `meta.userId` for audit attribution and is not owner-scoped when reading audits. The audit control retains its real `href`, but JavaScript intercepts normal activation to fetch and render the JSON inside the receipt view.
+For legacy SPEC-09, every user-scoped identity replaces the submitted `meta.userId` before audit creation and may read only audits with that resulting owner. A valid API key preserves the submitted `meta.userId` for audit attribution and is not owner-scoped when reading audits. The audit control retains its real `href`, but JavaScript intercepts normal activation to fetch and render the JSON inside the receipt view.
 
 When deployed behind a reverse proxy, set `TRUST_PROXY_HOPS` to the exact known hop count so the audit receives the intended client `req.ip`. Keep `0` for direct connections.
 

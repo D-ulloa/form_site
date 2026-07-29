@@ -60,7 +60,7 @@ Property Google operations may use configured user OAuth with a service-account 
 
 ## Current contract authorization boundary
 
-SPEC-10 through SPEC-14 entry creation requires the existing trusted gateway, exact-development identity, or server API key. Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes require the server API key or a gateway/development identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
+SPEC-10 through SPEC-14 entry creation requires the existing trusted gateway, exact-development identity, or server API key. An intentionally insecure preview may also enable browser-supplied agent identity with both `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` and `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`; this is disabled by default and is not authentication. Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes require the server API key or a user identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
 
 ## Legacy SPEC-09 authorization boundary
 
@@ -68,11 +68,11 @@ SPEC-10 through SPEC-14 entry creation requires the existing trusted gateway, ex
 
 - `Authorization: Bearer <CONTRACTS_API_KEY>` for a configured shared internal client.
 - `X-Authenticated-User-Id` inserted by a trusted authentication gateway.
-- `X-User-Id` only when `NODE_ENV` is exactly the lowercase value `development`.
+- `X-User-Id` when `NODE_ENV` is exactly the lowercase value `development`, or when the dangerous hosted-preview opt-in `CONTRACT_ALLOW_INSECURE_AGENT_ID=true` is set.
 
-The trusted gateway header takes precedence over a forwarded `Authorization` header and the development header. Gateway and development principals replace the request body's `meta.userId` before the audit is created. An API-key principal is unscoped and preserves the explicit `meta.userId` as audit attribution.
+The trusted gateway header takes precedence over a forwarded `Authorization` header and the browser-supplied identity header. Gateway, development, and insecure-agent principals replace the request body's `meta.userId` before the audit is created. An API-key principal is unscoped and preserves the explicit `meta.userId` as audit attribution.
 
-The production proxy must remove client-supplied `X-Authenticated-User-Id` values before inserting its verified value. `X-User-Id` is rejected when `NODE_ENV` is absent, `test`, `production`, differently cased, or any value other than `development`. The API key must stay server-side and must not be compiled into a Vite `VITE_*` variable.
+The production proxy must remove client-supplied `X-Authenticated-User-Id` values before inserting its verified value. By default, `X-User-Id` is rejected when `NODE_ENV` is absent, `test`, `production`, differently cased, or any value other than `development`. The explicit insecure preview flag overrides that rejection and permits caller spoofing, so it must not be used with sensitive data. The API key must stay server-side and must not be compiled into a Vite `VITE_*` variable.
 
 ## Deployment shape
 

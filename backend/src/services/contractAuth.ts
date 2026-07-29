@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 export type ContractPrincipal =
   | { readonly mode: 'api_key' }
   | {
-      readonly mode: 'gateway' | 'development';
+      readonly mode: 'gateway' | 'development' | 'insecure_agent';
       readonly userId: string;
     };
 
@@ -95,13 +95,17 @@ export function authenticateContractRequest(
   }
 
   if (input.developmentUserId !== undefined) {
-    if (environment.NODE_ENV !== 'development') {
+    const isDevelopment = environment.NODE_ENV === 'development';
+    const allowInsecureAgentId =
+      environment.CONTRACT_ALLOW_INSECURE_AGENT_ID === 'true';
+    if (!isDevelopment && !allowInsecureAgentId) {
       throw new ContractAuthenticationError(
-        'X-User-Id authentication is enabled only in development.',
+        'X-User-Id authentication is enabled only in development unless '
+          + 'CONTRACT_ALLOW_INSECURE_AGENT_ID=true.',
       );
     }
     return {
-      mode: 'development',
+      mode: isDevelopment ? 'development' : 'insecure_agent',
       userId: parseUserIdentity(input.developmentUserId, 'X-User-Id'),
     };
   }

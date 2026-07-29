@@ -34,9 +34,9 @@ The backend suite runs with `cd backend && npm test`. It covers:
 - Exact `RAW` append parameters, returned range, transient-only retries, and permanent Google failures.
 - Sensitive-field and mapped-row redaction, expanded PII coverage, exclusive audit creation, strict receipt IDs, and isolated filesystem reads.
 - Orchestration order, receipt shape, metrics, failure short-circuiting, non-retriable post-append audit failure, and submission ID format.
-- Bearer, trusted-gateway, and exact-development authentication; fail-closed precedence; owner scope; and API-key scope.
+- Bearer, trusted-gateway, exact-development, and explicit insecure-agent authentication; fail-closed defaults and precedence; owner scope; and API-key scope.
 - Direct/cacheable public schemas, validation short-circuiting, exact receipts, typed `400/401/403/404/500/502/503` responses, and sanitized operational error logs.
-- Gateway/development attribution override, API-key attribution preservation, bounded request IDs, proxy-derived IP capture, and safe proxy-hop parsing.
+- User-scoped attribution override, API-key attribution preservation, bounded request IDs, proxy-derived IP capture, and safe proxy-hop parsing.
 - Authenticated audit retrieval, owner mismatch, API-key reads, invalid/missing IDs, missing records, and integrity failures.
 - Call-time `CONTRACT_AUDIT_LOGS_DIR` resolution, explicit test overrides, and blank-value fallback to `backend/logs`.
 - Schema-injected validation across all six field types, required `false`, select/pattern/length/max/email/date rules, and invalid schema rules.

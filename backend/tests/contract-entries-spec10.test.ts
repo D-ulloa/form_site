@@ -165,11 +165,14 @@ function validRoleFields(
       .map((field) => [field.name, valueFor(field)])));
 }
 
-function createApp(repository: ContractEntryRepository) {
+function createApp(
+  repository: ContractEntryRepository,
+  environment: NodeJS.ProcessEnv = ENVIRONMENT,
+) {
   const app = express();
   app.use(express.json());
   app.use('/api/contracts', createContractEntriesRouter({
-    environment: ENVIRONMENT,
+    environment,
     repository,
     now: () => new Date('2026-07-24T12:00:00.000Z'),
     issueEvidenceViewUrl: async () => ({
@@ -200,6 +203,25 @@ test('contract access tokens are HMAC hashed and compared safely', () => {
   assert.equal(hash.includes(token), false);
   assert.equal(verifyContractAccessToken(token, hash, ENVIRONMENT), true);
   assert.equal(verifyContractAccessToken('b'.repeat(43), hash, ENVIRONMENT), false);
+});
+
+test('hosted create accepts the agent ID with the explicit insecure opt-in', async () => {
+  const repository = new MemoryContractRepository();
+  const app = createApp(repository, {
+    ...ENVIRONMENT,
+    NODE_ENV: 'production',
+    CONTRACT_ALLOW_INSECURE_AGENT_ID: 'true',
+  });
+  app.set('trust proxy', 1);
+
+  const created = await request(app)
+    .post('/api/contracts/create')
+    .set('X-Forwarded-Proto', 'https')
+    .set('X-User-Id', 'hosted-agent')
+    .send({});
+
+  assert.equal(created.status, 201);
+  assert.equal(repository.entry?.createdBy, 'hosted-agent');
 });
 
 test('create, both role submissions, admin inspection, token regeneration, and archive', async () => {

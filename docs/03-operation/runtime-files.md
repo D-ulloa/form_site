@@ -15,7 +15,7 @@ Status: 2026-07-29.
 
 Legacy SPEC-09 contract audit names use `SUB-YYYY-MM-DD-<hex>.json`. A contract audit contains the schema and contract identifiers, redacted fields, a redacted mapped row, spreadsheet/tab metadata, appended range, submission/user/request identifiers, source IP, and timestamp. Fields marked `sensitive` are redacted by default in every audit representation, including the mapped row.
 
-For gateway and development authentication, the stored `userId` is the authenticated header identity even when the submitted `meta.userId` differs. For API-key authentication, the submitted `meta.userId` is preserved as attribution. Gateway/development audit reads are owner-scoped; the shared API key can read any valid contract audit.
+For gateway, development, and explicitly enabled insecure-agent authentication, the stored `userId` is the header identity even when the submitted `meta.userId` differs. For API-key authentication, the submitted `meta.userId` is preserved as attribution. User-scoped audit reads require that same identity; the shared API key can read any valid contract audit.
 
 ## Build output
 

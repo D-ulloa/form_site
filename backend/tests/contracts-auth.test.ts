@@ -96,6 +96,39 @@ test('development identity works only in development and production fails closed
   );
 });
 
+test('hosted agent identity requires the exact insecure opt-in flag', () => {
+  const principal = authenticateContractRequest(
+    headers({ developmentUserId: '  hosted-agent  ' }),
+    {
+      NODE_ENV: 'production',
+      CONTRACT_ALLOW_INSECURE_AGENT_ID: 'true',
+    },
+  );
+  assert.deepEqual(principal, {
+    mode: 'insecure_agent',
+    userId: 'hosted-agent',
+  });
+  assert.doesNotThrow(() =>
+    authorizeContractUserScope(principal, 'hosted-agent'));
+  assert.throws(
+    () => authorizeContractUserScope(principal, 'different-agent'),
+    ContractAuthorizationError,
+  );
+
+  for (const value of ['false', 'TRUE', '1', ' true ', '']) {
+    assert.throws(
+      () => authenticateContractRequest(
+        headers({ developmentUserId: 'hosted-agent' }),
+        {
+          NODE_ENV: 'production',
+          CONTRACT_ALLOW_INSECURE_AGENT_ID: value,
+        },
+      ),
+      ContractAuthenticationError,
+    );
+  }
+});
+
 test('missing or malformed identity headers cannot authenticate or downgrade', () => {
   assert.throws(
     () => authenticateContractRequest(headers(), { NODE_ENV: 'production' }),
