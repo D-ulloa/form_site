@@ -1,32 +1,36 @@
 # Project Overview
 
-Status: 2026-06-05.
+Status: 2026-07-29.
 
-This repository implements an internal property creation workflow for an admin-style web application.
-The main user journey is: select the new property action, fill a property form, upload media, and submit.
-Successful submissions create a folder in Google Drive, append a row in Google Sheets, and send a payload to Make.
+This repository implements two internal workflows in an admin-style web application:
+
+- Property creation, including media, Google Drive, Google Sheets, and Make integration.
+- Two-party Contract Generation with hosted user/client forms and Supabase persistence.
 
 ## Purpose
 
 - Provide a compact internal interface for adding new properties.
+- Provide a guided, schema-driven contract submission flow.
 - Keep submission behavior predictable and auditable.
-- Centralize Google Drive / Sheets / Make integration behind a backend API.
+- Centralize Supabase contract persistence and Google property integrations behind the backend API.
 
 ## What this project includes
 
 - `frontend/`: React + TypeScript app with Vite, Tailwind CSS, React Router, React Hook Form, Zod, and TanStack Query.
-- `backend/`: Node.js + Express API with TypeScript, Zod validation, Google Drive/Sheets integration, file upload handling, and submission orchestration.
+- `backend/`: Node.js + Express API with TypeScript, Zod validation, Supabase contract persistence, Google property integrations, file upload handling, and submission orchestration.
 - `docs/`: Project documentation and setup guidance.
 - `references/`: LLM and documentation workflow guidance.
-- `scheme.json` and `scheme_reworked.json`: canonical submission schema sources.
+- `scheme.json` and `scheme_reworked.json`: canonical property submission schema sources.
+- The backend contract registry: the authoritative field schema and role projections; destinations and credentials remain server-only.
 
 ## Key boundaries
 
-- The frontend is responsible for the form UI, client-side validation, media selection, and sending multipart form data.
-- The backend is responsible for payload validation, Google Drive folder creation, file uploads, Google Sheets appends, Make webhook dispatch, and persistence of submission logs.
+- The frontend is responsible for form UI, client-side validation, media selection, and API calls. Contract definitions are fetched from the backend instead of duplicated in the browser bundle.
+- The backend is responsible for independent payload validation, Supabase contract persistence, role-token authorization, Google Drive folder creation, property Sheet appends, Make webhook dispatch, and auditability.
 - No edit workflow is implemented in v1: submissions create new property assets only.
+- Contract access uses per-role links whose raw tokens are returned once and stored only as HMAC hashes; authenticated owners may open the user form without a token.
 
-## Core user flow
+## Property flow
 
 1. User opens `/` and selects `Agregar nueva propiedad`.
 2. User fills the form on `/properties/new`.
@@ -38,11 +42,28 @@ Successful submissions create a folder in Google Drive, append a row in Google S
 8. The backend sends the webhook payload to Make.
 9. The user sees a result page at `/properties/success/:submissionId`.
 
+## Contract flow
+
+1. An authenticated operator selects `Generar contrato`; the opened section remains passive.
+2. The operator clicks `Generar nueva entrada para contrato`.
+3. `POST /api/contracts/create` creates a Supabase `contract_entries` row and returns user and client URLs.
+4. The operator opens the user form and copies the client link.
+5. Each hosted role page fetches only its assigned schema sections and submits independently. The client starts with repeatable `Inquilino`/`Garante` records, private front/back DNI slots, and passive supporting-file receivers under each guarantor's `Recibo de sueldo` and `Garantía propietaria` subdivisions.
+6. The user schema groups `Contrato` into `Vigencia`, `Canon`, and `Ajuste`; computed dates remain read-only and the backend recalculates them authoritatively.
+7. On client `Guardar`, the form locks, selected supporting files receive rate-limited client-authorized private upload URLs, and uploads finish before the role JSON is sent. The backend validates fields, DNI references, the two supporting-file arrays for every guarantor, and each evidence object's actual private Storage MIME/size metadata before calling the atomic Supabase function.
+8. Supabase stores one immutable role audit row and updates the entry.
+9. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
+10. Configured administrators can list entries, inspect immutable submissions in schema order with short-lived media links grouped under the corresponding guarantor subsection, archive entries, and regenerate role links from `/contracts/admin`.
+
 ## Code map
 
-- `frontend/src/pages/`: action selection, new property form, submission result.
+- `frontend/src/pages/`: action selection, property forms/results, hosted contract forms, and contract administration.
 - `frontend/src/features/properties/`: property form schema, hooks, services, components, and payload mapper.
+- `frontend/src/features/contracts/`: entry creation, role schema types, hosted-form rendering, validation, and contract API calls.
 - `frontend/src/components/ui/`: shared UI primitives used across pages.
 - `backend/src/routes/properties.ts`: HTTP route handling and multipart parsing.
-- `backend/src/services/`: submission orchestration, validation, Drive/Sheets/Make integration, log persistence.
-- `backend/logs/`: persisted JSON submission logs for audit and review.
+- `backend/src/routes/contractEntries.ts`: current entry, role-form, submission, and admin endpoints.
+- `backend/src/routes/contracts.ts`: legacy SPEC-09 compatibility endpoints.
+- `backend/src/config/`: authoritative contract schema registry and role-specific projections.
+- `backend/src/services/`: contract entry/token persistence, submission orchestration, validation, Drive/Sheets/Make integration, and log persistence.
+- `backend/logs/`: property and legacy SPEC-09 JSON records; current contract records live in Supabase.

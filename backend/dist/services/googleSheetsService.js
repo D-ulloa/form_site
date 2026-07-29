@@ -22,4 +22,6 @@ export async function appendSheetRow(row) {
         requestBody: { values: [row] },
     }));
 }
+export { appendContractSheetRow, buildContractSheetAppendRequest, } from "./contractGoogleSheetsService.js";
+export { ContractSheetsAppendError, getGoogleSheetsErrorStatus, isRetriableGoogleSheetsError, } from "./contractSheetsErrors.js";
 //# sourceMappingURL=googleSheetsService.js.map

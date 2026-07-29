@@ -1,0 +1,43 @@
+[
+  {
+    "Nombre Completo (Apellidos, Nombres)": "String",
+    "DNI (Separar con puntos)": "String",
+    "Número de Contacto del inquilino": "String",
+    "Nacionalidad": "String",
+    "Correo": "String",
+    "Edad": "Number"
+  },
+  {
+    "Nombre Completo (Apellidos, Nombres)": "String",
+    "DNI (Separar con puntos)": "String",
+    "Número de Contacto del garante": "String",
+    "Nacionalidad": "String",
+    "Correo": "String",
+    "Domicilio Especial En la Ciudad de Córdoba (Dirección, Barrio, Ciudad, Provincia)": "String",
+    "Empresa": "String",
+    "CUIT Empresa (Separar con guión)": "String",
+    "Cargo": "String",
+    "Nº de Legajo": "String",
+    "Número de Matrícula de la Empresa": "String",
+    "Número de Matrícula de la propiedad": "String",
+    "Provincia de la Propiedad": "String",
+    "Dirección de la propiedad (Dirección, Barrio, Ciudad, Provincia)": "String"
+  },
+  {
+    "Nombre Completo (Apellidos, Nombres)": "String",
+    "DNI (Separar con puntos)": "String",
+    "Nacionalidad": "String"
+  },
+  {
+    "1ra. Objeto": "String",
+    "meses": "Number",
+    "Inicio (MM/DD/AAAA)": "Date",
+    "Formateada_1": "Date",
+    "Monto alquiler": "Number",
+    "Actualización": "Number",
+    "Formateada_2": "Date",
+    "Ajuste": "String",
+    "Fecha Actual": "Date",
+    "Aprobar Contrato": "String"
+  }
+]

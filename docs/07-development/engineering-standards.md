@@ -1,6 +1,6 @@
 # Engineering Standards
 
-Status: 2026-06-05.
+Status: 2026-07-29.
 
 ## Project conventions
 
@@ -10,6 +10,7 @@ Status: 2026-06-05.
 - Keep backend HTTP adapters thin and business logic in `backend/src/services`.
 - Keep mapping logic in `backend/src/mappers`.
 - Keep shared utilities in `backend/src/utils`.
+- Keep contract destination IDs and mappings backend-only; expose an explicit public-schema projection instead of serializing server config.
 
 ## Frontend standards
 
@@ -17,14 +18,35 @@ Status: 2026-06-05.
 - Use `useCreatePropertySubmission` for submission side effects.
 - Maintain explicit route structure: `/`, `/properties/new`, `/properties/success/:submissionId`.
 - Persist agent metadata in localStorage via `AgentContext`.
+- Render contract controls from the public schema and normalize values before transport. Client validation must never replace backend validation.
+- Keep SPEC-14 evidence receivers passive during file selection. Begin the signed upload preflight only from the explicit form submission action, lock the editable form during the save sequence, promote successful uploads to stable form-state references for retry, and remove `uploadUrl` before constructing the role payload.
+- Do not add `CONTRACTS_API_KEY` or any other server secret to `VITE_*` configuration.
 
 ## Backend standards
 
 - Validate all incoming payloads before side effects.
 - Use explicit step results for Drive, upload, Sheets, and Make.
 - Return clear outcomes: `success`, `partial_failure`, or `failure`.
-- Persist submission logs under `backend/logs/` for auditability.
+- Persist property logs and legacy SPEC-09 audits under `backend/logs/`; persist SPEC-10 contract entries, immutable role audits, and events in Supabase.
 - Use environment variables only for secrets and external service configuration.
+- Authenticate contract submit/audit routes before validation or filesystem access. Never trust a request-body user ID as the authenticated principal.
+- Keep `X-Authenticated-User-Id` behind a proxy that strips caller-supplied values. Accept `X-User-Id` only when `NODE_ENV` is exactly `development`, except for a deliberately insecure preview with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`; never make that flag the default.
+- Gateway, development, and explicitly enabled insecure-agent principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped; do not conflate attribution with authentication.
+- Configure `TRUST_PROXY_HOPS` to the exact known proxy count before relying on `req.ip` in audits. Keep it `0` for direct connections.
+- Validate SPEC-10 fields against role-specific schema projections and write them only through the server-side atomic Supabase function.
+- Independently validate contract media references before persistence: exact field and MIME allowlists, positive configured sizes, per-receiver counts, uniqueness, private bucket, entry/role/repeatable-item/filename path ownership, and live private-object MIME/size metadata.
+- Keep DNI and guarantor evidence in separate private buckets. Persist only stable bucket/path metadata; never persist signed upload or administrator view URLs.
+- Sign administrator media views only after validating the stored reference, return short-lived URLs, and omit storage bucket/path details from the normalized inspection response.
+- Generate 32-byte role tokens, store only HMAC hashes, compare them in constant time, and return regenerated raw URLs once.
+- Enforce HTTPS in production, `no-store`/`no-referrer` response headers, and per-IP/entry submission rate limits.
+- Restrict contract administration to the server API key or configured `CONTRACT_ADMIN_USER_IDS`.
+- For retained SPEC-09 routes, sanitize formula-leading strings, map fields deterministically, and use `RAW` for Sheet appends.
+- Use the dedicated service-account helper for contract Sheet reads and writes. Do not let contract integration fall through to property user OAuth.
+- Read and validate the complete ordered Sheet header row before append; preserve duplicate labels by position and fail before writing on any mismatch.
+- Redact sensitive values in both structured fields and mapped rows. Never log Google credentials, API keys, authorization headers, or raw service errors containing secrets.
+- Resolve `CONTRACT_AUDIT_LOGS_DIR` when each audit operation runs. Use it only for a writable persistent mount; a configured path on Vercel remains ephemeral and is not an audit-retention solution.
+- Treat audit-write failure after a successful external append as a reconciliation event; do not silently report a fully audited success.
+- Do not describe an append retry as duplicate-safe unless an idempotency mechanism is added. `retriable` classifies the provider failure, not whether Google committed the row.
 
 ## Documentation expectations
 

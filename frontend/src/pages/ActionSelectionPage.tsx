@@ -2,19 +2,46 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button.tsx';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
-import { useAgent } from '../app/contexts/AgentContext.tsx';
+import { useAgent, type AgentData } from '../app/contexts/AgentContext.tsx';
+import { ContractEntryModal } from '../features/contracts/components/ContractEntryModal.tsx';
+
+type PendingAction = 'property' | 'contract' | null;
 
 export function ActionSelectionPage() {
   const navigate = useNavigate();
   const { agent, isConfigured } = useAgent();
   const [showAgentModal, setShowAgentModal] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [contractUserId, setContractUserId] = useState('');
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
-  const handleAddProperty = () => {
-    if (!isConfigured) {
-      setShowAgentModal(true);
-    } else {
+  const runAction = (action: Exclude<PendingAction, null>, userId: string) => {
+    if (action === 'property') {
       navigate('/properties/new');
+      return;
     }
+
+    setContractUserId(userId);
+    setShowContractModal(true);
+  };
+
+  const handleAction = (action: Exclude<PendingAction, null>) => {
+    if (!isConfigured || !agent) {
+      setPendingAction(action);
+      setShowAgentModal(true);
+      return;
+    }
+
+    runAction(action, agent.agent_user_id);
+  };
+
+  const handleAgentSaved = (savedAgent: AgentData) => {
+    if (pendingAction) runAction(pendingAction, savedAgent.agent_user_id);
+  };
+
+  const handleAgentModalClose = () => {
+    setShowAgentModal(false);
+    setPendingAction(null);
   };
 
   return (
@@ -67,7 +94,7 @@ export function ActionSelectionPage() {
           <button
             type="button"
             id="btn-add-property"
-            onClick={handleAddProperty}
+            onClick={() => handleAction('property')}
             className="group w-full surface rounded-2xl p-6 text-left transition-all duration-200 hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-0.5 cursor-pointer"
           >
             <div className="flex items-start gap-5">
@@ -111,6 +138,59 @@ export function ActionSelectionPage() {
             </div>
           </button>
 
+          <button
+            type="button"
+            id="btn-generate-contract"
+            onClick={() => handleAction('contract')}
+            className="group mt-3 w-full surface rounded-2xl p-6 text-left transition-all duration-200 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-0.5 cursor-pointer"
+          >
+            <div className="flex items-start gap-5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-300 transition-transform group-hover:scale-105">
+                <svg
+                  className="h-6 w-6"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 3h8l4 4v14H7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 3v5h4M10 13h6M10 17h6" />
+                </svg>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h2 className="mb-1 text-lg font-semibold text-slate-100 transition-colors group-hover:text-white">
+                  Generar contrato
+                </h2>
+                <p className="text-sm leading-relaxed text-slate-500">
+                  Creá y completá la información del contrato junto con el cliente.
+                </p>
+                <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    Dos formularios
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Datos protegidos
+                  </span>
+                </div>
+              </div>
+
+              <svg
+                className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 transition-all group-hover:translate-x-1 group-hover:text-cyan-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </div>
+          </button>
+
           {/* More actions — coming soon */}
           <div className="mt-3 surface rounded-2xl p-6 opacity-40 cursor-not-allowed select-none">
             <div className="flex items-start gap-5">
@@ -130,16 +210,22 @@ export function ActionSelectionPage() {
         {/* Agent status */}
         {!isConfigured && (
           <p className="mt-8 text-xs text-amber-500/80 animate-fade-in delay-200">
-            ⚠ Configurá tu perfil de agente antes de agregar una propiedad.
+            Configurá tu perfil de agente antes de iniciar una operación.
           </p>
         )}
       </main>
 
       <AgentModal
         open={showAgentModal}
+        onClose={handleAgentModalClose}
+        onSaved={handleAgentSaved}
+      />
+      <ContractEntryModal
+        open={showContractModal}
+        userId={contractUserId}
         onClose={() => {
-          setShowAgentModal(false);
-          if (isConfigured) navigate('/properties/new');
+          setShowContractModal(false);
+          setContractUserId('');
         }}
       />
     </div>
