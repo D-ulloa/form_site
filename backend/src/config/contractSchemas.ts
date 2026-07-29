@@ -179,62 +179,116 @@ export function getContractRoleSchema(
     : new Set(['Propietario', 'Contrato']);
   const publicTitles: Readonly<Record<string, string>> = {
     Garante: 'Garantes',
-    Propietario: 'Testigos',
   };
+  const guarantorLabels: Readonly<Record<string, string>> = {
+    guarantor_cuit: 'Cuit Empresa',
+    guarantor_employee_id: 'N de Legajo',
+    guarantor_company_registration: 'Numero de contacto de la empresa',
+    property_registration_number: 'Numero de matricula de la propiedad',
+    property_province: 'Provincia de la propiedad',
+    property_address: 'Direccion de la propiedad',
+  };
+  const conditionalPropertyFields = new Set([
+    'property_registration_number',
+    'property_province',
+    'property_address',
+  ]);
   const roleSections = schema.sections
     .filter((section) => selectedTitles.has(section.title))
-    .map((section) => ({
-      title: publicTitles[section.title] ?? section.title,
-      fields: section.fields,
-      ...(role === 'client' && section.title === 'Inquilino'
-        ? {
-            repeatable: {
-              name: 'inquilinos',
-              itemLabel: 'Inquilino',
-              addLabel: 'Agregar Inquilino',
-              minItems: 1,
-            } as const,
-            uploads: [
-              {
-                name: 'tenant_dni_front_image',
-                label: 'Frente DNI',
-                slot: 'front',
-                required: false,
-              },
-              {
-                name: 'tenant_dni_back_image',
-                label: 'Dorso DNI',
-                slot: 'back',
-                required: false,
-              },
-            ] as const,
-          }
-        : {}),
-      ...(role === 'client' && section.title === 'Garante'
-        ? {
-            repeatable: {
-              name: 'garantes',
-              itemLabel: 'Garante',
-              addLabel: 'Agregar Garante',
-              minItems: 1,
-            } as const,
-            uploads: [
-              {
-                name: 'guarantor_dni_front_image',
-                label: 'Frente DNI',
-                slot: 'front',
-                required: false,
-              },
-              {
-                name: 'guarantor_dni_back_image',
-                label: 'Dorso DNI',
-                slot: 'back',
-                required: false,
-              },
-            ] as const,
-          }
-        : {}),
-    }));
+    .map((section) => {
+      const isClientGuarantor = role === 'client' && section.title === 'Garante';
+      const roleFields: readonly ContractFieldDefinition[] = isClientGuarantor
+        ? [
+            ...section.fields.map((field): ContractFieldDefinition => ({
+              ...field,
+              label: guarantorLabels[field.name] ?? field.label,
+              required: conditionalPropertyFields.has(field.name)
+                ? false
+                : field.required,
+            })),
+            {
+              name: 'property_type',
+              label: 'Tipo de propiedad',
+              type: 'string',
+              required: false,
+            },
+          ]
+        : section.fields;
+
+      return {
+        title: publicTitles[section.title] ?? section.title,
+        fields: roleFields,
+        ...(role === 'client' && section.title === 'Inquilino'
+          ? {
+              repeatable: {
+                name: 'inquilinos',
+                itemLabel: 'Inquilino',
+                addLabel: 'Agregar Inquilino',
+                minItems: 1,
+              } as const,
+              uploads: [
+                {
+                  name: 'tenant_dni_front_image',
+                  label: 'Frente DNI',
+                  slot: 'front',
+                  required: false,
+                },
+                {
+                  name: 'tenant_dni_back_image',
+                  label: 'Dorso DNI',
+                  slot: 'back',
+                  required: false,
+                },
+              ] as const,
+            }
+          : {}),
+        ...(isClientGuarantor
+          ? {
+              repeatable: {
+                name: 'garantes',
+                itemLabel: 'Garante',
+                addLabel: 'Agregar Garante',
+                minItems: 1,
+              } as const,
+              uploads: [
+                {
+                  name: 'guarantor_dni_front_image',
+                  label: 'Frente DNI',
+                  slot: 'front',
+                  required: false,
+                },
+                {
+                  name: 'guarantor_dni_back_image',
+                  label: 'Dorso DNI',
+                  slot: 'back',
+                  required: false,
+                },
+              ] as const,
+              subsections: [
+                {
+                  title: 'Recibo de sueldo',
+                  fieldNames: [
+                    'guarantor_company',
+                    'guarantor_cuit',
+                    'guarantor_position',
+                    'guarantor_employee_id',
+                    'guarantor_company_registration',
+                  ],
+                },
+                {
+                  title: 'Garantía propietaria',
+                  fieldNames: [
+                    'property_registration_number',
+                    'property_province',
+                    'property_address',
+                    'property_type',
+                  ],
+                },
+              ] as const,
+            }
+          : {}),
+      };
+    });
 
   return {
     schemaId: schema.schemaId,

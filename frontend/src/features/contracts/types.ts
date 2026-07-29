@@ -47,11 +47,17 @@ export interface ContractDniUploadDefinition {
   required: boolean;
 }
 
+export interface ContractSubsectionDefinition {
+  title: string;
+  fieldNames: string[];
+}
+
 export interface ContractSection {
   title: string;
   fields: ContractField[];
   repeatable?: ContractRepeatableDefinition;
   uploads?: ContractDniUploadDefinition[];
+  subsections?: ContractSubsectionDefinition[];
 }
 
 export interface ContractDniImageReference {
@@ -219,6 +225,48 @@ export function normalizeContractRoleFields(
   return normalized;
 }
 
+function hasMeaningfulContractValue(value: unknown): boolean {
+  if (typeof value === 'string') return value.trim().length > 0;
+  return value !== undefined && value !== null;
+}
+
+export interface MissingContractSubsection {
+  collection: ContractRepeatableCollection;
+  itemIndex: number;
+}
+
+export function getMissingContractSubsections(
+  schema: ContractSchemaSections,
+  values: ContractFormValues,
+): MissingContractSubsection[] {
+  const missing: MissingContractSubsection[] = [];
+
+  for (const section of schema.sections) {
+    const repeatable = section.repeatable;
+    if (!repeatable || !section.subsections?.length) continue;
+    const rawItems = values[repeatable.name];
+    const items = Array.isArray(rawItems) ? rawItems : [];
+
+    items.forEach((item, itemIndex) => {
+      const itemValues = typeof item === 'object' && item !== null
+        ? item as Record<string, unknown>
+        : {};
+      const hasSubsectionData = section.subsections?.some((subsection) =>
+        subsection.fieldNames.some((fieldName) =>
+          hasMeaningfulContractValue(itemValues[fieldName])));
+
+      if (!hasSubsectionData) {
+        missing.push({
+          collection: repeatable.name,
+          itemIndex,
+        });
+      }
+    });
+  }
+
+  return missing;
+}
+
 export type ContractRole = 'user' | 'client';
 export type ContractEntryStatus = 'open' | 'complete' | 'archived';
 
@@ -268,9 +316,9 @@ export interface ContractAdminEntryDetail {
 }
 
 export function getContractEntryWaitingStatus(entry: ContractEntrySummary): string {
-  if (entry.status === 'archived') return 'archived';
-  if (entry.status === 'complete') return 'complete';
-  if (entry.userFilled) return 'waiting for client';
-  if (entry.clientFilled) return 'waiting for user';
-  return 'waiting for user and client';
+  if (entry.status === 'archived') return 'Archivado';
+  if (entry.status === 'complete') return 'Completo';
+  if (entry.userFilled) return 'Esperando al cliente';
+  if (entry.clientFilled) return 'Esperando la información del contrato';
+  return 'Esperando ambos formularios';
 }

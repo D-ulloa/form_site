@@ -161,6 +161,10 @@ const ContractRoleSectionSchema = z.object({
     slot: z.enum(['front', 'back']),
     required: z.boolean(),
   })).max(2).optional(),
+  subsections: z.array(z.object({
+    title: z.string().min(1),
+    fieldNames: z.array(z.string().min(1)).min(1),
+  })).min(1).optional(),
 });
 
 const ContractDniImageReferenceSchema = z.object({

@@ -15,6 +15,7 @@ import {
 import {
   buildContractDefaultValues,
   getContractEntryWaitingStatus,
+  getMissingContractSubsections,
   normalizeContractRoleFields,
   type ContractFormValues,
   type ContractSection,
@@ -35,6 +36,42 @@ function displayValue(value: unknown): string {
     return `Imagen: ${String((value as Record<string, unknown>).originalName)}`;
   }
   return value === undefined || value === '' ? '—' : String(value);
+}
+
+function fieldsOutsideSubsections(section: ContractSection) {
+  const groupedNames = new Set(
+    section.subsections?.flatMap((subsection) => subsection.fieldNames) ?? [],
+  );
+  return section.fields.filter((field) => !groupedNames.has(field.name));
+}
+
+function fieldsInSubsection(section: ContractSection, fieldNames: string[]) {
+  const fieldsByName = new Map(section.fields.map((field) => [field.name, field]));
+  return fieldNames.flatMap((fieldName) => {
+    const field = fieldsByName.get(fieldName);
+    return field ? [field] : [];
+  });
+}
+
+function ReadOnlyFieldList({
+  fields,
+  values,
+}: {
+  fields: { name: string; label: string }[];
+  values: Record<string, unknown>;
+}) {
+  return (
+    <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+      {fields.map((field) => (
+        <div key={field.name} className="rounded-lg bg-black/15 p-3">
+          <dt className="text-xs text-slate-500">{field.label}</dt>
+          <dd className="mt-1 break-words text-sm text-slate-200">
+            {displayValue(values[field.name])}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 
@@ -78,14 +115,27 @@ function ReadOnlyContractSection({
               <h3 className="text-xs font-medium text-cyan-300">
                 {section.repeatable?.itemLabel} {index + 1}
               </h3>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-                {[...section.fields, ...(section.uploads ?? [])].map((field) => (
-                  <div key={field.name} className="rounded-lg bg-black/15 p-3">
-                    <dt className="text-xs text-slate-500">{field.label}</dt>
-                    <dd className="mt-1 break-words text-sm text-slate-200">{displayValue(itemValues[field.name])}</dd>
-                  </div>
-                ))}
-              </dl>
+              <ReadOnlyFieldList
+                fields={fieldsOutsideSubsections(section)}
+                values={itemValues}
+              />
+              {section.subsections?.map((subsection) => (
+                <section
+                  key={subsection.title}
+                  className="mt-4 rounded-lg border border-white/[0.07] p-3"
+                >
+                  <h4 className="text-xs font-semibold text-slate-300">
+                    {subsection.title}
+                  </h4>
+                  <ReadOnlyFieldList
+                    fields={fieldsInSubsection(section, subsection.fieldNames)}
+                    values={itemValues}
+                  />
+                </section>
+              ))}
+              {(section.uploads?.length ?? 0) > 0 && (
+                <ReadOnlyFieldList fields={section.uploads ?? []} values={itemValues} />
+              )}
             </div>
           );
         })}
@@ -176,7 +226,7 @@ export function ContractFormPage() {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
         <AlertInline variant="error" title="Ruta de contrato inválida">
-          El rol debe ser user o client.
+          El enlace debe corresponder al formulario del usuario o del cliente.
         </AlertInline>
       </main>
     );
@@ -188,11 +238,12 @@ export function ContractFormPage() {
   const invalidSubmit = (fieldErrors: FieldErrors<ContractFormValues>) => {
     const first = Object.keys(fieldErrors)[0];
     if (first) document.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
-    setSubmitMessage('Revisá los campos marcados antes de enviar.');
+    setSubmitMessage('Revisá los campos marcados antes de guardar.');
   };
 
   const validSubmit = (values: ContractFormValues) => {
     if (!schema || submission.isPending) return;
+    clearErrors();
     if (pendingUploads.size > 0) {
       setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
       return;
@@ -213,7 +264,29 @@ export function ContractFormPage() {
       setSubmitMessage('Cada DNI debe incluir Frente DNI y Dorso DNI.');
       return;
     }
-    clearErrors();
+    const missingSubsections = getMissingContractSubsections(schema, values);
+    if (missingSubsections.length > 0) {
+      missingSubsections.forEach(({ collection, itemIndex }) => {
+        setError(`${collection}.${itemIndex}._subsections`, {
+          type: 'required',
+          message: 'Completá al menos Recibo de sueldo o Garantía propietaria.',
+        });
+      });
+      const firstMissing = missingSubsections[0];
+      const firstSection = schema.sections.find(
+        (section) => section.repeatable?.name === firstMissing?.collection,
+      );
+      const firstField = firstSection?.subsections?.[0]?.fieldNames[0];
+      if (firstMissing && firstField) {
+        document.querySelector<HTMLElement>(
+          `[name="${firstMissing.collection}.${firstMissing.itemIndex}.${firstField}"]`,
+        )?.focus();
+      }
+      setSubmitMessage(
+        'Cada garante debe completar Recibo de sueldo o Garantía propietaria.',
+      );
+      return;
+    }
     setSubmitMessage(null);
     submission.mutate(normalizeContractRoleFields(schema, values), {
       onSuccess: () => { void schemaQuery.refetch(); },
@@ -223,7 +296,7 @@ export function ContractFormPage() {
             if (fieldError.field) setError(fieldError.field, { type: 'server', message: fieldError.message });
           });
         }
-        setSubmitMessage(error.message);
+        setSubmitMessage('Revisá los campos marcados e intentá guardar nuevamente.');
       },
     });
   };
@@ -233,7 +306,7 @@ export function ContractFormPage() {
       <header className="glass sticky top-0 z-10 border-b border-white/[0.07]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-cyan-400">Contract Generation</p>
+            <p className="text-xs uppercase tracking-wide text-cyan-400">Generación de contratos</p>
             <h1 className="mt-1 text-lg font-semibold text-slate-100">
               Formulario del {roleLabel}
             </h1>
@@ -252,7 +325,7 @@ export function ContractFormPage() {
         {schemaQuery.isError && (
           <div className="mx-auto max-w-xl">
             <AlertInline variant="error" title="No se pudo abrir el formulario">
-              {schemaQuery.error.message}
+              Verificá el enlace e intentá nuevamente.
             </AlertInline>
           </div>
         )}
@@ -278,18 +351,18 @@ export function ContractFormPage() {
             {submission.data && (
               <div className="mb-6">
                 <AlertInline variant="success" title="Formulario guardado">
-                  Submission ID: {submission.data.submissionId}
+                  Identificador del envío: {submission.data.submissionId}
                 </AlertInline>
               </div>
             )}
 
             {submitMessage && (
               <div className="mb-6">
-                <AlertInline variant="error" title="No se pudo enviar">{submitMessage}</AlertInline>
+                <AlertInline variant="error" title="No se pudo guardar">{submitMessage}</AlertInline>
               </div>
             )}
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div>
               <section className="rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] p-6 sm:p-8">
                 {schema.readOnly ? (
                   <div className="space-y-8">
@@ -298,7 +371,17 @@ export function ContractFormPage() {
                     ))}
                   </div>
                 ) : (
-                  <form onSubmit={(event) => { void handleSubmit(validSubmit, invalidSubmit)(event); }} noValidate>
+                  <form
+                    onSubmit={(event) => {
+                      schema.sections.forEach((section) => {
+                        if (section.subsections && section.repeatable) {
+                          clearErrors(section.repeatable.name);
+                        }
+                      });
+                      void handleSubmit(validSubmit, invalidSubmit)(event);
+                    }}
+                    noValidate
+                  >
                     <div className="space-y-8">
                       {schema.sections.map((section) => section.repeatable ? (
                         <ContractRepeatableSection
@@ -328,20 +411,13 @@ export function ContractFormPage() {
                     </div>
                     <div className="mt-8 flex justify-end border-t border-white/[0.07] pt-5">
                       <Button type="submit" loading={submission.isPending} disabled={submission.isPending || pendingUploads.size > 0}>
-                        {submission.isPending ? 'Guardando…' : 'Enviar formulario'}
+                        {submission.isPending ? 'Guardando…' : 'Guardar'}
                       </Button>
                     </div>
                   </form>
                 )}
               </section>
 
-              <aside className="rounded-xl border border-white/[0.08] bg-[var(--bg-input)] p-5 lg:sticky lg:top-24 lg:self-start">
-                <h2 className="text-sm font-semibold text-slate-200">Esquema JSON</h2>
-                <p className="mt-1 text-xs text-slate-500">Campos asignados únicamente a este rol.</p>
-                <pre className="mt-4 max-h-[65dvh] overflow-auto text-xs leading-5 text-slate-400">
-                  {JSON.stringify({ role: schema.role, sections: schema.sections }, null, 2)}
-                </pre>
-              </aside>
             </div>
           </>
         )}

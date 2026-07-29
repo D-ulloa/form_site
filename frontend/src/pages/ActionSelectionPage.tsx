@@ -161,19 +161,19 @@ export function ActionSelectionPage() {
 
               <div className="min-w-0 flex-1">
                 <h2 className="mb-1 text-lg font-semibold text-slate-100 transition-colors group-hover:text-white">
-                  Contract Generation
+                  Generar contrato
                 </h2>
                 <p className="text-sm leading-relaxed text-slate-500">
-                  Creá formularios privados para el usuario y el cliente, alojados y guardados en Supabase.
+                  Creá y completá la información del contrato junto con el cliente.
                 </p>
                 <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                    Sitio seguro
+                    Dos formularios
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Supabase
+                    Datos protegidos
                   </span>
                 </div>
               </div>

@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import type { ContractFormValues, ContractSection } from '../types.ts';
 import {
   buildContractDefaultValues,
+  getMissingContractSubsections,
   normalizeContractRoleFields,
 } from '../types.ts';
 import {
@@ -57,6 +58,46 @@ const tenantSection: ContractSection = {
   ],
 };
 
+const guarantorSection: ContractSection = {
+  title: 'Garantes',
+  repeatable: {
+    name: 'garantes',
+    itemLabel: 'Garante',
+    addLabel: 'Agregar Garante',
+    minItems: 1,
+  },
+  fields: [
+    {
+      name: 'guarantor_full_name',
+      label: 'Nombre completo',
+      type: 'string',
+      required: true,
+    },
+    {
+      name: 'guarantor_company',
+      label: 'Empresa',
+      type: 'string',
+      required: false,
+    },
+    {
+      name: 'property_type',
+      label: 'Tipo de propiedad',
+      type: 'string',
+      required: false,
+    },
+  ],
+  subsections: [
+    {
+      title: 'Recibo de sueldo',
+      fieldNames: ['guarantor_company'],
+    },
+    {
+      title: 'Garantía propietaria',
+      fieldNames: ['property_type'],
+    },
+  ],
+};
+
 function RepeatableHarness() {
   const form = useForm<ContractFormValues>({
     defaultValues: buildContractDefaultValues({ sections: [tenantSection] }),
@@ -65,6 +106,23 @@ function RepeatableHarness() {
     <form aria-label="Formulario repetible">
       <ContractRepeatableSection
         section={tenantSection}
+        form={form}
+        entryId="11111111-1111-4111-8111-111111111111"
+        token="client-token"
+        onUploadPendingChange={() => undefined}
+      />
+    </form>
+  );
+}
+
+function GuarantorHarness() {
+  const form = useForm<ContractFormValues>({
+    defaultValues: buildContractDefaultValues({ sections: [guarantorSection] }),
+  });
+  return (
+    <form aria-label="Formulario de garantes">
+      <ContractRepeatableSection
+        section={guarantorSection}
         form={form}
         entryId="11111111-1111-4111-8111-111111111111"
         token="client-token"
@@ -135,5 +193,37 @@ describe('SPEC-11 repeatable contract sections', () => {
     expect(computeFormattedUpdate('2026-07-31', 6)).toBe('2027-01-31');
     expect(computeFormattedUpdate('2026-07-31', 0)).toBe('2026-07-31');
     expect(computeFormattedUpdate('2026-07-31', '')).toBe('');
+  });
+});
+
+describe('SPEC-12 guarantor subsections', () => {
+  it('groups guarantor fields under the two Spanish subsection headings', () => {
+    render(<GuarantorHarness />);
+
+    expect(screen.getByRole('heading', { name: 'Recibo de sueldo' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Garantía propietaria' })).toBeTruthy();
+    expect(screen.getByLabelText('Empresa')).toBeTruthy();
+    expect(screen.getByLabelText('Tipo de propiedad')).toBeTruthy();
+  });
+
+  it('requires data in at least one guarantor subsection for every item', () => {
+    const schema = { sections: [guarantorSection] };
+
+    expect(getMissingContractSubsections(schema, {
+      garantes: [{ guarantor_full_name: 'Perez, Ana' }],
+    })).toEqual([{ collection: 'garantes', itemIndex: 0 }]);
+    expect(getMissingContractSubsections(schema, {
+      garantes: [{ guarantor_company: 'Empresa SA' }],
+    })).toEqual([]);
+    expect(getMissingContractSubsections(schema, {
+      garantes: [{ property_type: 'Casa' }],
+    })).toEqual([]);
+    expect(getMissingContractSubsections(schema, {
+      garantes: [
+        { guarantor_company: 'Empresa SA' },
+        { property_type: 'Departamento' },
+        {},
+      ],
+    })).toEqual([{ collection: 'garantes', itemIndex: 2 }]);
   });
 });

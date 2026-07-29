@@ -85,9 +85,6 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
           <h2 id="contract-entry-title" className="text-lg font-semibold text-slate-100">
             Nuevo contrato
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Creamos dos formularios privados y alojados en este sitio.
-          </p>
         </div>
         <button
           type="button"
@@ -105,14 +102,14 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
       <div className="px-6 py-7">
         {creation.isPending && (
           <div className="flex min-h-48 items-center justify-center" role="status">
-            <span className="text-sm text-slate-400">Creando entrada y enlaces seguros…</span>
+            <span className="text-sm text-slate-400">Creando contrato…</span>
           </div>
         )}
 
         {creation.isError && (
           <div className="space-y-5">
             <AlertInline variant="error" title="No se pudo crear el contrato">
-              {creation.error.message}
+              Intentá nuevamente en unos instantes.
             </AlertInline>
             <div className="flex justify-end gap-3">
               <Button type="button" variant="ghost" onClick={close}>Cerrar</Button>
@@ -127,7 +124,7 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-emerald-400">
-                    waiting for user and client
+                    Esperando ambos formularios
                   </p>
                   <p className="mt-2 font-mono text-base text-slate-100">
                     {creation.data.entryId.slice(0, 8)}
@@ -145,7 +142,7 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center rounded-[10px] bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
                 >
-                  Abrir formulario del usuario
+                  Abrir info del contrato
                 </a>
                 <Button
                   type="button"
@@ -156,9 +153,14 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
                       .catch(() => setCopyState('error'));
                   }}
                 >
-                  {copyState === 'copied' ? 'Enlace copiado' : 'Copiar enlace del cliente'}
+                  Formulario del cliente
                 </Button>
               </div>
+              {copyState === 'copied' && (
+                <p className="mt-3 text-xs text-emerald-400" role="status">
+                  Enlace copiado
+                </p>
+              )}
             </div>
 
             {copyState === 'error' && (
@@ -166,10 +168,6 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
                 <AlertInline variant="error">No se pudo copiar el enlace del cliente.</AlertInline>
               </div>
             )}
-
-            <p className="mt-5 text-xs leading-5 text-slate-500">
-              Los enlaces incluyen credenciales de acceso. Compartí el enlace del cliente solo con la persona correspondiente.
-            </p>
 
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
               <Button type="button" variant="ghost" onClick={() => { close(); navigate('/contracts/admin'); }}>

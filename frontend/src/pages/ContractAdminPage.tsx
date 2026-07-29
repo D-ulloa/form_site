@@ -74,7 +74,7 @@ export function ContractAdminPage() {
       <header className="glass sticky top-0 z-10 border-b border-white/[0.07]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-cyan-400">Contract Generation</p>
+            <p className="text-xs uppercase tracking-wide text-cyan-400">Generación de contratos</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-100">Administrar contratos</h1>
           </div>
           <Link to="/" className="text-sm text-slate-400 hover:text-white">Volver</Link>
@@ -85,7 +85,7 @@ export function ContractAdminPage() {
         {entriesQuery.isPending && <p className="text-sm text-slate-400" role="status">Cargando contratos…</p>}
         {entriesQuery.isError && (
           <AlertInline variant="error" title="No se pudo abrir la administración">
-            {entriesQuery.error.message}
+            Intentá nuevamente en unos instantes.
           </AlertInline>
         )}
 
@@ -139,12 +139,16 @@ export function ContractAdminPage() {
             <aside className="rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 lg:sticky lg:top-24 lg:self-start">
               {!selectedId && <p className="text-sm text-slate-500">Seleccioná una entrada para inspeccionarla.</p>}
               {detailQuery.isPending && selectedId && <p className="text-sm text-slate-400">Cargando detalle…</p>}
-              {detailQuery.isError && <AlertInline variant="error">{detailQuery.error.message}</AlertInline>}
+              {detailQuery.isError && (
+                <AlertInline variant="error">No se pudo cargar el detalle.</AlertInline>
+              )}
               {detailQuery.data && (
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="font-mono text-sm text-slate-100">{detailQuery.data.entry.entryId}</h2>
-                    <span className="text-xs text-cyan-400">{detailQuery.data.entry.status}</span>
+                    <span className="text-xs text-cyan-400">
+                      {getContractEntryWaitingStatus(detailQuery.data.entry)}
+                    </span>
                   </div>
 
                   <div className="mt-5 grid gap-2">
@@ -198,7 +202,7 @@ export function ContractAdminPage() {
                   {(tokenMutation.isError || archiveMutation.isError) && (
                     <div className="mt-4">
                       <AlertInline variant="error">
-                        {(tokenMutation.error ?? archiveMutation.error)?.message}
+                        No se pudo completar la acción. Intentá nuevamente.
                       </AlertInline>
                     </div>
                   )}
@@ -207,9 +211,9 @@ export function ContractAdminPage() {
                     <summary className="cursor-pointer text-sm text-slate-300">Inspeccionar envíos</summary>
                     <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-black/20 p-3 text-xs leading-5 text-slate-400">
                       {JSON.stringify({
-                        user: detailQuery.data.userSubmission,
-                        client: detailQuery.data.clientSubmission,
-                        combined: detailQuery.data.combinedSubmission,
+                        usuario: detailQuery.data.userSubmission,
+                        cliente: detailQuery.data.clientSubmission,
+                        combinado: detailQuery.data.combinedSubmission,
                       }, null, 2)}
                     </pre>
                   </details>

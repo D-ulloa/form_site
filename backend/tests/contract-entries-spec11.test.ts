@@ -66,7 +66,12 @@ function validClientFields(): Record<string, unknown> {
   const schema = getContractRoleSchema('rent-contract-v1', 'client');
   return Object.fromEntries(schema.sections.map((section) => [
     section.repeatable?.name ?? section.title,
-    [requiredFields(section.fields)],
+    [{
+      ...requiredFields(section.fields),
+      ...(section.repeatable?.name === 'garantes'
+        ? { guarantor_company: 'Empresa de prueba' }
+        : {}),
+    }],
   ]));
 }
 

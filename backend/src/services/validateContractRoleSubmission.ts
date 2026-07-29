@@ -47,6 +47,11 @@ function issue(
   return { path, code, message };
 }
 
+function hasMeaningfulValue(value: unknown): boolean {
+  if (typeof value === 'string') return value.trim().length > 0;
+  return value !== undefined && value !== null;
+}
+
 function validateDniReference(
   raw: unknown,
   definition: ContractDniUploadDefinition,
@@ -197,6 +202,19 @@ function validateRepeatedSection(
     }
     if (imageCount > 2) {
       errors.push(issue(itemPath, 'max', `${repeatable.itemLabel} accepts at most two DNI images.`));
+    }
+
+    if (
+      section.subsections?.length &&
+      !section.subsections.some((subsection) =>
+        subsection.fieldNames.some((fieldName) =>
+          hasMeaningfulValue(validatedItem[fieldName])))
+    ) {
+      errors.push(issue(
+        `${itemPath}._subsections`,
+        'required',
+        'Completá al menos Recibo de sueldo o Garantía propietaria.',
+      ));
     }
 
     for (const fieldName of Object.keys(item)) {

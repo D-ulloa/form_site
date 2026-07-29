@@ -49,9 +49,15 @@ export interface ContractDniUploadDefinition {
   readonly required: boolean;
 }
 
+export interface ContractSubsectionDefinition {
+  readonly title: string;
+  readonly fieldNames: readonly string[];
+}
+
 export interface ContractRoleSectionDefinition extends ContractSectionDefinition {
   readonly repeatable?: ContractRepeatableDefinition;
   readonly uploads?: readonly ContractDniUploadDefinition[];
+  readonly subsections?: readonly ContractSubsectionDefinition[];
 }
 
 export interface ContractDniImageReference {

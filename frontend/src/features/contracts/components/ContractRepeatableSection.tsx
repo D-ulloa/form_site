@@ -63,6 +63,24 @@ function nestedFieldError(
     : undefined;
 }
 
+function fieldsOutsideSubsections(section: ContractSection) {
+  const groupedNames = new Set(
+    section.subsections?.flatMap((subsection) => subsection.fieldNames) ?? [],
+  );
+  return section.fields.filter((field) => !groupedNames.has(field.name));
+}
+
+function fieldsInSubsection(
+  section: ContractSection,
+  fieldNames: string[],
+) {
+  const fieldsByName = new Map(section.fields.map((field) => [field.name, field]));
+  return fieldNames.flatMap((fieldName) => {
+    const field = fieldsByName.get(fieldName);
+    return field ? [field] : [];
+  });
+}
+
 function isDniReference(value: unknown): value is ContractDniImageReference {
   return typeof value === 'object' && value !== null &&
     typeof (value as Record<string, unknown>).storagePath === 'string' &&
@@ -129,10 +147,8 @@ function ContractDniUploadControl({
         slot: presigned.slot,
       };
       onValue(storedReference);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error
-        ? uploadError.message
-        : 'No se pudo subir la imagen del DNI.');
+    } catch {
+      setError('No se pudo subir la imagen del DNI. Intentá nuevamente.');
     } finally {
       setPending(false);
       onPendingChange(false);
@@ -225,7 +241,7 @@ export function ContractRepeatableSection({
               )}
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
-              {section.fields.map((field) => (
+              {fieldsOutsideSubsections(section).map((field) => (
                 <ContractFieldRenderer
                   key={field.name}
                   field={field}
@@ -235,6 +251,49 @@ export function ContractRepeatableSection({
                 />
               ))}
             </div>
+            {section.subsections?.map((subsection) => (
+              <section
+                key={subsection.title}
+                className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
+                aria-labelledby={`${repeatable.name}-${index}-${subsection.title.replace(/\s+/gu, '-')}`}
+              >
+                <h4
+                  id={`${repeatable.name}-${index}-${subsection.title.replace(/\s+/gu, '-')}`}
+                  className="mb-4 text-sm font-semibold text-slate-200"
+                >
+                  {subsection.title}
+                </h4>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  {fieldsInSubsection(section, subsection.fieldNames).map((field) => (
+                    <ContractFieldRenderer
+                      key={field.name}
+                      field={field}
+                      name={`${repeatable.name}.${index}.${field.name}`}
+                      register={form.register}
+                      error={nestedFieldError(
+                        form.formState.errors,
+                        repeatable.name,
+                        index,
+                        field.name,
+                      )}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+            {(() => {
+              const subsectionError = nestedFieldError(
+                form.formState.errors,
+                repeatable.name,
+                index,
+                '_subsections',
+              );
+              return subsectionError?.message ? (
+                <p className="mt-4 text-sm text-red-400" role="alert">
+                  {String(subsectionError.message)}
+                </p>
+              ) : null;
+            })()}
             <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
               {(section.uploads ?? []).map((upload) => {
                 const fieldPath = `${repeatable.name}.${index}.${upload.name}`;

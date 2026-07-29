@@ -116,9 +116,14 @@ function validRoleFields(role: ContractRole): Record<string, unknown> {
   if (role === 'client') {
     return Object.fromEntries(schema.sections.map((section) => [
       section.repeatable?.name ?? section.title,
-      [Object.fromEntries(section.fields
+      [{
+        ...Object.fromEntries(section.fields
         .filter((field) => field.required && !field.computed)
-        .map((field) => [field.name, valueFor(field)]))],
+        .map((field) => [field.name, valueFor(field)])),
+        ...(section.repeatable?.name === 'garantes'
+          ? { guarantor_company: 'Empresa de prueba' }
+          : {}),
+      }],
     ]));
   }
   return Object.fromEntries(schema.sections.flatMap((section) =>
@@ -143,7 +148,7 @@ test('role schemas enforce the SPEC-10 section split', () => {
   const user = getContractRoleSchema('rent-contract-v1', 'user');
 
   assert.deepEqual(client.sections.map((section) => section.title), ['Inquilino', 'Garantes']);
-  assert.deepEqual(user.sections.map((section) => section.title), ['Testigos', 'Contrato']);
+  assert.deepEqual(user.sections.map((section) => section.title), ['Propietario', 'Contrato']);
   assert.equal(client.sections.some((section) =>
     section.fields.some((field) => field.name === 'contract_months')), false);
   assert.equal(user.sections.some((section) =>
@@ -191,7 +196,7 @@ test('create, both role submissions, admin inspection, token regeneration, and a
   assert.equal(ownedUserSchema.status, 200);
   assert.deepEqual(ownedUserSchema.body.sections.map(
     (section: { title: string }) => section.title,
-  ), ['Testigos', 'Contrato']);
+  ), ['Propietario', 'Contrato']);
 
   const clientSchema = await request(app)
     .get(`/api/contracts/${created.body.entryId}/schema`)
