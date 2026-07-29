@@ -313,6 +313,57 @@ export interface ContractAdminEntryDetail {
   userSubmission: ContractFormValues | null;
   clientSubmission: ContractFormValues | null;
   combinedSubmission: Record<string, unknown> | null;
+  inspection: ContractEntryInspection;
+}
+
+export interface ContractInspectionField {
+  name: string;
+  label: string;
+  type: ContractFieldType;
+  value: unknown;
+}
+
+export interface ContractInspectionSubsection {
+  title: string;
+  fields: ContractInspectionField[];
+}
+
+export interface ContractInspectionMedia {
+  fieldName: string;
+  label: string;
+  slot: ContractDniImageSlot;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  viewUrl: string;
+  expiresAt: string;
+}
+
+export interface ContractInspectionItem {
+  index: number;
+  label: string;
+  fields: ContractInspectionField[];
+  subsections: ContractInspectionSubsection[];
+  media: ContractInspectionMedia[];
+}
+
+export interface ContractInspectionSection {
+  title: string;
+  fields: ContractInspectionField[];
+  subsections: ContractInspectionSubsection[];
+  items: ContractInspectionItem[];
+}
+
+export interface ContractInspectionSubmission {
+  submissionId: string;
+  role: ContractRole;
+  submittedAt: string;
+  sections: ContractInspectionSection[];
+}
+
+export interface ContractEntryInspection {
+  hasSubmissions: boolean;
+  submissions: ContractInspectionSubmission[];
 }
 
 export function getContractEntryWaitingStatus(entry: ContractEntrySummary): string {

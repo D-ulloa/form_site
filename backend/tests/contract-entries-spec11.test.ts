@@ -235,6 +235,7 @@ test('DNI presign route requires the matching client token and forwards validate
     async findEntry(id) { return id === ENTRY_ID ? currentEntry : null; },
     async createEntry() { throw new Error('not used'); },
     async listEntries() { return []; },
+    async listSubmissions() { return []; },
     async saveRoleSubmission() { throw new Error('not used'); },
     async archiveEntry() { throw new Error('not used'); },
     async replaceTokenHash() { throw new Error('not used'); },

@@ -1,6 +1,6 @@
 # Project Overview
 
-Status: 2026-07-27.
+Status: 2026-07-29.
 
 This repository implements two internal workflows in an admin-style web application:
 
@@ -44,15 +44,16 @@ This repository implements two internal workflows in an admin-style web applicat
 
 ## Contract flow
 
-1. An authenticated operator selects `Contract Generation`.
-2. `POST /api/contracts/create` creates a Supabase `contract_entries` row and returns user and client URLs.
-3. The operator opens the user form and copies the client link.
-4. Each hosted role page fetches only its assigned schema sections and submits independently. The client starts with repeatable `Inquilino`/`Garante` records and private front/back DNI slots.
-5. The user schema constrains `Ajuste` to IPC/IPL and previews read-only dates that the backend recalculates authoritatively.
-6. The backend validates the role token or user ownership, applies rate limiting, validates fields and DNI references, and calls an atomic Supabase function.
-7. Supabase stores one immutable role audit row and updates the entry.
-8. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
-9. Configured administrators can list, inspect, archive, and regenerate role links from `/contracts/admin`.
+1. An authenticated operator selects `Generar contrato`; the opened section remains passive.
+2. The operator clicks `Generar nueva entrada para contrato`.
+3. `POST /api/contracts/create` creates a Supabase `contract_entries` row and returns user and client URLs.
+4. The operator opens the user form and copies the client link.
+5. Each hosted role page fetches only its assigned schema sections and submits independently. The client starts with repeatable `Inquilino`/`Garante` records and private front/back DNI slots.
+6. The user schema groups `Contrato` into `Vigencia`, `Canon`, and `Ajuste`; computed dates remain read-only and the backend recalculates them authoritatively.
+7. The backend validates the role token or user ownership, applies rate limiting, validates fields and DNI references, and calls an atomic Supabase function.
+8. Supabase stores one immutable role audit row and updates the entry.
+9. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
+10. Configured administrators can list entries, inspect immutable submissions in schema order with signed media links, archive entries, and regenerate role links from `/contracts/admin`.
 
 ## Code map
 

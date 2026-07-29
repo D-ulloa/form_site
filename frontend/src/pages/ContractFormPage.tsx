@@ -83,19 +83,31 @@ function ReadOnlyContractSection({
   values: ContractFormValues;
 }) {
   if (!section.repeatable) {
+    const ungroupedFields = fieldsOutsideSubsections(section);
     return (
       <div>
         <h2 className="text-sm font-semibold text-slate-200">{section.title}</h2>
-        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-          {section.fields.map((field) => (
-            <div key={field.name} className="rounded-lg bg-black/15 p-3">
-              <dt className="text-xs text-slate-500">{field.label}</dt>
-              <dd className="mt-1 break-words text-sm text-slate-200">
-                {displayValue(values[field.name])}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        {ungroupedFields.length > 0 && (
+          <ReadOnlyFieldList fields={ungroupedFields} values={values} />
+        )}
+        {section.subsections?.map((subsection) => (
+          <section
+            key={subsection.title}
+            className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
+            aria-labelledby={`${section.title}-${subsection.title}`.replace(/\s+/gu, '-')}
+          >
+            <h3
+              id={`${section.title}-${subsection.title}`.replace(/\s+/gu, '-')}
+              className="text-sm font-semibold text-slate-200"
+            >
+              {subsection.title}
+            </h3>
+            <ReadOnlyFieldList
+              fields={fieldsInSubsection(section, subsection.fieldNames)}
+              values={values}
+            />
+          </section>
+        ))}
       </div>
     );
   }
@@ -396,16 +408,38 @@ export function ContractFormPage() {
                       ) : (
                           <fieldset key={section.title} className="border-0 p-0">
                             <legend className="mb-5 text-sm font-semibold text-slate-200">{section.title}</legend>
-                            <div className="grid gap-5 sm:grid-cols-2">
-                              {section.fields.map((field) => (
-                                <ContractFieldRenderer
-                                  key={field.name}
-                                  field={field}
-                                  register={register}
-                                  error={errors[field.name] as FieldError | undefined}
-                                />
-                              ))}
-                            </div>
+                            {fieldsOutsideSubsections(section).length > 0 && (
+                              <div className="grid gap-5 sm:grid-cols-2">
+                                {fieldsOutsideSubsections(section).map((field) => (
+                                  <ContractFieldRenderer
+                                    key={field.name}
+                                    field={field}
+                                    register={register}
+                                    error={errors[field.name] as FieldError | undefined}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {section.subsections?.map((subsection) => (
+                              <fieldset
+                                key={subsection.title}
+                                className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
+                              >
+                                <legend className="px-1 text-sm font-semibold text-slate-200">
+                                  {subsection.title}
+                                </legend>
+                                <div className="mt-3 grid gap-5 sm:grid-cols-2">
+                                  {fieldsInSubsection(section, subsection.fieldNames).map((field) => (
+                                    <ContractFieldRenderer
+                                      key={field.name}
+                                      field={field}
+                                      register={register}
+                                      error={errors[field.name] as FieldError | undefined}
+                                    />
+                                  ))}
+                                </div>
+                              </fieldset>
+                            ))}
                           </fieldset>
                         ))}
                     </div>

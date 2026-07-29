@@ -1,6 +1,6 @@
 # Usage
 
-Status: 2026-07-27.
+Status: 2026-07-29.
 
 ## Frontend user flow
 
@@ -19,13 +19,14 @@ The main workflow is:
 
 The Contract Generation workflow is:
 
-1. Select `Contract Generation` on `/`; the authenticated create call runs immediately.
-2. Open the hosted user form and copy the client link from the entry card.
-3. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI image pair for each record.
-4. The user completes `Testigos` and `Contrato`; `Ajuste` is limited to `IPC`/`IPL`, while `Formateada_1` and `Formateada_2` update automatically and cannot be edited.
-5. Each submit is independently validated and stored in Supabase.
-6. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
-7. Configured administrators use `/contracts/admin` to inspect, archive, or regenerate links.
+1. Select `Generar contrato` on `/`; opening the section does not create a database entry.
+2. Click `Generar nueva entrada para contrato` to make the authenticated create call.
+3. Open the hosted user form and copy the client link from the entry card.
+4. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI image pair for each record.
+5. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
+6. Each submit is independently validated and stored in Supabase.
+7. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
+8. Configured administrators use `/contracts/admin` to inspect schema-ordered submissions and associated media, archive entries, or regenerate links.
 
 ## Backend endpoints
 
@@ -35,7 +36,7 @@ The Contract Generation workflow is:
 - `GET /api/contracts/:entryId/schema?role=user|client` — token- or owner-authorized role schema and status.
 - `POST /api/contracts/:entryId/dni-uploads/presign?token=...` — client-token-authorized private signed URLs for front/back DNI image uploads.
 - `POST /api/contracts/:entryId/submit?role=user|client` — validated role submission and atomic Supabase persistence.
-- `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and inspection.
+- `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and database-backed, ordered inspection with short-lived media links.
 - `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
 

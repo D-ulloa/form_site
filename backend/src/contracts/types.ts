@@ -197,3 +197,62 @@ export interface ContractSubmissionMetadata {
   readonly userAgent: string;
   readonly receivedAt: string;
 }
+
+export interface ContractSubmissionRecord {
+  readonly id: string;
+  readonly entryId: string;
+  readonly role: ContractRole;
+  readonly submission: Readonly<Record<string, unknown>>;
+  readonly metadata: ContractSubmissionMetadata;
+  readonly submittedAt: string;
+}
+
+export interface ContractAdminInspectionField {
+  readonly name: string;
+  readonly label: string;
+  readonly type: ContractFieldType;
+  readonly value: unknown;
+}
+
+export interface ContractAdminInspectionSubsection {
+  readonly title: string;
+  readonly fields: readonly ContractAdminInspectionField[];
+}
+
+export interface ContractAdminInspectionMedia {
+  readonly fieldName: string;
+  readonly label: string;
+  readonly slot: ContractDniImageSlot;
+  readonly originalName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly viewUrl: string;
+  readonly expiresAt: string;
+}
+
+export interface ContractAdminInspectionItem {
+  readonly index: number;
+  readonly label: string;
+  readonly fields: readonly ContractAdminInspectionField[];
+  readonly subsections: readonly ContractAdminInspectionSubsection[];
+  readonly media: readonly ContractAdminInspectionMedia[];
+}
+
+export interface ContractAdminInspectionSection {
+  readonly title: string;
+  readonly fields: readonly ContractAdminInspectionField[];
+  readonly subsections: readonly ContractAdminInspectionSubsection[];
+  readonly items: readonly ContractAdminInspectionItem[];
+}
+
+export interface ContractAdminInspectionSubmission {
+  readonly submissionId: string;
+  readonly role: ContractRole;
+  readonly submittedAt: string;
+  readonly sections: readonly ContractAdminInspectionSection[];
+}
+
+export interface ContractAdminInspection {
+  readonly hasSubmissions: boolean;
+  readonly submissions: readonly ContractAdminInspectionSubmission[];
+}

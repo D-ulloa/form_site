@@ -1,6 +1,6 @@
 # Architecture
 
-Status: 2026-07-27.
+Status: 2026-07-29.
 
 ## Stack
 
@@ -23,9 +23,9 @@ Important frontend flows:
 - `ActionSelectionPage`: entry point that launches property creation or Contract Generation.
 - `NewPropertyPage`: composes section components and orchestrates form submission.
 - `SubmissionSuccessPage`: shows submission status and integration results.
-- `ContractEntryModal`: creates a contract entry and presents the hosted user form and copyable client link.
-- `ContractFormPage`: renders role-only fields and the JSON schema, including repeatable client records, private front/back DNI uploads, and live read-only computed dates, then switches to read-only after submission.
-- `ContractAdminPage`: lists, inspects, archives, and regenerates role links for administrators.
+- `ContractEntryModal`: remains passive until its dedicated create action is clicked, then presents the hosted user form and copyable client link.
+- `ContractFormPage`: renders role-only fields, including repeatable client records, private front/back DNI uploads, live read-only computed dates, and the user-side `Contrato` subdivisions, then switches to read-only after submission.
+- `ContractAdminPage`: lists entries; renders selected immutable submissions in schema order with partial/empty states and signed media views; and archives or regenerates role links for administrators.
 
 The contract UI contains no Supabase service key or token hashing secret. It consumes role-authorized schema routes and treats frontend validation as usability only; the backend remains authoritative.
 
@@ -47,6 +47,7 @@ Key backend responsibilities:
 - Serve role-specific schemas only after token or owner authorization.
 - Validate flat user fields or strict repeatable client arrays, recalculate computed dates, and atomically persist each role submission to Supabase.
 - Authorize client DNI upload intents, issue private Supabase signed upload URLs, and validate stored object references against the current entry before persistence.
+- Read immutable role submissions for administrator inspection, reconstruct their form order from the authoritative schema, and sign validated private DNI references for short-lived viewing.
 - Assemble the combined submission when both roles are complete.
 - Enforce production HTTPS, per-entry/IP rate limiting, admin access, archive, and token regeneration.
 - Create a Google Drive folder and upload media.

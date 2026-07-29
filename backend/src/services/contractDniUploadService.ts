@@ -9,6 +9,7 @@ import type {
 
 const DEFAULT_BUCKET = 'contract-dni';
 const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const CONTRACT_DNI_VIEW_TTL_SECONDS = 10 * 60;
 
 export const CONTRACT_DNI_IMAGE_MIME_TYPES = new Set([
   'image/jpeg',
@@ -30,6 +31,11 @@ export interface ContractDniUploadDescriptor {
 
 export interface ContractDniPresignedUpload extends ContractDniImageReference {
   readonly uploadUrl: string;
+}
+
+export interface ContractDniSignedView {
+  readonly viewUrl: string;
+  readonly expiresAt: string;
 }
 
 export class ContractDniUploadConfigurationError extends Error {
@@ -140,4 +146,37 @@ export async function issueContractDniUploadUrls(
   }
 
   return results;
+}
+
+export async function issueContractDniViewUrl(
+  reference: ContractDniImageReference,
+  environment: NodeJS.ProcessEnv = process.env,
+  clientOverride?: SupabaseClient,
+  now: () => Date = () => new Date(),
+): Promise<ContractDniSignedView> {
+  const expectedBucket = getContractDniStorageBucket(environment);
+  if (
+    reference.storageBucket !== expectedBucket ||
+    !reference.storagePath.startsWith('contracts/') ||
+    reference.publicPath !== `${reference.storageBucket}/${reference.storagePath}`
+  ) {
+    throw new ContractDniUploadValidationError(
+      'The stored DNI image reference is not valid for private viewing.',
+    );
+  }
+
+  const client = clientOverride ?? createSupabaseClient(environment);
+  const { data, error } = await client.storage
+    .from(reference.storageBucket)
+    .createSignedUrl(reference.storagePath, CONTRACT_DNI_VIEW_TTL_SECONDS);
+  if (error || !data?.signedUrl) {
+    throw new Error(error?.message ?? 'Unable to create a signed DNI view URL.');
+  }
+
+  return {
+    viewUrl: data.signedUrl,
+    expiresAt: new Date(
+      now().getTime() + (CONTRACT_DNI_VIEW_TTL_SECONDS * 1000),
+    ).toISOString(),
+  };
 }

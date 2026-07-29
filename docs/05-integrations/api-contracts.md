@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: 2026-07-27.
+Status: 2026-07-29.
 
 ## `POST /properties/submit`
 
@@ -64,17 +64,17 @@ Response body shape:
 - `413` for payload size violations.
 - `500` for backend failures.
 
-## SPEC-10/SPEC-11 contract entry API
+## SPEC-10 through SPEC-13 contract entry API
 
 All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary. Role reads and submits require the matching role token, except that an authenticated owner can use the user route without a token.
 
 ### `POST /api/contracts/create`
 
-Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optional. API-key callers also supply `createdBy`. Returns `201` with `{ entryId, userUrl, clientUrl, createdAt, status: "open" }`. The URLs contain raw tokens that are not stored or recoverable.
+Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optional. API-key callers also supply `createdBy`. Returns `201` with `{ entryId, userUrl, clientUrl, createdAt, status: "open" }`. The URLs contain raw tokens that are not stored or recoverable. The live UI calls this endpoint only after the operator clicks `Generar nueva entrada para contrato`; opening or rendering the contract section is passive.
 
 ### `GET /api/contracts/:entryId/schema?role=user|client&token=...`
 
-Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. User sections are `Testigos` and `Contrato`; `contract_selection` is a select with `IPC`/`IPL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
+Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. User sections are `Propietario` and `Contrato`; the latter exposes `Vigencia`, `Canon`, and `Ajuste` subsection metadata in form order. `contract_selection` is a select with `IPC`/`IPL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
 
 ### `POST /api/contracts/:entryId/dni-uploads/presign?token=...`
 
@@ -109,6 +109,45 @@ The server supplies entry, role, IP, user agent, and timestamps; caller-supplied
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate`
 
 The API key is an administrator. Gateway and development identities must also appear in `CONTRACT_ADMIN_USER_IDS`. Read responses never expose token hashes. A regenerated raw URL is returned once.
+
+`GET /api/contracts/admin/entries/:entryId` reads the selected entry and its immutable `contract_submissions` rows from Supabase. It retains the compatibility properties `entry`, `userSubmission`, `clientSubmission`, and `combinedSubmission`, and adds an ordered inspection model:
+
+```json
+{
+  "inspection": {
+    "hasSubmissions": true,
+    "submissions": [
+      {
+        "submissionId": "uuid",
+        "role": "user",
+        "submittedAt": "2026-07-29T13:00:00.000Z",
+        "sections": [
+          {
+            "title": "Contrato",
+            "fields": [],
+            "subsections": [
+              {
+                "title": "Vigencia",
+                "fields": [
+                  {
+                    "name": "contract_months",
+                    "label": "meses",
+                    "type": "number",
+                    "value": 24
+                  }
+                ]
+              }
+            ],
+            "items": []
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The server reconstructs section and field order from the authoritative role schema rather than JSONB object-key order. When both rows exist, `user` is returned before `client`; partial entries include only the available role, and entries without submissions return `hasSubmissions: false` with an empty array. Repeatable sections expose ordered `items`. Valid stored DNI references appear under their item’s `media` array with labels, file metadata, and a short-lived signed `viewUrl`; bucket names and storage paths are not included in that inspection model.
 
 ## Legacy SPEC-09 contract endpoint authorization
 

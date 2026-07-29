@@ -287,6 +287,35 @@ export function getContractRoleSchema(
               ] as const,
             }
           : {}),
+        ...(role === 'user' && section.title === 'Contrato'
+          ? {
+              subsections: [
+                {
+                  title: 'Vigencia',
+                  fieldNames: [
+                    'contract_months',
+                    'contract_start_date',
+                    'contract_formatted_start',
+                  ],
+                },
+                {
+                  title: 'Canon',
+                  fieldNames: [
+                    'contract_rent_amount',
+                    'contract_update',
+                    'contract_formatted_update',
+                  ],
+                },
+                {
+                  title: 'Ajuste',
+                  fieldNames: [
+                    'contract_selection',
+                    'submission_date',
+                  ],
+                },
+              ] as const,
+            }
+          : {}),
       };
     });
 

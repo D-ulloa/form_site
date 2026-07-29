@@ -19,11 +19,12 @@ The property workflow retains lightweight validation helpers. Contract Generatio
 
 ### Current Contract Generation coverage
 
-The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..59` top-level tests, `# tests 83` including nested subtests, `# pass 83`, and `# fail 0`. It covers:
+The final backend suite runs with `cd backend && npm test`. The current TAP summary is `1..66` top-level tests, `# tests 90` including nested subtests, `# pass 90`, and `# fail 0`. It covers:
 
 - SPEC-10 role splitting (`Inquilino`/`Garantes` vs. `Testigos`/`Contrato`), HMAC token storage and verification, entry creation, both role submissions, combined completion, admin inspection, token regeneration, and archive lifecycle.
 - SPEC-11 repeatable `inquilinos`/`garantes` arrays, schema upload slots, client-token-authorized presigning, paired/private DNI reference enforcement, approval-field rejection, IPC/IPL validation, and UTC-safe server date recalculation including leap years and zero/absent update intervals.
 - SPEC-12 Spanish-only hosted-form UI, `Propietario` presentation, compact contract-generation actions, hidden role-schema panels, guarantor subsection rendering, and per-guarantor salary-receipt/property-guarantee validation in both the browser and backend.
+- SPEC-13 `Contrato` subdivision metadata, manual-only entry creation, immutable submission-row reads, schema-defined user/client inspection order, every partial/empty state, and validated short-lived DNI viewing URLs.
 - The retained SPEC-09 compatibility boundary, including:
 - Runtime contract configuration, public/private projection, malformed destination rejection, and strict service-account-only Google auth.
 - Strict request validation for unknown fields, no numeric coercion, email, impossible ISO dates, minimum limits, contract-type mismatch, and allowed `meta.origin` values.
@@ -39,10 +40,11 @@ The final backend suite runs with `cd backend && npm test`. The current TAP summ
 - Call-time `CONTRACT_AUDIT_LOGS_DIR` resolution, explicit test overrides, and blank-value fallback to `backend/logs`.
 - Schema-injected validation across all six field types, required `false`, select/pattern/length/max/email/date rules, and invalid schema rules.
 
-The frontend suite currently runs 29 Vitest cases. It covers:
+The frontend suite currently runs 37 Vitest cases. It covers:
 
 - Real ISO calendar dates; required, email, range, pattern, length, and select rules; number/default normalization; and all six rendered field controls.
 - Repeatable client blocks with one default item, add/remove behavior, two DNI controls per block, nested payload normalization, Ajuste options, read-only computed controls, and calendar-safe computed date previews.
+- Editable and read-only `Vigencia`, `Canon`, and `Ajuste` groups; passive contract-entry opening with an explicit creation action; and structured administrator inspection for both, partial, empty, and media states.
 - Copy success and failure, normalized single-submit locking, retained data and focused server field errors, safe Sheet/audit receipt links, and Step B accessibility.
 - Authenticated inline audit loading and failure display while retaining the audit `href`.
 - `AgentModal` dialog labeling, cancellation, and accessibility.

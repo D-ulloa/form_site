@@ -1,6 +1,6 @@
 # Documentation Index
 
-Status: 2026-07-27.
+Status: 2026-07-29.
 
 This repository uses a structured documentation layout under `docs/`.
 The top-level files are intentionally minimized in favor of numbered folders that preserve reading order.
@@ -36,6 +36,8 @@ The top-level files are intentionally minimized in favor of numbered folders tha
 - `docs/prd.md` — original property-workflow product requirements and scope.
 - `docs/10-SPEC-contract-generation-reworked.md` — current Supabase-backed, two-party Contract Generation workflow.
 - `docs/11-SPEC-contract-generation-reworked.md` — implemented repeatable Inquilino/Garantes client entries, private DNI image pairs, computed date fields, and Ajuste dropdown behavior.
+- `docs/12-SPEC-contract-generation-frontend-focused-en.md` — implemented Spanish-only contract UI, Propietario presentation, compact actions, and conditional guarantor groups.
+- `docs/13-SPEC-contract-generation-reworked.md` — manual entry creation, Contrato subdivisions, and ordered database-backed administrator inspection with media.
 - `docs/09-SPEC-contract-generation.md` — superseded Google Forms/Sheets workflow retained for history.
 
 ## How to use this folder

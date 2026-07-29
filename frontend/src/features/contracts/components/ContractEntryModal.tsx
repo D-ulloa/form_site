@@ -38,36 +38,38 @@ function formatCreatedAt(value: string): string {
 
 export function ContractEntryModal({ open, userId, onClose }: ContractEntryModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const startedRef = useRef(false);
+  const creationRequestedRef = useRef(false);
   const navigate = useNavigate();
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const creation = useMutation({ mutationFn: () => createContractEntry(userId) });
-  const startCreation = creation.mutate;
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!open || !dialog) return;
     if (!dialog.open) dialog.showModal();
-    if (!startedRef.current) {
-      startedRef.current = true;
-      startCreation();
-    }
     return () => {
       if (dialog.open) dialog.close();
     };
-  }, [open, startCreation]);
+  }, [open]);
 
   const close = () => {
     if (creation.isPending) return;
-    startedRef.current = false;
+    creationRequestedRef.current = false;
     setCopyState('idle');
     creation.reset();
     onClose();
   };
 
+  const createEntry = () => {
+    if (creationRequestedRef.current) return;
+    creationRequestedRef.current = true;
+    creation.mutate();
+  };
+
   const retry = () => {
     setCopyState('idle');
     creation.reset();
+    creationRequestedRef.current = true;
     creation.mutate();
   };
 
@@ -100,6 +102,28 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
       </header>
 
       <div className="px-6 py-7">
+        {creation.isIdle && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+              <h3 className="text-sm font-semibold text-slate-200">
+                Generación de contratos
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Creá una entrada cuando estés listo para completar y compartir los formularios.
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="ghost" onClick={close}>Cerrar</Button>
+              <Button
+                type="button"
+                onClick={createEntry}
+              >
+                Generar nueva entrada para contrato
+              </Button>
+            </div>
+          </div>
+        )}
+
         {creation.isPending && (
           <div className="flex min-h-48 items-center justify-center" role="status">
             <span className="text-sm text-slate-400">Creando contrato…</span>

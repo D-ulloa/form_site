@@ -77,8 +77,29 @@ function renderModal() {
 }
 
 describe('SPEC-12 contract generation actions', () => {
+  it('keeps the section passive until the dedicated creation button is clicked', async () => {
+    renderModal();
+
+    expect(createContractEntry).not.toHaveBeenCalled();
+    const createButton = screen.getByRole('button', {
+      name: 'Generar nueva entrada para contrato',
+    });
+
+    fireEvent.click(createButton);
+    fireEvent.click(createButton);
+
+    await waitFor(() => {
+      expect(createContractEntry).toHaveBeenCalledTimes(1);
+    });
+    expect(createContractEntry).toHaveBeenCalledWith('agent-001');
+    expect(await screen.findByText('Esperando ambos formularios')).toBeTruthy();
+  });
+
   it('shows only the definitive Spanish actions and removes technical copy', async () => {
     renderModal();
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Generar nueva entrada para contrato',
+    }));
 
     expect(await screen.findByText('Esperando ambos formularios')).toBeTruthy();
     expect(

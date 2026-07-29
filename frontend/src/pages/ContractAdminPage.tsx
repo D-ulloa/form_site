@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
+import { ContractInspectionDetails } from '../features/contracts/components/ContractInspectionDetails.tsx';
 import {
   archiveContractEntry,
   fetchContractAdminEntry,
@@ -90,7 +91,7 @@ export function ContractAdminPage() {
         )}
 
         {entriesQuery.data && (
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(18rem,0.75fr)_minmax(0,1.25fr)]">
             <section className="overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-surface)]">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-5 py-4">
                 <div>
@@ -120,6 +121,7 @@ export function ContractAdminPage() {
                       key={entry.entryId}
                       type="button"
                       onClick={() => { setSelectedId(entry.entryId); setRegeneratedUrl(null); }}
+                      aria-pressed={selectedId === entry.entryId}
                       className={`grid w-full gap-3 px-5 py-4 text-left transition-colors sm:grid-cols-[9rem_1fr_auto] ${
                         selectedId === entry.entryId ? 'bg-indigo-500/10' : 'hover:bg-white/[0.03]'
                       }`}
@@ -207,16 +209,7 @@ export function ContractAdminPage() {
                     </div>
                   )}
 
-                  <details className="mt-5">
-                    <summary className="cursor-pointer text-sm text-slate-300">Inspeccionar envíos</summary>
-                    <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-black/20 p-3 text-xs leading-5 text-slate-400">
-                      {JSON.stringify({
-                        usuario: detailQuery.data.userSubmission,
-                        cliente: detailQuery.data.clientSubmission,
-                        combinado: detailQuery.data.combinedSubmission,
-                      }, null, 2)}
-                    </pre>
-                  </details>
+                  <ContractInspectionDetails inspection={detailQuery.data.inspection} />
                 </div>
               )}
             </aside>

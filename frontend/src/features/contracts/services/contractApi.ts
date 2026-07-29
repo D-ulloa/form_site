@@ -202,11 +202,62 @@ const ContractRoleSubmitResponseSchema = z.object({
   submittedAt: z.string().min(1),
 });
 
+const ContractInspectionFieldSchema = z.object({
+  name: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(['string', 'email', 'number', 'date', 'boolean', 'select']),
+  value: z.unknown(),
+});
+
+const ContractInspectionSubsectionSchema = z.object({
+  title: z.string().min(1),
+  fields: z.array(ContractInspectionFieldSchema),
+});
+
+const ContractInspectionMediaSchema = z.object({
+  fieldName: z.string().min(1),
+  label: z.string().min(1),
+  slot: z.enum(['front', 'back']),
+  originalName: z.string().min(1),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  viewUrl: z.string().url().refine((value) => /^https?:\/\//iu.test(value), {
+    message: 'viewUrl must use http or https',
+  }),
+  expiresAt: z.string().min(1),
+});
+
+const ContractInspectionItemSchema = z.object({
+  index: z.number().int().nonnegative(),
+  label: z.string().min(1),
+  fields: z.array(ContractInspectionFieldSchema),
+  subsections: z.array(ContractInspectionSubsectionSchema),
+  media: z.array(ContractInspectionMediaSchema),
+});
+
+const ContractInspectionSectionSchema = z.object({
+  title: z.string().min(1),
+  fields: z.array(ContractInspectionFieldSchema),
+  subsections: z.array(ContractInspectionSubsectionSchema),
+  items: z.array(ContractInspectionItemSchema),
+});
+
+const ContractEntryInspectionSchema = z.object({
+  hasSubmissions: z.boolean(),
+  submissions: z.array(z.object({
+    submissionId: z.string().min(1),
+    role: z.enum(['user', 'client']),
+    submittedAt: z.string().min(1),
+    sections: z.array(ContractInspectionSectionSchema),
+  })),
+});
+
 const ContractAdminDetailSchema = z.object({
   entry: ContractEntrySummarySchema,
   userSubmission: z.record(z.string(), z.unknown()).nullable(),
   clientSubmission: z.record(z.string(), z.unknown()).nullable(),
   combinedSubmission: z.record(z.string(), z.unknown()).nullable(),
+  inspection: ContractEntryInspectionSchema,
 });
 
 function parseResponse<T>(schema: z.ZodType<T>, value: unknown, message: string): T {

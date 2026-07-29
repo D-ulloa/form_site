@@ -3,7 +3,10 @@ import type {
   ContractEntryRecord,
   ContractRole,
   ContractSubmissionMetadata,
+  ContractSubmissionRecord,
 } from '../contracts/types.js';
+
+const CONTRACT_ENTRY_LIST_PAGE_SIZE = 1000;
 
 interface ContractEntryRow {
   id: string;
@@ -21,6 +24,15 @@ interface ContractEntryRow {
   combined_submission: Readonly<Record<string, unknown>> | null;
   status: 'open' | 'complete' | 'archived';
   archived_at: string | null;
+}
+
+interface ContractSubmissionRow {
+  id: string;
+  entry_id: string;
+  role: ContractRole;
+  submission: Readonly<Record<string, unknown>>;
+  submission_meta: ContractSubmissionMetadata;
+  submitted_at: string;
 }
 
 export interface CreateContractEntryRecordInput {
@@ -46,6 +58,7 @@ export interface ContractEntryRepository {
   createEntry(input: CreateContractEntryRecordInput): Promise<ContractEntryRecord>;
   findEntry(entryId: string): Promise<ContractEntryRecord | null>;
   listEntries(): Promise<readonly ContractEntryRecord[]>;
+  listSubmissions(entryId: string): Promise<readonly ContractSubmissionRecord[]>;
   saveRoleSubmission(input: SaveContractRoleSubmissionInput): Promise<ContractEntryRecord>;
   archiveEntry(entryId: string, archivedAt: string): Promise<ContractEntryRecord>;
   replaceTokenHash(
@@ -115,6 +128,17 @@ function toEntry(row: ContractEntryRow): ContractEntryRecord {
   };
 }
 
+function toSubmission(row: ContractSubmissionRow): ContractSubmissionRecord {
+  return {
+    id: row.id,
+    entryId: row.entry_id,
+    role: row.role,
+    submission: row.submission,
+    metadata: row.submission_meta,
+    submittedAt: row.submitted_at,
+  };
+}
+
 function throwDatabaseError(error: { message: string }): never {
   if (error.message.includes('CONTRACT_ENTRY_NOT_FOUND')) {
     throw new ContractEntryNotFoundError('unknown');
@@ -159,10 +183,36 @@ export function createContractEntryRepository(
     },
 
     async listEntries() {
-      const { data, error } = await getClient().from('contract_entries')
-        .select('*').order('created_at', { ascending: false }).limit(200);
+      const client = getClient();
+      const entries: ContractEntryRecord[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error, count } = await client.from('contract_entries')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(from, from + CONTRACT_ENTRY_LIST_PAGE_SIZE - 1);
+        if (error) throwDatabaseError(error);
+        const rows = data ?? [];
+        entries.push(...rows.map((row) => toEntry(row as ContractEntryRow)));
+        from += rows.length;
+        if (
+          rows.length === 0 ||
+          (count !== null && entries.length >= count) ||
+          (count === null && rows.length < CONTRACT_ENTRY_LIST_PAGE_SIZE)
+        ) {
+          break;
+        }
+      }
+      return entries;
+    },
+
+    async listSubmissions(entryId) {
+      const { data, error } = await getClient().from('contract_submissions')
+        .select('id, entry_id, role, submission, submission_meta, submitted_at')
+        .eq('entry_id', entryId)
+        .order('submitted_at', { ascending: true });
       if (error) throwDatabaseError(error);
-      return (data ?? []).map((row) => toEntry(row as ContractEntryRow));
+      return (data ?? []).map((row) => toSubmission(row as ContractSubmissionRow));
     },
 
     async saveRoleSubmission(input) {

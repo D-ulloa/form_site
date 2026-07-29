@@ -5,7 +5,11 @@ import {
   RENT_CONTRACT_SCHEMA_ID,
   getContractRoleSchema,
 } from '../config/contractSchemas.js';
-import type { ContractEntryRecord, ContractRole } from '../contracts/types.js';
+import type {
+  ContractDniImageReference,
+  ContractEntryRecord,
+  ContractRole,
+} from '../contracts/types.js';
 import {
   ContractAuthenticationError,
   ContractAuthorizationError,
@@ -34,10 +38,16 @@ import {
   ContractDniUploadConfigurationError,
   ContractDniUploadValidationError,
   getContractDniMaxImageBytes,
+  issueContractDniViewUrl,
   issueContractDniUploadUrls,
   type ContractDniPresignedUpload,
+  type ContractDniSignedView,
   type ContractDniUploadDescriptor,
 } from '../services/contractDniUploadService.js';
+import {
+  buildContractAdminInspection,
+  getContractSubmissionRecordsByRole,
+} from '../services/contractAdminInspectionService.js';
 import {
   createContractSubmissionRateLimiter,
   type ContractSubmissionRateLimiter,
@@ -93,6 +103,10 @@ export interface ContractEntriesRouterDependencies {
     descriptors: readonly ContractDniUploadDescriptor[],
     environment: NodeJS.ProcessEnv,
   ) => Promise<readonly ContractDniPresignedUpload[]>;
+  readonly issueDniViewUrl: (
+    reference: ContractDniImageReference,
+    environment: NodeJS.ProcessEnv,
+  ) => Promise<ContractDniSignedView>;
 }
 
 function resolveDependencies(
@@ -105,6 +119,7 @@ function resolveDependencies(
     rateLimiter: overrides.rateLimiter ?? createContractSubmissionRateLimiter(environment),
     now: overrides.now ?? (() => new Date()),
     issueDniUploadUrls: overrides.issueDniUploadUrls ?? issueContractDniUploadUrls,
+    issueDniViewUrl: overrides.issueDniViewUrl ?? issueContractDniViewUrl,
   };
 }
 
@@ -322,11 +337,20 @@ export function createContractEntriesRouter(
       const principal = authenticate(req, dependencies.environment);
       authorizeContractAdmin(principal, dependencies.environment);
       const entry = await loadEntry(req.params.entryId, dependencies.repository);
+      const submissions = await dependencies.repository.listSubmissions(entry.id);
+      const submissionsByRole = getContractSubmissionRecordsByRole(entry.id, submissions);
+      const inspection = await buildContractAdminInspection(
+        entry,
+        submissions,
+        dependencies.environment,
+        { issueDniViewUrl: dependencies.issueDniViewUrl },
+      );
       res.status(200).json({
         entry: toContractEntrySummary(entry),
-        userSubmission: entry.userSubmission,
-        clientSubmission: entry.clientSubmission,
+        userSubmission: submissionsByRole.get('user')?.submission ?? null,
+        clientSubmission: submissionsByRole.get('client')?.submission ?? null,
         combinedSubmission: entry.combinedSubmission,
+        inspection,
       });
     } catch (error) {
       sendError(res, error);

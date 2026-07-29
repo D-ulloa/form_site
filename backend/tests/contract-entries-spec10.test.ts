@@ -8,6 +8,7 @@ import type {
   ContractFieldDefinition,
   ContractFieldValue,
   ContractRole,
+  ContractSubmissionRecord,
 } from '../src/contracts/types.js';
 import { createContractEntriesRouter } from '../src/routes/contractEntries.js';
 import type {
@@ -29,6 +30,7 @@ const ENVIRONMENT: NodeJS.ProcessEnv = {
 
 class MemoryContractRepository implements ContractEntryRepository {
   entry: ContractEntryRecord | null = null;
+  submissions: ContractSubmissionRecord[] = [];
 
   async createEntry(input: CreateContractEntryRecordInput): Promise<ContractEntryRecord> {
     this.entry = {
@@ -59,8 +61,20 @@ class MemoryContractRepository implements ContractEntryRepository {
     return this.entry ? [this.entry] : [];
   }
 
+  async listSubmissions(entryId: string): Promise<readonly ContractSubmissionRecord[]> {
+    return this.submissions.filter((submission) => submission.entryId === entryId);
+  }
+
   async saveRoleSubmission(input: SaveContractRoleSubmissionInput): Promise<ContractEntryRecord> {
     assert.ok(this.entry);
+    this.submissions.push({
+      id: input.submissionId,
+      entryId: input.entryId,
+      role: input.role,
+      submission: input.fields,
+      metadata: input.metadata,
+      submittedAt: input.submittedAt,
+    });
     const userSubmission = input.role === 'user' ? input.fields : this.entry.userSubmission;
     const clientSubmission = input.role === 'client' ? input.fields : this.entry.clientSubmission;
     const userFilled = input.role === 'user' || this.entry.userFilled;
