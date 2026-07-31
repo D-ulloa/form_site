@@ -443,7 +443,7 @@ describe('SPEC-14 guarantor evidence uploads', () => {
       )).toBeNull();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Quitar recibo.pdf' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar recibo.pdf' }));
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     expect(await screen.findByText(
       'Adjuntá al menos un archivo en Recibo de sueldo o Garantía propietaria.',
@@ -539,7 +539,7 @@ describe('SPEC-14 guarantor evidence uploads', () => {
       within(lockedFields).getByLabelText('Frente DNI').matches(':disabled'),
     ).toBe(true);
     expect(
-      within(lockedFields).getByRole('button', { name: 'Quitar proof.pdf' })
+      within(lockedFields).getByRole('button', { name: 'Eliminar proof.pdf' })
         .matches(':disabled'),
     ).toBe(true);
 
@@ -677,7 +677,7 @@ describe('SPEC-14 guarantor evidence uploads', () => {
     expect(await screen.findByText(
       'El formulario ya había sido recibido y se actualizó a modo de solo lectura.',
     )).toBeTruthy();
-    expect(screen.getByText('Solo lectura')).toBeTruthy();
+    expect(screen.queryByText('Solo lectura')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Guardar' })).toBeNull();
   });
 

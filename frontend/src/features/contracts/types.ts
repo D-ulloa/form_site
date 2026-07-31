@@ -76,6 +76,9 @@ export interface ContractDniImageReference {
   storagePath: string;
   storageBucket: string;
   publicPath: string;
+  viewUrl?: string;
+  downloadUrl?: string;
+  expiresAt?: string;
   slot: ContractDniImageSlot;
 }
 
@@ -95,6 +98,9 @@ export interface ContractDniUploadDescriptor {
 export interface ContractEvidenceFileReference {
   filename: string;
   mimeType: string;
+  viewUrl?: string;
+  downloadUrl?: string;
+  expiresAt?: string;
   size: number;
   storagePath: string;
   storageBucket: string;

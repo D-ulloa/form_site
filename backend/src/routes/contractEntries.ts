@@ -61,6 +61,7 @@ import {
 } from '../services/contractEvidenceUploadService.js';
 import {
   buildContractAdminInspection,
+  hydrateContractRoleValuesWithDownloadUrls,
   getContractSubmissionRecordsByRole,
 } from '../services/contractAdminInspectionService.js';
 import {
@@ -550,11 +551,22 @@ export function createContractEntriesRouter(
       );
       const roleFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
       const values = role === 'user' ? entry.userSubmission : entry.clientSubmission;
+      const downloadableValues = await hydrateContractRoleValuesWithDownloadUrls(
+        entry,
+        role,
+        roleSchema.sections,
+        values ?? {},
+        dependencies.environment,
+        {
+          issueDniViewUrl: dependencies.issueDniViewUrl,
+          issueEvidenceViewUrl: dependencies.issueEvidenceViewUrl,
+        },
+      );
       res.status(200).json({
         ...roleSchema,
         entry: toContractEntrySummary(entry),
         readOnly: entry.status === 'complete' || roleFilled,
-        values: values ?? {},
+        values: downloadableValues,
       });
     } catch (error) {
       sendError(res, error);

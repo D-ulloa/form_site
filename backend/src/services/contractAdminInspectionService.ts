@@ -420,6 +420,81 @@ async function inspectSubmission(
   };
 }
 
+export async function hydrateContractRoleValuesWithDownloadUrls(
+  entry: ContractEntryRecord,
+  role: ContractRole,
+  sections: readonly ContractRoleSectionDefinition[],
+  values: Readonly<Record<string, unknown>>,
+  environment: NodeJS.ProcessEnv,
+  dependencyOverrides: Partial<ContractAdminInspectionDependencies> = {},
+): Promise<Readonly<Record<string, unknown>>> {
+  if (role !== "client") return values;
+  const dependencies: ContractAdminInspectionDependencies = {
+    issueDniViewUrl: dependencyOverrides.issueDniViewUrl ?? issueContractDniViewUrl,
+    issueEvidenceViewUrl: dependencyOverrides.issueEvidenceViewUrl ?? issueContractEvidenceViewUrl,
+  };
+  const nextValues: Record<string, unknown> = { ...values };
+
+  for (const section of sections) {
+    if (!section.repeatable) continue;
+    const rawItems = values[section.repeatable.name];
+    if (!Array.isArray(rawItems)) continue;
+    const nextItems = [...rawItems];
+
+    for (const [itemIndex, rawItem] of rawItems.entries()) {
+      if (!isRecord(rawItem)) continue;
+      const nextItem: Record<string, unknown> = { ...rawItem };
+      for (const definition of section.uploads ?? []) {
+        const reference = parseStoredDniReference(rawItem[definition.name], {
+          entryId: entry.id,
+          collection: section.repeatable.name,
+          definition,
+          environment,
+        });
+        if (!reference) continue;
+        const signed = await dependencies.issueDniViewUrl(reference, environment);
+        nextItem[definition.name] = {
+          ...reference,
+          viewUrl: signed.viewUrl,
+          downloadUrl: signed.viewUrl,
+          expiresAt: signed.expiresAt,
+        };
+      }
+      for (const subsection of section.subsections ?? []) {
+        for (const receiver of subsection.fileReceivers ?? []) {
+          const rawFiles = rawItem[receiver.name];
+          if (!Array.isArray(rawFiles)) continue;
+          const nextFiles: unknown[] = [];
+          for (const rawFile of rawFiles) {
+            const reference = parseStoredEvidenceReference(rawFile, {
+              entryId: entry.id,
+              itemIndex,
+              definition: receiver,
+              environment,
+            });
+            if (!reference) {
+              nextFiles.push(rawFile);
+              continue;
+            }
+            const signed = await dependencies.issueEvidenceViewUrl(reference, environment);
+            nextFiles.push({
+              ...reference,
+              viewUrl: signed.viewUrl,
+              downloadUrl: signed.viewUrl,
+              expiresAt: signed.expiresAt,
+            });
+          }
+          nextItem[receiver.name] = nextFiles;
+        }
+      }
+      nextItems[itemIndex] = nextItem;
+    }
+    nextValues[section.repeatable.name] = nextItems;
+  }
+
+  return nextValues;
+}
+
 export async function buildContractAdminInspection(
   entry: ContractEntryRecord,
   submissions: readonly ContractSubmissionRecord[],

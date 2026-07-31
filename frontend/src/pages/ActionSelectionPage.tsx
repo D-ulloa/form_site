@@ -110,23 +110,8 @@ export function ActionSelectionPage() {
                   Agregar nueva propiedad
                 </h2>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  Completá el formulario con los datos, subí las fotos y videos, y publicá
-                  automáticamente en Drive, Sheets y Make.
+                  Completá el formulario con los datos y subí las fotos y videos de la propiedad.
                 </p>
-                <div className="flex items-center gap-4 mt-4 text-xs text-slate-500">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Google Drive
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Google Sheets
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Make
-                  </span>
-                </div>
               </div>
 
               <svg
@@ -166,16 +151,6 @@ export function ActionSelectionPage() {
                 <p className="text-sm leading-relaxed text-slate-500">
                   Creá y completá la información del contrato junto con el cliente.
                 </p>
-                <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                    Dos formularios
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Datos protegidos
-                  </span>
-                </div>
               </div>
 
               <svg

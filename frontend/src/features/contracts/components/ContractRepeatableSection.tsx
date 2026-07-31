@@ -204,7 +204,7 @@ function ContractDniUploadControl({
           onClick={() => onValue(undefined)}
           className="mt-2 text-xs text-red-400 hover:text-red-300"
         >
-          Quitar imagen
+          Eliminar imagen
         </button>
       )}
       {error && <p className="mt-2 text-xs text-red-400" role="alert">{error}</p>}
@@ -260,7 +260,7 @@ export function ContractRepeatableSection({
                   size="sm"
                   onClick={() => updateItems(items.filter((_, itemIndex) => itemIndex !== index))}
                 >
-                  Quitar
+                  Eliminar
                 </Button>
               )}
             </div>
@@ -275,7 +275,11 @@ export function ContractRepeatableSection({
                 />
               ))}
             </div>
-            {section.subsections?.map((subsection) => (
+            {section.subsections && (
+              <fieldset className="mt-5 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-4">
+                <legend className="px-1 text-sm font-semibold text-cyan-100">Garantías</legend>
+                <div className="mt-1">
+                  {section.subsections.map((subsection) => (
               <section
                 key={subsection.title}
                 className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
@@ -329,6 +333,9 @@ export function ContractRepeatableSection({
                 })}
               </section>
             ))}
+                </div>
+              </fieldset>
+            )}
             {(() => {
               const subsectionError = nestedFieldError(
                 form.formState.errors,

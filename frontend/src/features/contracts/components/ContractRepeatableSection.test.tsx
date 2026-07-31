@@ -196,16 +196,16 @@ describe('SPEC-11 repeatable contract sections', () => {
     expect(screen.getAllByRole('heading', { name: /Inquilino 1/ })).toHaveLength(1);
     expect(screen.getAllByLabelText('Frente DNI')).toHaveLength(1);
     expect(screen.getAllByLabelText('Dorso DNI')).toHaveLength(1);
-    expect(screen.queryByRole('button', { name: 'Quitar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Inquilino' }));
     expect(screen.getByRole('heading', { name: /Inquilino 2/ })).toBeTruthy();
     expect(screen.getAllByLabelText('Frente DNI')).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Quitar' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Eliminar' })).toHaveLength(2);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Quitar' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' })[0]);
     expect(screen.queryByRole('heading', { name: /Inquilino 2/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Quitar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
 
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },

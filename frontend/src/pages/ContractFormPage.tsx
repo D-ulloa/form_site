@@ -16,12 +16,12 @@ import {
 } from '../features/contracts/services/contractApi.ts';
 import {
   buildContractDefaultValues,
-  getContractEntryWaitingStatus,
   getContractFileReceivers,
   getMissingContractEvidence,
   getMissingContractSubsections,
   isContractEvidenceFileReference,
   normalizeContractRoleFields,
+  type ContractDniImageReference,
   type ContractEvidenceUploadDescriptor,
   type ContractFileReceiverDefinition,
   type ContractFormValues,
@@ -50,6 +50,9 @@ function formatFileSize(size: number): string {
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
+function attachmentUrl(value: { viewUrl?: string; downloadUrl?: string }): string | undefined {
+  return value.downloadUrl ?? value.viewUrl;
+}
 
 function ReadOnlyEvidenceFiles({
   receiver,
@@ -68,15 +71,77 @@ function ReadOnlyEvidenceFiles({
     <div className="mt-4">
       <p className="text-xs font-medium text-slate-400">{receiver.label}</p>
       <ul className="mt-2 space-y-2">
-        {files.map((file, index) => (
-          <li
-            key={`${file.storagePath}-${index}`}
-            className="rounded-lg bg-black/15 p-3 text-xs text-slate-300"
-          >
-            <span className="break-all">{file.filename}</span>
-            <span className="ml-2 text-slate-500">{formatFileSize(file.size)}</span>
-          </li>
-        ))}
+        {files.map((file, index) => {
+          const href = attachmentUrl(file);
+          return (
+            <li
+              key={`${file.storagePath}-${index}`}
+              className="rounded-lg bg-black/15 p-3 text-xs text-slate-300"
+            >
+              <p className="break-all">{file.filename}</p>
+              <p className="mt-1 text-xs text-slate-500">{file.mimeType}</p>
+              <p className="mt-1 text-xs text-slate-500">{formatFileSize(file.size)}</p>
+              {href && (
+                <a
+                  href={href}
+                  download={file.filename}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
+                >
+                  Descargar archivo
+                </a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ReadOnlyDniFiles({
+  section,
+  values,
+}: {
+  section: ContractSection;
+  values: Record<string, unknown>;
+}) {
+  const files = (section.uploads ?? []).flatMap((definition) => {
+    const raw = values[definition.name];
+    if (typeof raw !== "object" || raw === null) return [];
+    const reference = raw as Partial<ContractDniImageReference>;
+    if (typeof reference.originalName !== "string") return [];
+    return [{ definition, reference }];
+  });
+  if (files.length === 0) return null;
+
+  return (
+    <div className="mt-5 border-t border-white/[0.07] pt-4">
+      <p className="text-xs font-medium text-slate-400">Documentos adjuntos</p>
+      <ul className="mt-2 space-y-2">
+        {files.map(({ definition, reference }) => {
+          const href = attachmentUrl(reference);
+          return (
+            <li key={definition.name} className="rounded-lg bg-black/15 p-3 text-xs text-slate-300">
+              <p className="break-all">{definition.label}: {reference.originalName}</p>
+              {typeof reference.mimeType === "string" && typeof reference.sizeBytes === "number" && (
+                <p className="mt-1 text-slate-500">{reference.mimeType} · {formatFileSize(reference.sizeBytes)}</p>
+              )}
+              {href && (
+                <a
+                  href={href}
+                  download={reference.originalName}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
+                >
+                  Descargar archivo
+                </a>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -276,7 +341,11 @@ function ReadOnlyContractSection({
                 fields={fieldsOutsideSubsections(section)}
                 values={itemValues}
               />
-              {section.subsections?.map((subsection) => (
+              {section.subsections && (
+                <fieldset className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-3">
+                  <legend className="px-1 text-xs font-semibold text-cyan-100">Garantías</legend>
+                  <div className="mt-1">
+                    {section.subsections.map((subsection) => (
                 <section
                   key={subsection.title}
                   className="mt-4 rounded-lg border border-white/[0.07] p-3"
@@ -307,9 +376,10 @@ function ReadOnlyContractSection({
                   ))}
                 </section>
               ))}
-              {(section.uploads?.length ?? 0) > 0 && (
-                <ReadOnlyFieldList fields={section.uploads ?? []} values={itemValues} />
+                  </div>
+                </fieldset>
               )}
+              <ReadOnlyDniFiles section={section} values={itemValues} />
             </div>
           );
         })}
@@ -571,21 +641,6 @@ export function ContractFormPage() {
 
         {schema && (
           <>
-            <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] px-5 py-4">
-              <div>
-                <p className="font-mono text-sm text-slate-200">{schema.entry.entryId.slice(0, 8)}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Estado: {getContractEntryWaitingStatus(schema.entry)}
-                </p>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                schema.entry.status === 'complete'
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'bg-amber-500/15 text-amber-400'
-              }`}>
-                {schema.readOnly ? 'Solo lectura' : 'Pendiente'}
-              </span>
-            </section>
 
             {submission.data && (
               <div className="mb-6">

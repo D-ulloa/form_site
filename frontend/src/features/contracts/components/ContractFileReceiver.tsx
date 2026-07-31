@@ -178,10 +178,10 @@ export function ContractFileReceiver({
                   setLocalErrors([]);
                   onFilesChange(files.filter((_, fileIndex) => fileIndex !== index));
                 }}
-                aria-label={`Quitar ${fileName(file)}`}
+                aria-label={`Eliminar ${fileName(file)}`}
                 className="shrink-0 rounded px-2 py-1 text-xs text-red-400 outline-none hover:text-red-300 focus-visible:ring-2 focus-visible:ring-red-400"
               >
-                Quitar
+                Eliminar
               </button>
             </li>
           ))}

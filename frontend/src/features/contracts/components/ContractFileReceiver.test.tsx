@@ -103,7 +103,7 @@ describe('SPEC-14 contract evidence file receiver', () => {
     expect(screen.getByRole('alert').textContent).toContain(
       'texto.txt: tipo de archivo no permitido.',
     );
-    expect(screen.queryByRole('button', { name: 'Quitar texto.txt' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar texto.txt' })).toBeNull();
 
     const oversized = new File(['x'], 'grande.pdf', { type: 'application/pdf' });
     Object.defineProperty(oversized, 'size', { value: definition.maxSizeBytes + 1 });
@@ -141,7 +141,7 @@ describe('SPEC-14 contract evidence file receiver', () => {
       target: { files: [new File(['bad'], 'invalido.txt', { type: 'text/plain' })] },
     });
     expect(screen.getByRole('alert')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Quitar recibo.png' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar recibo.png' }));
 
     expect(screen.queryByText('recibo.png')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
