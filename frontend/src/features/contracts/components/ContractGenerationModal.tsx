@@ -239,7 +239,7 @@ export function ContractGenerationModal({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-3">
               <h2 id="contract-modal-title" className="text-base font-semibold text-slate-100">
-                Contract Generation
+                Generación de contratos
               </h2>
               {step !== 'receipt' && (
                 <span className="text-xs text-slate-500">
@@ -261,7 +261,7 @@ export function ContractGenerationModal({
             onClick={closeFlow}
             disabled={submission.isPending}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Cerrar Contract Generation"
+            aria-label="Cerrar Generación de contratos"
             title="Cerrar"
           >
             <svg
@@ -307,7 +307,7 @@ export function ContractGenerationModal({
 
               <div className="mt-7">
                 <label htmlFor="contract-google-form-link" className="text-sm font-medium text-slate-300">
-                  Google Form
+                  Formulario de Google
                 </label>
                 <div className="mt-1.5 flex flex-col gap-3 sm:flex-row">
                   <input

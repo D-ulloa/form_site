@@ -448,7 +448,8 @@ export function ContractFormPage() {
 
   useEffect(() => {
     if (schemaQuery.data) {
-      const formKey = `${entryId}:${role ?? ''}:${token ?? ''}:${schemaQuery.data.schemaId}`;
+      const submittedAt = role === "user" ? schemaQuery.data.entry.userSubmittedAt : schemaQuery.data.entry.clientSubmittedAt;
+      const formKey = `${entryId}:${role ?? ""}:${token ?? ""}:${schemaQuery.data.schemaId}:${submittedAt ?? ""}`;
       if (initializedFormKey.current !== formKey || schemaQuery.data.readOnly) {
         reset(buildContractDefaultValues(schemaQuery.data, schemaQuery.data.values));
         initializedFormKey.current = formKey;
@@ -620,7 +621,9 @@ export function ContractFormPage() {
               Formulario del {roleLabel}
             </h1>
           </div>
-          <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+          {role !== "client" && (
+            <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+          )}
         </div>
       </header>
 
@@ -646,6 +649,7 @@ export function ContractFormPage() {
               <div className="mb-6">
                 <AlertInline variant="success" title="Formulario guardado">
                   Identificador del envío: {submission.data.submissionId}
+                  <p className="mt-2 text-sm text-emerald-200">Podés revisar y corregir los datos; guardá nuevamente cuando termines.</p>
                 </AlertInline>
               </div>
             )}

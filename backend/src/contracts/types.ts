@@ -184,6 +184,7 @@ export interface ContractRoleSchema {
 export interface ContractEntryRecord {
   readonly id: string;
   readonly schemaId: string;
+  readonly direccion?: string | null;
   readonly createdBy: string;
   readonly createdAt: string;
   readonly userTokenHash: string;
@@ -202,6 +203,7 @@ export interface ContractEntryRecord {
 export interface ContractEntrySummary {
   readonly entryId: string;
   readonly schemaId: string;
+  readonly direccion?: string | null;
   readonly createdBy: string;
   readonly createdAt: string;
   readonly userFilled: boolean;

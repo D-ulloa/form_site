@@ -79,7 +79,12 @@ const RoleSchema = z.enum(['user', 'client']);
 const CreateEntryBodySchema = z.object({
   schemaId: z.string().trim().min(1).max(128).default(RENT_CONTRACT_SCHEMA_ID),
   createdBy: z.string().trim().min(1).max(256).optional(),
-}).strict();
+  Direccion: z.string().trim().min(1).max(256).optional(),
+  direccion: z.string().trim().min(1).max(256).optional(),
+}).strict().transform((value) => ({
+  ...value,
+  direccion: value.Direccion ?? value.direccion ?? "Sin dirección",
+}));
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
 }).strict();
@@ -388,6 +393,7 @@ export function createContractEntriesRouter(
       const createdBy = getContractPrincipalUserId(principal, body.createdBy);
       const entry = await createContractEntry({
         schemaId: body.schemaId,
+        direccion: body.direccion,
         createdBy,
         publicBaseUrl: getPublicBaseUrl(req, dependencies.environment),
       }, dependencies.repository, dependencies.environment);
@@ -431,12 +437,57 @@ export function createContractEntriesRouter(
         userSubmission: submissionsByRole.get('user')?.submission ?? null,
         clientSubmission: submissionsByRole.get('client')?.submission ?? null,
         combinedSubmission: entry.combinedSubmission,
+        roleSchemas: {
+          user: getContractRoleSchema(entry.schemaId, "user", dependencies.environment),
+          client: getContractRoleSchema(entry.schemaId, "client", dependencies.environment),
+        },
         inspection,
       });
     } catch (error) {
       sendError(res, error);
     }
   });
+
+  const updateAdminRoleSubmission = async (req: Request, res: Response) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      authorizeContractAdmin(principal, dependencies.environment);
+      const entryId = EntryIdSchema.parse(req.params.entryId);
+      const role = RoleSchema.parse(req.params.role);
+      const body = SubmitRoleBodySchema.parse(req.body);
+      const entry = await loadEntry(entryId, dependencies.repository);
+      if (entry.status === 'archived') throw new ContractEntryStateError('archived');
+      const roleFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
+      if (!roleFilled) throw new ContractEntryStateError('already_submitted');
+      const receivedAt = dependencies.now().toISOString();
+      const updated = await submitContractEntryRole({
+        entry,
+        role,
+        authorizedTokenHash: null,
+        fields: body.fields,
+        mode: 'update',
+        metadata: {
+          ip: normalizeContractRequestIp(req.ip),
+          userAgent: (req.get('User-Agent') ?? '').slice(0, 512),
+          receivedAt,
+        },
+      }, dependencies.repository, {
+        environment: dependencies.environment,
+        verifyEvidenceReferences: dependencies.verifyEvidenceReferences,
+      });
+      res.status(200).json({
+        entry: toContractEntrySummary(await loadEntry(entryId, dependencies.repository)),
+        submissionId: updated.submissionId,
+        submittedAt: updated.submittedAt,
+      });
+    } catch (error) {
+      sendError(res, error);
+    }
+  };
+
+  router.patch('/admin/entries/:entryId/submissions/:role', updateAdminRoleSubmission);
+  router.put('/admin/entries/:entryId/submissions/:role', updateAdminRoleSubmission);
 
   router.post('/admin/entries/:entryId/archive', async (req, res) => {
     setPrivateHeaders(res);
@@ -477,7 +528,6 @@ export function createContractEntriesRouter(
     try {
       const entry = await loadEntry(req.params.entryId, dependencies.repository);
       if (entry.status === 'archived') throw new ContractEntryStateError('archived');
-      if (entry.clientFilled) throw new ContractEntryStateError('already_submitted');
       authorizeRoleAccess(req, entry, 'client', dependencies.environment);
       const body = DniPresignBodySchema.parse(req.body);
       const maxImageBytes = getContractDniMaxImageBytes(dependencies.environment);
@@ -502,7 +552,6 @@ export function createContractEntriesRouter(
     try {
       const entry = await loadEntry(req.params.entryId, dependencies.repository);
       if (entry.status === 'archived') throw new ContractEntryStateError('archived');
-      if (entry.clientFilled) throw new ContractEntryStateError('already_submitted');
       authorizeRoleAccess(req, entry, 'client', dependencies.environment);
       // Repeatable role schemas do not define a maximum guarantor count. This
       // evidence-specific bucket bounds preflight issuance without consuming
@@ -549,7 +598,6 @@ export function createContractEntriesRouter(
         role,
         dependencies.environment,
       );
-      const roleFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
       const values = role === 'user' ? entry.userSubmission : entry.clientSubmission;
       const downloadableValues = await hydrateContractRoleValuesWithDownloadUrls(
         entry,
@@ -565,7 +613,7 @@ export function createContractEntriesRouter(
       res.status(200).json({
         ...roleSchema,
         entry: toContractEntrySummary(entry),
-        readOnly: entry.status === 'complete' || roleFilled,
+        readOnly: false,
         values: downloadableValues,
       });
     } catch (error) {
@@ -593,13 +641,15 @@ export function createContractEntriesRouter(
       const entry = await loadEntry(entryId, dependencies.repository);
       if (entry.status === 'archived') throw new ContractEntryStateError('archived');
       const alreadyFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
-      if (alreadyFilled) throw new ContractEntryStateError('already_submitted');
       const authorizedTokenHash = authorizeRoleAccess(
         req,
         entry,
         role,
         dependencies.environment,
       );
+      if (alreadyFilled && !dependencies.repository.updateRoleSubmission) {
+        throw new ContractEntryStateError('already_submitted');
+      }
       const body = SubmitRoleBodySchema.parse(req.body);
       const receivedAt = dependencies.now().toISOString();
       const result = await submitContractEntryRole({
@@ -607,6 +657,7 @@ export function createContractEntriesRouter(
         role,
         authorizedTokenHash,
         fields: body.fields,
+        mode: alreadyFilled ? 'update' : 'create',
         metadata: {
           ip: normalizeContractRequestIp(req.ip),
           userAgent: (req.get('User-Agent') ?? '').slice(0, 512),

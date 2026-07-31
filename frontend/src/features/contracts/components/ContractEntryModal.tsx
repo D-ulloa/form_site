@@ -41,7 +41,10 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
   const creationRequestedRef = useRef(false);
   const navigate = useNavigate();
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const creation = useMutation({ mutationFn: () => createContractEntry(userId) });
+  const [direccion, setDireccion] = useState('');
+  const creation = useMutation({
+    mutationFn: (value?: string) => value ? createContractEntry(userId, value) : createContractEntry(userId),
+  });
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -56,6 +59,7 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
     if (creation.isPending) return;
     creationRequestedRef.current = false;
     setCopyState('idle');
+    setDireccion('');
     creation.reset();
     onClose();
   };
@@ -63,14 +67,14 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
   const createEntry = () => {
     if (creationRequestedRef.current) return;
     creationRequestedRef.current = true;
-    creation.mutate();
+    creation.mutate(direccion.trim() || undefined);
   };
 
   const retry = () => {
     setCopyState('idle');
     creation.reset();
     creationRequestedRef.current = true;
-    creation.mutate();
+    creation.mutate(direccion.trim() || undefined);
   };
 
   const openContractAdministration = () => {
@@ -105,6 +109,17 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Creá una entrada cuando estés listo para completar y compartir los formularios.
               </p>
+            <label htmlFor="contract-direccion" className="block text-sm font-medium text-slate-300">
+              Direccion del contrato
+              <input
+                id="contract-direccion"
+                value={direccion}
+                onChange={(event) => setDireccion(event.target.value)}
+                placeholder="Ej.: Av. Colon 1234"
+                maxLength={256}
+                className="field-input mt-2 w-full"
+              />
+            </label>
             </div>
             <div className="flex flex-col items-center gap-4">
               <Button

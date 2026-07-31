@@ -11,6 +11,7 @@ const CONTRACT_ENTRY_LIST_PAGE_SIZE = 1000;
 interface ContractEntryRow {
   id: string;
   schema_id: string;
+  direccion?: string | null;
   created_by: string;
   created_at: string;
   user_token_hash: string;
@@ -38,6 +39,7 @@ interface ContractSubmissionRow {
 export interface CreateContractEntryRecordInput {
   readonly id: string;
   readonly schemaId: string;
+  readonly direccion: string;
   readonly createdBy: string;
   readonly createdAt: string;
   readonly userTokenHash: string;
@@ -54,12 +56,15 @@ export interface SaveContractRoleSubmissionInput {
   readonly submittedAt: string;
 }
 
+export interface UpdateContractRoleSubmissionInput extends SaveContractRoleSubmissionInput {}
+
 export interface ContractEntryRepository {
   createEntry(input: CreateContractEntryRecordInput): Promise<ContractEntryRecord>;
   findEntry(entryId: string): Promise<ContractEntryRecord | null>;
   listEntries(): Promise<readonly ContractEntryRecord[]>;
   listSubmissions(entryId: string): Promise<readonly ContractSubmissionRecord[]>;
   saveRoleSubmission(input: SaveContractRoleSubmissionInput): Promise<ContractEntryRecord>;
+  updateRoleSubmission?(input: UpdateContractRoleSubmissionInput): Promise<ContractEntryRecord>;
   archiveEntry(entryId: string, archivedAt: string): Promise<ContractEntryRecord>;
   replaceTokenHash(
     entryId: string,
@@ -112,6 +117,7 @@ function toEntry(row: ContractEntryRow): ContractEntryRecord {
   return {
     id: row.id,
     schemaId: row.schema_id,
+    direccion: row.direccion ?? null,
     createdBy: row.created_by,
     createdAt: row.created_at,
     userTokenHash: row.user_token_hash,
@@ -166,6 +172,7 @@ export function createContractEntryRepository(
       const { data, error } = await getClient().from('contract_entries').insert({
         id: input.id,
         schema_id: input.schemaId,
+        direccion: input.direccion,
         created_by: input.createdBy,
         created_at: input.createdAt,
         user_token_hash: input.userTokenHash,
@@ -217,6 +224,20 @@ export function createContractEntryRepository(
 
     async saveRoleSubmission(input) {
       const { data, error } = await getClient().rpc('submit_contract_entry_role', {
+        p_submission_id: input.submissionId,
+        p_authorized_token_hash: input.authorizedTokenHash,
+        p_entry_id: input.entryId,
+        p_role: input.role,
+        p_submission: input.fields,
+        p_submission_meta: input.metadata,
+        p_submitted_at: input.submittedAt,
+      }).single();
+      if (error || !data) throwDatabaseError(error ?? { message: 'No entry returned.' });
+      return toEntry(data as ContractEntryRow);
+    },
+
+    async updateRoleSubmission(input) {
+      const { data, error } = await getClient().rpc('update_contract_entry_role', {
         p_submission_id: input.submissionId,
         p_authorized_token_hash: input.authorizedTokenHash,
         p_entry_id: input.entryId,

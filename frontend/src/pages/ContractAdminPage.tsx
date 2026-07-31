@@ -5,6 +5,7 @@ import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractInspectionDetails } from '../features/contracts/components/ContractInspectionDetails.tsx';
+import { ContractAdminRoleEditForm } from '../features/contracts/components/ContractAdminRoleEditForm.tsx';
 import {
   archiveContractEntry,
   fetchContractAdminEntry,
@@ -29,6 +30,7 @@ export function ContractAdminPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [regeneratedUrl, setRegeneratedUrl] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'complete' | 'archived'>('all');
+  const [editingRole, setEditingRole] = useState<ContractRole | null>(null);
   const entriesQuery = useQuery({
     queryKey: ['contract-admin-entries', userId],
     queryFn: () => listContractEntries(userId),
@@ -120,13 +122,16 @@ export function ContractAdminPage() {
                     <button
                       key={entry.entryId}
                       type="button"
-                      onClick={() => { setSelectedId(entry.entryId); setRegeneratedUrl(null); }}
+                      onClick={() => { setSelectedId(entry.entryId); setEditingRole(null); setRegeneratedUrl(null); }}
                       aria-pressed={selectedId === entry.entryId}
                       className={`grid w-full gap-3 px-5 py-4 text-left transition-colors sm:grid-cols-[9rem_1fr_auto] ${
                         selectedId === entry.entryId ? 'bg-indigo-500/10' : 'hover:bg-white/[0.03]'
                       }`}
                     >
-                      <span className="font-mono text-sm text-slate-200">{entry.entryId.slice(0, 8)}</span>
+                      <span>
+                        <span className="block text-sm font-medium text-slate-200">{entry.direccion || "Sin dirección"}</span>
+                        <span className="mt-1 block font-mono text-xs text-slate-600">{entry.entryId.slice(0, 8)}</span>
+                      </span>
                       <span>
                         <span className="block text-sm text-slate-300">{getContractEntryWaitingStatus(entry)}</span>
                         <span className="mt-1 block text-xs text-slate-600">{entry.createdBy}</span>
@@ -147,7 +152,10 @@ export function ContractAdminPage() {
               {detailQuery.data && (
                 <div>
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="font-mono text-sm text-slate-100">{detailQuery.data.entry.entryId}</h2>
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-100">{detailQuery.data.entry.direccion || "Sin dirección"}</h2>
+                      <p className="mt-1 font-mono text-xs text-slate-500">{detailQuery.data.entry.entryId}</p>
+                    </div>
                     <span className="text-xs text-cyan-400">
                       {getContractEntryWaitingStatus(detailQuery.data.entry)}
                     </span>
@@ -207,6 +215,50 @@ export function ContractAdminPage() {
                         No se pudo completar la acción. Intentá nuevamente.
                       </AlertInline>
                     </div>
+                  )}
+
+                  {detailQuery.data.roleSchemas && (
+                    <div className="mt-6 border-t border-white/[0.07] pt-5">
+                      <h3 className="text-sm font-semibold text-slate-200">Editar datos enviados</h3>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {(["user", "client"] as const).map((role) => {
+                          const hasSubmission = role === "user"
+                            ? Boolean(detailQuery.data.userSubmission)
+                            : Boolean(detailQuery.data.clientSubmission);
+                          if (!hasSubmission) return null;
+                          return (
+                            <Button
+                              key={role}
+                              type="button"
+                              variant={editingRole === role ? "primary" : "secondary"}
+                              onClick={() => setEditingRole(role)}
+                            >
+                              Editar formulario del {role === "user" ? "usuario" : "cliente"}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {editingRole && detailQuery.data.roleSchemas?.[editingRole] && (
+                    <ContractAdminRoleEditForm
+                      entryId={detailQuery.data.entry.entryId}
+                      role={editingRole}
+                      schema={detailQuery.data.roleSchemas[editingRole]}
+                      values={(editingRole === "user"
+                        ? detailQuery.data.userSubmission
+                        : detailQuery.data.clientSubmission) ?? {}}
+                      userId={userId}
+                      onCancel={() => setEditingRole(null)}
+                      onSaved={() => {
+                        setEditingRole(null);
+                        void queryClient.invalidateQueries({ queryKey: ["contract-admin-entries"] });
+                        void queryClient.invalidateQueries({
+                          queryKey: ["contract-admin-entry", selectedId, userId],
+                        });
+                      }}
+                    />
                   )}
 
                   <ContractInspectionDetails inspection={detailQuery.data.inspection} />

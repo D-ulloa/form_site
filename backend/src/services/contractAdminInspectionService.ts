@@ -385,7 +385,7 @@ export function getContractSubmissionRecordsByRole(
 ): ReadonlyMap<ContractRole, ContractSubmissionRecord> {
   const byRole = new Map<ContractRole, ContractSubmissionRecord>();
   for (const submission of submissions) {
-    if (submission.entryId !== entryId || byRole.has(submission.role)) continue;
+    if (submission.entryId !== entryId) continue;
     byRole.set(submission.role, submission);
   }
   return byRole;

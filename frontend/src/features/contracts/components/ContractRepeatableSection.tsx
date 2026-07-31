@@ -33,6 +33,7 @@ interface ContractRepeatableSectionProps {
   token: string | null;
   userId?: string;
   onUploadPendingChange: (key: string, pending: boolean) => void;
+  showUploads?: boolean;
 }
 
 function asItems(value: unknown): Record<string, unknown>[] {
@@ -193,10 +194,21 @@ function ContractDniUploadControl({
           void selectFile(event.target.files?.[0]);
           event.currentTarget.value = '';
         }}
-        className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300"
+        className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
       />
       <p className="mt-2 text-xs text-slate-500" role="status">
         {pending ? 'Subiendo…' : reference ? `Cargado: ${reference.originalName}` : 'Sin imagen cargada'}
+      {reference && !pending && (reference.downloadUrl ?? reference.viewUrl) && (
+        <a
+          href={reference.downloadUrl ?? reference.viewUrl}
+          download={reference.originalName}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-flex text-xs text-cyan-400 hover:text-cyan-300"
+        >
+          Descargar archivo
+        </a>
+      )}
       </p>
       {reference && !pending && (
         <button
@@ -219,6 +231,7 @@ export function ContractRepeatableSection({
   token,
   userId,
   onUploadPendingChange,
+  showUploads = true,
 }: ContractRepeatableSectionProps) {
   const repeatable = section.repeatable;
   const watched = useWatch({ control: form.control, name: repeatable?.name ?? '__invalid' });
@@ -307,7 +320,7 @@ export function ContractRepeatableSection({
                     />
                   ))}
                 </div>
-                {(subsection.fileReceivers ?? []).map((receiver) => {
+                {showUploads && (subsection.fileReceivers ?? []).map((receiver) => {
                   const fieldPath = `${repeatable.name}.${index}.${receiver.name}`;
                   return (
                     <ContractFileReceiver
@@ -362,25 +375,27 @@ export function ContractRepeatableSection({
                 </p>
               ) : null;
             })()}
-            <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
-              {(section.uploads ?? []).map((upload) => {
-                const fieldPath = `${repeatable.name}.${index}.${upload.name}`;
-                return (
-                  <ContractDniUploadControl
-                    key={upload.name}
-                    definition={upload}
-                    collection={repeatable.name}
-                    itemIndex={index}
-                    value={item[upload.name]}
-                    entryId={entryId}
-                    token={token}
-                    userId={userId}
-                    onValue={(next) => form.setValue(fieldPath, next, { shouldDirty: true })}
-                    onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
-                  />
-                );
-              })}
-            </div>
+            {showUploads && (
+              <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
+                {(section.uploads ?? []).map((upload) => {
+                  const fieldPath = `${repeatable.name}.${index}.${upload.name}`;
+                  return (
+                    <ContractDniUploadControl
+                      key={upload.name}
+                      definition={upload}
+                      collection={repeatable.name}
+                      itemIndex={index}
+                      value={item[upload.name]}
+                      entryId={entryId}
+                      token={token}
+                      userId={userId}
+                      onValue={(next) => form.setValue(fieldPath, next, { shouldDirty: true })}
+                      onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </div>

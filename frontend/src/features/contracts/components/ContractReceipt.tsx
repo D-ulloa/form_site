@@ -54,7 +54,7 @@ export function ContractReceipt({ receipt, userId, onClose }: ContractReceiptPro
 
       <dl className="mx-auto mt-7 max-w-xl divide-y divide-white/[0.07] border-y border-white/[0.07]">
         <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr] sm:gap-4">
-          <dt className="text-xs font-medium text-slate-500">Submission ID</dt>
+          <dt className="text-xs font-medium text-slate-500">Identificador del envío</dt>
           <dd className="break-all font-mono text-sm text-slate-200">
             {receipt.submissionId}
           </dd>

@@ -89,7 +89,7 @@ const sections = [
         required: false,
         options: ['IPC', 'IPL'],
       },
-      { name: 'submission_date', label: 'Fecha Actual', type: 'date', required: true },
+      { name: 'submission_date', label: 'Fecha de contrato', type: 'date', required: true },
     ],
   },
 ] as const satisfies readonly {
