@@ -248,6 +248,48 @@ describe('SPEC-12 hosted contract forms', () => {
     expect(screen.getByText('2027-01-31')).toBeTruthy();
   });
 
+  it('offers Editar and reopens a submitted form for correction', async () => {
+    vi.mocked(fetchContractRoleSchema).mockResolvedValue({
+      schemaId: 'rent-contract-v1',
+      contractType: 'rent-contract-v1',
+      role: 'user',
+      sections: [{
+        title: 'Propietario',
+        fields: [{
+          name: 'witness_full_name',
+          label: 'Nombre completo',
+          type: 'string',
+          required: true,
+        }],
+      }],
+      entry: { ...entry, userFilled: true, userSubmittedAt: '2026-07-29T12:05:00.000Z' },
+      readOnly: true,
+      values: { witness_full_name: 'Juan Pérez' },
+    } satisfies ContractRoleSchemaResponse);
+
+    renderPage('/contracts/' + entry.entryId + '/user');
+
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Guardar' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    expect(await screen.findByRole('button', { name: 'Guardar' })).toBeTruthy();
+    expect((screen.getByLabelText(/^Nombre completo/u) as HTMLInputElement).value).toBe('Juan Pérez');
+
+    fireEvent.change(screen.getByLabelText(/^Nombre completo/u), { target: { value: 'Juan Actualizado' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => {
+      expect(submitContractRole).toHaveBeenCalledWith(
+        entry.entryId,
+        'user',
+        null,
+        { witness_full_name: 'Juan Actualizado' },
+        undefined,
+      );
+    });
+  });
+
   it('blocks a guarantor with both subsections empty and accepts either one', async () => {
     vi.mocked(fetchContractRoleSchema).mockResolvedValue({
       schemaId: 'rent-contract-v1',

@@ -403,6 +403,7 @@ export function ContractFormPage() {
   );
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [reconciledMessage, setReconciledMessage] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<Set<string>>(() => new Set());
   const [evidenceUploading, setEvidenceUploading] = useState(false);
   const initializedFormKey = useRef<string | null>(null);
@@ -487,6 +488,13 @@ export function ContractFormPage() {
   const schema = schemaQuery.data;
   const roleLabel = role === 'user' ? 'usuario' : 'cliente';
   const formLocked = submission.isPending || evidenceUploading;
+  const formReadOnly = Boolean(schema?.readOnly && !isEditing);
+
+  const editSubmittedForm = () => {
+    setIsEditing(true);
+    setSubmitMessage(null);
+    setReconciledMessage(null);
+  };
 
   const invalidSubmit = (fieldErrors: FieldErrors<ContractFormValues>) => {
     const first = Object.keys(fieldErrors)[0];
@@ -624,6 +632,7 @@ export function ContractFormPage() {
       }
       finalSubmitAttempted = true;
       await submission.mutateAsync(normalizeContractRoleFields(schema, uploadedValues));
+      setIsEditing(false);
       void schemaQuery.refetch();
     } catch (error) {
       if (finalSubmitAttempted) {
@@ -692,8 +701,21 @@ export function ContractFormPage() {
             {submission.data && (
               <div className="mb-6">
                 <AlertInline variant="success" title="Formulario guardado">
-                  Identificador del envío: {submission.data.submissionId}
-                  <p className="mt-2 text-sm text-emerald-200">Podés revisar y corregir los datos; guardá nuevamente cuando termines.</p>
+                  <p>Identificador del envío: {submission.data.submissionId}</p>
+                  <p className="mt-2 text-sm text-emerald-200">
+                    Podés revisar y corregir los datos; guardá nuevamente cuando termines.
+                  </p>
+                  {!formReadOnly && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={editSubmittedForm}
+                      className="mt-3"
+                    >
+                      Editar
+                    </Button>
+                  )}
                 </AlertInline>
               </div>
             )}
@@ -714,8 +736,16 @@ export function ContractFormPage() {
 
             <div>
               <section className="rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] p-6 sm:p-8">
-                {schema.readOnly ? (
+                {formReadOnly ? (
                   <div className="space-y-8">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-black/10 p-4">
+                      <p className="text-sm text-slate-400">
+                        Este formulario está guardado en modo de solo lectura.
+                      </p>
+                      <Button type="button" variant="secondary" onClick={editSubmittedForm}>
+                        Editar
+                      </Button>
+                    </div>
                     {schema.sections.map((section) => (
                       <ReadOnlyContractSection key={section.title} section={section} values={schema.values} />
                     ))}

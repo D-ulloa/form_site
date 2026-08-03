@@ -162,7 +162,7 @@ describe('ContractFieldRenderer accessibility', () => {
     expect(results.violations).toEqual([]);
   });
 
-  it('renders Ajuste as IPC/IPL only and computed dates as readonly inputs', () => {
+  it('renders Ajuste as IPC/ICL only and computed dates as readonly inputs', () => {
     const specFields: ContractField[] = [
       makeField({
         name: 'contract_selection',
@@ -203,7 +203,7 @@ describe('ContractFieldRenderer accessibility', () => {
 
     render(<SpecControls />);
     const adjustment = screen.getByLabelText(/^Ajuste/) as HTMLSelectElement;
-    expect(Array.from(adjustment.options).map((option) => option.value)).toEqual(['', 'IPC', 'IPL']);
+    expect(Array.from(adjustment.options).map((option) => option.value)).toEqual(['', 'IPC', 'ICL']);
     expect((screen.getByLabelText(/^Formateada_1/) as HTMLInputElement).readOnly).toBe(true);
     expect((screen.getByLabelText(/^Formateada_2/) as HTMLInputElement).readOnly).toBe(true);
   });
