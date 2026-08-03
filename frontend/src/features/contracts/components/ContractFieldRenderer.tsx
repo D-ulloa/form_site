@@ -58,11 +58,17 @@ const PLACEHOLDERS: Record<string, string> = {
   contract_rent_amount: '850000',
   contract_update: '6',
   contract_formatted_update: '31/12/2026',
-  contract_selection: 'Seleccioná IPC o IPL',
+  contract_selection: 'Seleccioná IPC o ICL',
   submission_date: '31/12/2026',
 };
 
+const CONTRACT_ADJUSTMENT_OPTIONS: SelectOption[] = [
+  { value: 'IPC', label: 'IPC' },
+  { value: 'ICL', label: 'ICL' },
+];
+
 export function getContractFieldPlaceholder(field: ContractField): string {
+  if (field.name === 'contract_selection') return PLACEHOLDERS.contract_selection;
   return field.placeholder ?? PLACEHOLDERS[field.name] ?? (
     field.type === 'email'
       ? 'nombre@ejemplo.com'
@@ -91,6 +97,7 @@ export function isValidContractDate(value: string): boolean {
 }
 
 export function getContractSelectOptions(field: ContractField): SelectOption[] {
+  if (field.name === 'contract_selection') return CONTRACT_ADJUSTMENT_OPTIONS;
   return (field.options ?? []).map((option) =>
     typeof option === 'string'
       ? { value: option, label: option }

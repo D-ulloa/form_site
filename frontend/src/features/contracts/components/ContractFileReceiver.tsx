@@ -85,7 +85,6 @@ export function ContractFileReceiver({
     ? `${idPrefix}-${definition.name}`
     : `contract-file-${generatedId.replace(/:/gu, '')}`;
   const helpId = `${inputId}-help`;
-  const extraFormatsId = `${inputId}-extra-formats`;
   const errorId = `${inputId}-error`;
   const [localErrors, setLocalErrors] = useState<string[]>([]);
 
@@ -128,10 +127,7 @@ export function ContractFileReceiver({
         {definition.label}
       </label>
       <p id={helpId} className="mt-1 text-xs text-slate-500">
-        Hasta 2 archivos — PDF, JPG, PNG, GIF, WEBP
-      </p>
-      <p id={extraFormatsId} className="mt-0.5 text-xs text-slate-600">
-        También se aceptan archivos BMP y TIFF.
+        Hasta 2 archivos — PDF, JPG, PNG
       </p>
       <input
         id={inputId}
@@ -141,7 +137,6 @@ export function ContractFileReceiver({
         accept={definition.acceptedMimeTypes.join(',')}
         aria-describedby={[
           helpId,
-          extraFormatsId,
           visibleErrors.length > 0 ? errorId : undefined,
         ].filter(Boolean).join(' ')}
         aria-invalid={visibleErrors.length > 0 || undefined}
