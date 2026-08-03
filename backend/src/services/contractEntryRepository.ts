@@ -1,7 +1,8 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   ContractEntryRecord,
   ContractRole,
+  ContractEntryStatus,
   ContractSubmissionMetadata,
   ContractSubmissionRecord,
 } from '../contracts/types.js';
@@ -23,7 +24,7 @@ interface ContractEntryRow {
   user_submission: Readonly<Record<string, unknown>> | null;
   client_submission: Readonly<Record<string, unknown>> | null;
   combined_submission: Readonly<Record<string, unknown>> | null;
-  status: 'open' | 'complete' | 'archived';
+  status: 'open' | 'complete' | 'archived' | 'generar_contrato';
   archived_at: string | null;
 }
 
@@ -66,6 +67,7 @@ export interface ContractEntryRepository {
   saveRoleSubmission(input: SaveContractRoleSubmissionInput): Promise<ContractEntryRecord>;
   updateRoleSubmission?(input: UpdateContractRoleSubmissionInput): Promise<ContractEntryRecord>;
   archiveEntry(entryId: string, archivedAt: string): Promise<ContractEntryRecord>;
+  updateStatus?(entryId: string, status: ContractEntryStatus): Promise<ContractEntryRecord>;
   replaceTokenHash(
     entryId: string,
     role: ContractRole,
@@ -259,6 +261,16 @@ export function createContractEntryRepository(
       return toEntry(data as ContractEntryRow);
     },
 
+    async updateStatus(entryId: string, status: ContractEntryStatus) {
+      const { data, error } = await getClient().from('contract_entries')
+        .update({ status })
+        .eq('id', entryId)
+        .select('*')
+        .single();
+      if (error || !data) throwDatabaseError(error ?? { message: 'No entry returned.' });
+      return toEntry(data as ContractEntryRow);
+    },
+
     async replaceTokenHash(entryId, role, tokenHash, occurredAt) {
       const { data, error } = await getClient().rpc('replace_contract_token_hash', {
         p_entry_id: entryId,
@@ -271,3 +283,7 @@ export function createContractEntryRepository(
     },
   };
 }
+
+
+
+
