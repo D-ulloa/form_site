@@ -5,12 +5,18 @@ export type ContractPrincipal =
   | {
       readonly mode: 'gateway' | 'development' | 'insecure_agent';
       readonly userId: string;
+    }
+  | {
+      readonly mode: 'oauth';
+      readonly userId: string;
+      readonly email: string;
     };
 
 export interface ContractAuthenticationInput {
   readonly authorization: string | undefined;
   readonly authenticatedUserId: string | undefined;
   readonly developmentUserId: string | undefined;
+  readonly oauthUser?: { readonly userId: string; readonly email: string };
 }
 
 export class ContractAuthenticationError extends Error {
@@ -94,6 +100,14 @@ export function authenticateContractRequest(
     return authenticateBearer(input.authorization, environment);
   }
 
+  if (input.oauthUser !== undefined) {
+    return {
+      mode: 'oauth',
+      userId: parseUserIdentity(input.oauthUser.userId, 'Google user id'),
+      email: parseUserIdentity(input.oauthUser.email, 'Google email').toLowerCase(),
+    };
+  }
+
   if (input.developmentUserId !== undefined) {
     const isDevelopment = environment.NODE_ENV === 'development';
     const allowInsecureAgentId =
@@ -150,6 +164,11 @@ export function authorizeContractAdmin(
   if (principal.mode === 'api_key') return;
   const admins = new Set((environment.CONTRACT_ADMIN_USER_IDS ?? '')
     .split(',').map((value) => value.trim()).filter(Boolean));
+  if (principal.mode === 'oauth') {
+    const googleAdmins = new Set((environment.CONTRACT_ADMIN_GOOGLE_EMAILS ?? '')
+      .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean));
+    if (googleAdmins.has(principal.email) || admins.has(principal.userId)) return;
+  }
   if (!admins.has(principal.userId)) {
     throw new ContractAuthorizationError('Contract administrator access is required.');
   }

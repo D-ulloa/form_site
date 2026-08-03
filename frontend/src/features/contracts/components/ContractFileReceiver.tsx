@@ -149,7 +149,7 @@ export function ContractFileReceiver({
           addFiles(Array.from(event.target.files ?? []));
           event.currentTarget.value = '';
         }}
-        className="mt-3 block w-full rounded-lg text-xs text-slate-400 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300"
+        className="mt-3 block w-full rounded-lg text-xs text-slate-400 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
       />
 
       {visibleErrors.length > 0 && (
@@ -171,6 +171,17 @@ export function ContractFileReceiver({
                   {fileName(file)}
                 </p>
                 <p className="text-xs text-slate-500">{formatBytes(file.size)}</p>
+                {!isBrowserFile(file) && (file.downloadUrl ?? file.viewUrl) && (
+                  <a
+                    href={file.downloadUrl ?? file.viewUrl}
+                    download={file.filename}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex text-xs text-cyan-400 hover:text-cyan-300"
+                  >
+                    Descargar archivo
+                  </a>
+                )}
               </div>
               <button
                 type="button"
@@ -178,10 +189,10 @@ export function ContractFileReceiver({
                   setLocalErrors([]);
                   onFilesChange(files.filter((_, fileIndex) => fileIndex !== index));
                 }}
-                aria-label={`Quitar ${fileName(file)}`}
+                aria-label={`Eliminar ${fileName(file)}`}
                 className="shrink-0 rounded px-2 py-1 text-xs text-red-400 outline-none hover:text-red-300 focus-visible:ring-2 focus-visible:ring-red-400"
               >
-                Quitar
+                Eliminar
               </button>
             </li>
           ))}

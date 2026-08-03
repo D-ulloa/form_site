@@ -17,6 +17,7 @@ export type ContractComputedField = 'formatted_start' | 'formatted_update';
 export interface ContractField {
   name: string;
   label: string;
+  placeholder?: string;
   type: ContractFieldType;
   required: boolean;
   sensitive?: boolean;
@@ -76,6 +77,9 @@ export interface ContractDniImageReference {
   storagePath: string;
   storageBucket: string;
   publicPath: string;
+  viewUrl?: string;
+  downloadUrl?: string;
+  expiresAt?: string;
   slot: ContractDniImageSlot;
 }
 
@@ -95,6 +99,9 @@ export interface ContractDniUploadDescriptor {
 export interface ContractEvidenceFileReference {
   filename: string;
   mimeType: string;
+  viewUrl?: string;
+  downloadUrl?: string;
+  expiresAt?: string;
   size: number;
   storagePath: string;
   storageBucket: string;
@@ -135,6 +142,13 @@ export interface ContractPublicSchema {
 
 export type ContractFieldValue = string | number | boolean;
 export type ContractFormValues = Record<string, unknown>;
+
+export interface ContractRoleSchemaDefinition {
+  schemaId: string;
+  contractType: string;
+  role: ContractRole;
+  sections: ContractSection[];
+}
 
 export interface ContractSubmitRequest {
   contractType: string;
@@ -221,6 +235,32 @@ export function buildContractDefaultValues(
   return defaults;
 }
 
+function normalizeDniReference(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  const reference = value as Record<string, unknown>;
+  return {
+    originalName: reference.originalName,
+    mimeType: reference.mimeType,
+    sizeBytes: reference.sizeBytes,
+    storagePath: reference.storagePath,
+    storageBucket: reference.storageBucket,
+    publicPath: reference.publicPath,
+    slot: reference.slot,
+  };
+}
+
+function normalizeEvidenceReference(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) return value;
+  const reference = value as Record<string, unknown>;
+  return {
+    filename: reference.filename,
+    mimeType: reference.mimeType,
+    size: reference.size,
+    storagePath: reference.storagePath,
+    storageBucket: reference.storageBucket,
+  };
+}
+
 function normalizeFieldValue(field: ContractField, rawValue: unknown): ContractFieldValue | undefined {
   if (field.computed) return undefined;
   if (field.type === 'boolean') return rawValue === true;
@@ -271,13 +311,16 @@ export function normalizeContractRoleFields(
         if (value !== undefined) normalizedItem[field.name] = value;
       }
       for (const upload of section.uploads ?? []) {
-        if (source[upload.name] !== undefined) normalizedItem[upload.name] = source[upload.name];
+        if (source[upload.name] !== undefined) normalizedItem[upload.name] = normalizeDniReference(source[upload.name]);
       }
       for (const receiver of getContractFileReceivers(section)) {
-        if (source[receiver.name] !== undefined) {
-          normalizedItem[receiver.name] = source[receiver.name];
+        const rawReceiver = source[receiver.name];
+        if (rawReceiver !== undefined) {
+          normalizedItem[receiver.name] = Array.isArray(rawReceiver)
+            ? rawReceiver.map(normalizeEvidenceReference)
+            : rawReceiver;
         }
-      }
+        }
       return normalizedItem;
     });
   }
@@ -365,6 +408,7 @@ export type ContractEntryStatus = 'open' | 'complete' | 'archived';
 export interface ContractEntrySummary {
   entryId: string;
   schemaId: string;
+  direccion?: string | null;
   createdBy: string;
   createdAt: string;
   userFilled: boolean;
@@ -377,17 +421,15 @@ export interface ContractEntrySummary {
 
 export interface ContractEntryLinks {
   entryId: string;
+  direccion?: string;
+  adminUrl?: string;
   userUrl: string;
   clientUrl: string;
   createdAt: string;
   status: 'open';
 }
 
-export interface ContractRoleSchemaResponse {
-  schemaId: string;
-  contractType: string;
-  role: ContractRole;
-  sections: ContractSection[];
+export interface ContractRoleSchemaResponse extends ContractRoleSchemaDefinition {
   entry: ContractEntrySummary;
   readOnly: boolean;
   values: ContractFormValues;
@@ -406,6 +448,7 @@ export interface ContractAdminEntryDetail {
   clientSubmission: ContractFormValues | null;
   combinedSubmission: Record<string, unknown> | null;
   inspection: ContractEntryInspection;
+  roleSchemas?: Record<ContractRole, ContractRoleSchemaDefinition>;
 }
 
 export interface ContractInspectionField {

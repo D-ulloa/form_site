@@ -41,6 +41,7 @@ const ContractFieldSchema = z
         'field name must be a flat alphanumeric identifier',
       ),
     label: z.string().min(1, 'field label is required'),
+    placeholder: z.string().min(1).optional(),
     type: z.enum(['string', 'email', 'number', 'date', 'boolean', 'select']),
     required: z.boolean(),
     sensitive: z.boolean().optional(),
@@ -132,6 +133,7 @@ const ContractSubmitResponseSchema = z.object({
 const ContractEntrySummarySchema = z.object({
   entryId: z.string().uuid(),
   schemaId: z.string().min(1),
+  direccion: z.string().min(1).nullable().optional(),
   createdBy: z.string().min(1),
   createdAt: z.string().min(1),
   userFilled: z.boolean(),
@@ -144,6 +146,8 @@ const ContractEntrySummarySchema = z.object({
 
 const ContractEntryLinksSchema = z.object({
   entryId: z.string().uuid(),
+  direccion: z.string().min(1).optional(),
+  adminUrl: z.string().url().optional(),
   userUrl: z.string().url(),
   clientUrl: z.string().url(),
   createdAt: z.string().min(1),
@@ -176,6 +180,13 @@ const ContractRoleSectionSchema = z.object({
       acceptedMimeTypes: z.array(z.string().min(1)).min(1),
     })).optional(),
   })).min(1).optional(),
+});
+
+const ContractRoleSchemaDefinitionSchema = z.object({
+  schemaId: z.string().min(1),
+  contractType: z.string().min(1),
+  role: z.enum(['user', 'client']),
+  sections: z.array(ContractRoleSectionSchema).min(1),
 });
 
 const ContractDniImageReferenceSchema = z.object({
@@ -212,11 +223,7 @@ const ContractEvidencePresignResponseSchema = z.object({
   uploads: z.array(ContractEvidencePresignedUploadSchema).min(1),
 });
 
-const ContractRoleSchemaResponseSchema = z.object({
-  schemaId: z.string().min(1),
-  contractType: z.string().min(1),
-  role: z.enum(['user', 'client']),
-  sections: z.array(ContractRoleSectionSchema).min(1),
+const ContractRoleSchemaResponseSchema = ContractRoleSchemaDefinitionSchema.extend({
   entry: ContractEntrySummarySchema,
   readOnly: z.boolean(),
   values: z.record(z.string(), z.unknown()),
@@ -297,6 +304,10 @@ const ContractAdminDetailSchema = z.object({
   userSubmission: z.record(z.string(), z.unknown()).nullable(),
   clientSubmission: z.record(z.string(), z.unknown()).nullable(),
   combinedSubmission: z.record(z.string(), z.unknown()).nullable(),
+  roleSchemas: z.object({
+    user: ContractRoleSchemaDefinitionSchema,
+    client: ContractRoleSchemaDefinitionSchema,
+  }).optional(),
   inspection: ContractEntryInspectionSchema,
 });
 
@@ -475,9 +486,14 @@ export async function fetchContractAudit(
   }
 }
 
-export async function createContractEntry(userId: string): Promise<ContractEntryLinks> {
+export async function createContractEntry(
+  userId?: string,
+  direccion?: string,
+): Promise<ContractEntryLinks> {
   try {
-    const response = await axios.post<unknown>(`${CONTRACTS_API_PATH}/create`, {}, {
+    const response = await axios.post<unknown>(`${CONTRACTS_API_PATH}/create`, {
+      Direccion: direccion?.trim() || "Sin dirección",
+    }, {
       withCredentials: true,
       headers: contractIdentityHeaders(userId),
     });
@@ -643,7 +659,7 @@ export async function submitContractRole(
 }
 
 export async function listContractEntries(
-  userId: string,
+  userId?: string,
 ): Promise<ContractEntrySummary[]> {
   try {
     const response = await axios.get<unknown>(`${CONTRACTS_API_PATH}/admin/entries`, {
@@ -662,7 +678,7 @@ export async function listContractEntries(
 
 export async function fetchContractAdminEntry(
   entryId: string,
-  userId: string,
+  userId?: string,
 ): Promise<ContractAdminEntryDetail> {
   try {
     const response = await axios.get<unknown>(
@@ -679,9 +695,35 @@ export async function fetchContractAdminEntry(
   }
 }
 
+export async function updateContractAdminSubmission(
+  entryId: string,
+  role: ContractRole,
+  fields: Record<string, unknown>,
+  userId?: string,
+): Promise<{ entry: ContractEntrySummary; submissionId: string; submittedAt: string }> {
+  try {
+    const response = await axios.patch<unknown>(
+      CONTRACTS_API_PATH + "/admin/entries/" + encodeURIComponent(entryId) + "/submissions/" + role,
+      { fields },
+      { withCredentials: true, headers: contractIdentityHeaders(userId) },
+    );
+    return parseResponse(
+      z.object({
+        entry: ContractEntrySummarySchema,
+        submissionId: z.string().uuid(),
+        submittedAt: z.string().min(1),
+      }),
+      response.data,
+      "El servidor no pudo actualizar el formulario.",
+    );
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
+
 export async function archiveContractEntry(
   entryId: string,
-  userId: string,
+  userId?: string,
 ): Promise<ContractEntrySummary> {
   try {
     const response = await axios.post<unknown>(
@@ -702,7 +744,7 @@ export async function archiveContractEntry(
 export async function regenerateContractToken(
   entryId: string,
   role: ContractRole,
-  userId: string,
+  userId?: string,
 ): Promise<{ role: ContractRole; url: string }> {
   try {
     const response = await axios.post<unknown>(

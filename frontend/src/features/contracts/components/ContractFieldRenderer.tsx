@@ -26,6 +26,54 @@ function isEmptyValue(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
+const PLACEHOLDERS: Record<string, string> = {
+  tenant_full_name: 'Juan Pérez',
+  tenant_dni: '12.345.678',
+  tenant_phone: '+54 9 11 1234-5678',
+  tenant_nationality: 'Argentina',
+  tenant_email: 'juan.perez@ejemplo.com',
+  tenant_age: '35',
+  guarantor_full_name: 'María Pérez',
+  guarantor_dni: '23.456.789',
+  guarantor_phone: '+54 9 351 765-4321',
+  guarantor_nationality: 'Argentina',
+  guarantor_email: 'maria.perez@ejemplo.com',
+  guarantor_address: 'Av. Colón 1234, Córdoba',
+  guarantor_company: 'Empresa Ejemplo S.A.',
+  guarantor_cuit: '30-12345678-9',
+  guarantor_position: 'Administrativo',
+  guarantor_employee_id: '12345',
+  guarantor_company_registration: '351-1234567',
+  property_registration_number: 'Matrícula 123456',
+  property_province: 'Córdoba',
+  property_address: 'Av. Santa Fe 1234, CABA',
+  property_type: 'Casa',
+  witness_full_name: 'Juan Pérez',
+  witness_dni: '12.345.678',
+  witness_nationality: 'Argentina',
+  contract_object: 'Vivienda',
+  contract_months: '24',
+  contract_start_date: '31/12/2026',
+  contract_formatted_start: '31/12/2026',
+  contract_rent_amount: '850000',
+  contract_update: '6',
+  contract_formatted_update: '31/12/2026',
+  contract_selection: 'Seleccioná IPC o IPL',
+  submission_date: '31/12/2026',
+};
+
+export function getContractFieldPlaceholder(field: ContractField): string {
+  return field.placeholder ?? PLACEHOLDERS[field.name] ?? (
+    field.type === 'email'
+      ? 'nombre@ejemplo.com'
+      : field.type === 'date'
+        ? '31/12/2026'
+        : field.type === 'number'
+          ? '123'
+          : `Ej.: ${field.label}`
+  );
+}
+
 export function isValidContractDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;
@@ -182,7 +230,7 @@ export function ContractFieldRenderer({
           id={inputId}
           label={field.label}
           options={getContractSelectOptions(field)}
-          placeholder="Seleccioná una opción"
+          placeholder={getContractFieldPlaceholder(field)}
           required={field.required}
           error={errorMessage}
           autoFocus={autoFocus}
@@ -207,6 +255,7 @@ export function ContractFieldRenderer({
         step={field.type === 'number' ? (field.integer ? '1' : 'any') : undefined}
         inputMode={field.type === 'number' ? 'decimal' : undefined}
         autoComplete={field.type === 'email' ? 'email' : undefined}
+        placeholder={getContractFieldPlaceholder(field)}
         error={errorMessage}
         autoFocus={autoFocus}
         readOnly={field.readOnly}

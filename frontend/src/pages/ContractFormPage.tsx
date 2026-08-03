@@ -16,12 +16,12 @@ import {
 } from '../features/contracts/services/contractApi.ts';
 import {
   buildContractDefaultValues,
-  getContractEntryWaitingStatus,
   getContractFileReceivers,
   getMissingContractEvidence,
   getMissingContractSubsections,
   isContractEvidenceFileReference,
   normalizeContractRoleFields,
+  type ContractDniImageReference,
   type ContractEvidenceUploadDescriptor,
   type ContractFileReceiverDefinition,
   type ContractFormValues,
@@ -50,6 +50,9 @@ function formatFileSize(size: number): string {
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
+function attachmentUrl(value: { viewUrl?: string; downloadUrl?: string }): string | undefined {
+  return value.downloadUrl ?? value.viewUrl;
+}
 
 function ReadOnlyEvidenceFiles({
   receiver,
@@ -68,15 +71,77 @@ function ReadOnlyEvidenceFiles({
     <div className="mt-4">
       <p className="text-xs font-medium text-slate-400">{receiver.label}</p>
       <ul className="mt-2 space-y-2">
-        {files.map((file, index) => (
-          <li
-            key={`${file.storagePath}-${index}`}
-            className="rounded-lg bg-black/15 p-3 text-xs text-slate-300"
-          >
-            <span className="break-all">{file.filename}</span>
-            <span className="ml-2 text-slate-500">{formatFileSize(file.size)}</span>
-          </li>
-        ))}
+        {files.map((file, index) => {
+          const href = attachmentUrl(file);
+          return (
+            <li
+              key={`${file.storagePath}-${index}`}
+              className="rounded-lg bg-black/15 p-3 text-xs text-slate-300"
+            >
+              <p className="break-all">{file.filename}</p>
+              <p className="mt-1 text-xs text-slate-500">{file.mimeType}</p>
+              <p className="mt-1 text-xs text-slate-500">{formatFileSize(file.size)}</p>
+              {href && (
+                <a
+                  href={href}
+                  download={file.filename}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
+                >
+                  Descargar archivo
+                </a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ReadOnlyDniFiles({
+  section,
+  values,
+}: {
+  section: ContractSection;
+  values: Record<string, unknown>;
+}) {
+  const files = (section.uploads ?? []).flatMap((definition) => {
+    const raw = values[definition.name];
+    if (typeof raw !== "object" || raw === null) return [];
+    const reference = raw as Partial<ContractDniImageReference>;
+    if (typeof reference.originalName !== "string") return [];
+    return [{ definition, reference }];
+  });
+  if (files.length === 0) return null;
+
+  return (
+    <div className="mt-5 border-t border-white/[0.07] pt-4">
+      <p className="text-xs font-medium text-slate-400">Documentos adjuntos</p>
+      <ul className="mt-2 space-y-2">
+        {files.map(({ definition, reference }) => {
+          const href = attachmentUrl(reference);
+          return (
+            <li key={definition.name} className="rounded-lg bg-black/15 p-3 text-xs text-slate-300">
+              <p className="break-all">{definition.label}: {reference.originalName}</p>
+              {typeof reference.mimeType === "string" && typeof reference.sizeBytes === "number" && (
+                <p className="mt-1 text-slate-500">{reference.mimeType} · {formatFileSize(reference.sizeBytes)}</p>
+              )}
+              {href && (
+                <a
+                  href={href}
+                  download={reference.originalName}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
+                >
+                  Descargar archivo
+                </a>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -276,7 +341,11 @@ function ReadOnlyContractSection({
                 fields={fieldsOutsideSubsections(section)}
                 values={itemValues}
               />
-              {section.subsections?.map((subsection) => (
+              {section.subsections && (
+                <fieldset className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-3">
+                  <legend className="px-1 text-xs font-semibold text-cyan-100">Garantías</legend>
+                  <div className="mt-1">
+                    {section.subsections.map((subsection) => (
                 <section
                   key={subsection.title}
                   className="mt-4 rounded-lg border border-white/[0.07] p-3"
@@ -307,9 +376,10 @@ function ReadOnlyContractSection({
                   ))}
                 </section>
               ))}
-              {(section.uploads?.length ?? 0) > 0 && (
-                <ReadOnlyFieldList fields={section.uploads ?? []} values={itemValues} />
+                  </div>
+                </fieldset>
               )}
+              <ReadOnlyDniFiles section={section} values={itemValues} />
             </div>
           );
         })}
@@ -378,7 +448,8 @@ export function ContractFormPage() {
 
   useEffect(() => {
     if (schemaQuery.data) {
-      const formKey = `${entryId}:${role ?? ''}:${token ?? ''}:${schemaQuery.data.schemaId}`;
+      const submittedAt = role === "user" ? schemaQuery.data.entry.userSubmittedAt : schemaQuery.data.entry.clientSubmittedAt;
+      const formKey = `${entryId}:${role ?? ""}:${token ?? ""}:${schemaQuery.data.schemaId}:${submittedAt ?? ""}`;
       if (initializedFormKey.current !== formKey || schemaQuery.data.readOnly) {
         reset(buildContractDefaultValues(schemaQuery.data, schemaQuery.data.values));
         initializedFormKey.current = formKey;
@@ -428,6 +499,50 @@ export function ContractFormPage() {
     clearErrors();
     if (pendingUploads.size > 0) {
       setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
+      return;
+    }
+    const missingDniUploads: Array<{
+      collection: string;
+      itemIndex: number;
+      uploadName: string;
+      message: string;
+    }> = [];
+    schema.sections.forEach((section) => {
+      if (!section.repeatable) return;
+      const items = Array.isArray(values[section.repeatable.name])
+        ? values[section.repeatable.name] as unknown[]
+        : [];
+      items.forEach((item, itemIndex) => {
+        const itemValues = typeof item === 'object' && item !== null
+          ? item as Record<string, unknown>
+          : {};
+        (section.uploads ?? []).filter((upload) => upload.required).forEach((upload) => {
+          if (itemValues[upload.name] !== undefined && itemValues[upload.name] !== null) return;
+          missingDniUploads.push({
+            collection: section.repeatable!.name,
+            itemIndex,
+            uploadName: upload.name,
+            message: upload.slot === 'front'
+              ? 'Se requiere la imagen frontal del DNI.'
+              : 'Se requiere la imagen del dorso del DNI.',
+          });
+        });
+      });
+    });
+    if (missingDniUploads.length > 0) {
+      missingDniUploads.forEach((missing) => {
+        setError(`${missing.collection}.${missing.itemIndex}.${missing.uploadName}`, {
+          type: 'required',
+          message: missing.message,
+        });
+      });
+      const firstMissing = missingDniUploads[0];
+      if (firstMissing) {
+        document.getElementById(
+          `dni-${firstMissing.collection}-${firstMissing.itemIndex}-${firstMissing.uploadName.includes('back') ? 'back' : 'front'}`,
+        )?.focus();
+      }
+      setSubmitMessage('Completá las imágenes Frontal y Dorso del DNI antes de guardar.');
       return;
     }
     const hasIncompleteDniPair = schema.sections.some((section) => {
@@ -550,7 +665,9 @@ export function ContractFormPage() {
               Formulario del {roleLabel}
             </h1>
           </div>
-          <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+          {role !== "client" && (
+            <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+          )}
         </div>
       </header>
 
@@ -571,26 +688,12 @@ export function ContractFormPage() {
 
         {schema && (
           <>
-            <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] px-5 py-4">
-              <div>
-                <p className="font-mono text-sm text-slate-200">{schema.entry.entryId.slice(0, 8)}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Estado: {getContractEntryWaitingStatus(schema.entry)}
-                </p>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                schema.entry.status === 'complete'
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'bg-amber-500/15 text-amber-400'
-              }`}>
-                {schema.readOnly ? 'Solo lectura' : 'Pendiente'}
-              </span>
-            </section>
 
             {submission.data && (
               <div className="mb-6">
                 <AlertInline variant="success" title="Formulario guardado">
                   Identificador del envío: {submission.data.submissionId}
+                  <p className="mt-2 text-sm text-emerald-200">Podés revisar y corregir los datos; guardá nuevamente cuando termines.</p>
                 </AlertInline>
               </div>
             )}

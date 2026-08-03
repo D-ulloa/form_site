@@ -17,6 +17,7 @@ import { ContractFieldRenderer } from './ContractFieldRenderer.tsx';
 import { ContractFileReceiver } from './ContractFileReceiver.tsx';
 
 const ACCEPTED_DNI_TYPES = [
+  'application/pdf',
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -33,6 +34,7 @@ interface ContractRepeatableSectionProps {
   token: string | null;
   userId?: string;
   onUploadPendingChange: (key: string, pending: boolean) => void;
+  showUploads?: boolean;
 }
 
 function asItems(value: unknown): Record<string, unknown>[] {
@@ -121,6 +123,7 @@ function ContractDniUploadControl({
   userId,
   onValue,
   onPendingChange,
+  error: fieldError,
 }: {
   definition: ContractDniUploadDefinition;
   collection: 'inquilinos' | 'garantes';
@@ -131,6 +134,7 @@ function ContractDniUploadControl({
   userId?: string;
   onValue: (value: ContractDniImageReference | undefined) => void;
   onPendingChange: (pending: boolean) => void;
+  error?: string;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,11 +145,11 @@ function ContractDniUploadControl({
     if (!file) return;
     setError(null);
     if (!ACCEPTED_DNI_TYPES.includes(file.type)) {
-      setError('Seleccioná una imagen JPG, PNG, WEBP, GIF, HEIC o HEIF.');
+      setError('Seleccioná un archivo JPG, PNG, WEBP, GIF, HEIC, HEIF o PDF.');
       return;
     }
     if (file.size <= 0 || file.size > MAX_DNI_IMAGE_BYTES) {
-      setError('La imagen debe pesar hasta 10 MB.');
+      setError('El archivo debe pesar hasta 10 MB.');
       return;
     }
 
@@ -193,10 +197,24 @@ function ContractDniUploadControl({
           void selectFile(event.target.files?.[0]);
           event.currentTarget.value = '';
         }}
-        className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300"
+        className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
       />
+      <p className="mt-2 text-xs text-slate-500">
+        Subir DNI — {definition.slot === 'front' ? 'Frontal' : 'Dorso'} (ej. 12.345.678) · Obligatorio · JPG, PNG o PDF · Máximo 10 MB
+      </p>
       <p className="mt-2 text-xs text-slate-500" role="status">
         {pending ? 'Subiendo…' : reference ? `Cargado: ${reference.originalName}` : 'Sin imagen cargada'}
+      {reference && !pending && (reference.downloadUrl ?? reference.viewUrl) && (
+        <a
+          href={reference.downloadUrl ?? reference.viewUrl}
+          download={reference.originalName}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-flex text-xs text-cyan-400 hover:text-cyan-300"
+        >
+          Descargar archivo
+        </a>
+      )}
       </p>
       {reference && !pending && (
         <button
@@ -204,9 +222,10 @@ function ContractDniUploadControl({
           onClick={() => onValue(undefined)}
           className="mt-2 text-xs text-red-400 hover:text-red-300"
         >
-          Quitar imagen
+          Eliminar imagen
         </button>
       )}
+      {fieldError && <p className="mt-2 text-xs text-red-400" role="alert">{fieldError}</p>}
       {error && <p className="mt-2 text-xs text-red-400" role="alert">{error}</p>}
     </div>
   );
@@ -219,6 +238,7 @@ export function ContractRepeatableSection({
   token,
   userId,
   onUploadPendingChange,
+  showUploads = true,
 }: ContractRepeatableSectionProps) {
   const repeatable = section.repeatable;
   const watched = useWatch({ control: form.control, name: repeatable?.name ?? '__invalid' });
@@ -260,7 +280,7 @@ export function ContractRepeatableSection({
                   size="sm"
                   onClick={() => updateItems(items.filter((_, itemIndex) => itemIndex !== index))}
                 >
-                  Quitar
+                  Eliminar
                 </Button>
               )}
             </div>
@@ -275,7 +295,11 @@ export function ContractRepeatableSection({
                 />
               ))}
             </div>
-            {section.subsections?.map((subsection) => (
+            {section.subsections && (
+              <fieldset className="mt-5 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-4">
+                <legend className="px-1 text-sm font-semibold text-cyan-100">Garantías</legend>
+                <div className="mt-1">
+                  {section.subsections.map((subsection) => (
               <section
                 key={subsection.title}
                 className="mt-5 rounded-xl border border-white/[0.08] bg-black/10 p-4"
@@ -303,7 +327,7 @@ export function ContractRepeatableSection({
                     />
                   ))}
                 </div>
-                {(subsection.fileReceivers ?? []).map((receiver) => {
+                {showUploads && (subsection.fileReceivers ?? []).map((receiver) => {
                   const fieldPath = `${repeatable.name}.${index}.${receiver.name}`;
                   return (
                     <ContractFileReceiver
@@ -329,6 +353,9 @@ export function ContractRepeatableSection({
                 })}
               </section>
             ))}
+                </div>
+              </fieldset>
+            )}
             {(() => {
               const subsectionError = nestedFieldError(
                 form.formState.errors,
@@ -355,25 +382,36 @@ export function ContractRepeatableSection({
                 </p>
               ) : null;
             })()}
-            <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
-              {(section.uploads ?? []).map((upload) => {
-                const fieldPath = `${repeatable.name}.${index}.${upload.name}`;
-                return (
-                  <ContractDniUploadControl
-                    key={upload.name}
-                    definition={upload}
-                    collection={repeatable.name}
-                    itemIndex={index}
-                    value={item[upload.name]}
-                    entryId={entryId}
-                    token={token}
-                    userId={userId}
-                    onValue={(next) => form.setValue(fieldPath, next, { shouldDirty: true })}
-                    onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
-                  />
-                );
-              })}
-            </div>
+            {showUploads && (
+              <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
+                {(section.uploads ?? []).map((upload) => {
+                  const fieldPath = `${repeatable.name}.${index}.${upload.name}`;
+                  return (
+                    <ContractDniUploadControl
+                      key={upload.name}
+                      definition={upload}
+                      collection={repeatable.name}
+                      itemIndex={index}
+                      value={item[upload.name]}
+                      entryId={entryId}
+                      token={token}
+                      userId={userId}
+                      error={nestedFieldError(
+                        form.formState.errors,
+                        repeatable.name,
+                        index,
+                        upload.name,
+                      )?.message?.toString()}
+                      onValue={(next) => {
+                        form.clearErrors(fieldPath);
+                        form.setValue(fieldPath, next, { shouldDirty: true });
+                      }}
+                      onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </div>

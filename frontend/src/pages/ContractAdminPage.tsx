@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractInspectionDetails } from '../features/contracts/components/ContractInspectionDetails.tsx';
+import { ContractAdminRoleEditForm } from '../features/contracts/components/ContractAdminRoleEditForm.tsx';
+import {
+  fetchAdminSession,
+  getGoogleLoginUrl,
+} from '../features/contracts/services/adminAuthApi.ts';
 import {
   archiveContractEntry,
   fetchContractAdminEntry,
   listContractEntries,
   regenerateContractToken,
 } from '../features/contracts/services/contractApi.ts';
+import { contractAdminPath } from '../features/contracts/services/contractIdentity.ts';
 import {
   getContractEntryWaitingStatus,
   type ContractRole,
@@ -24,21 +30,31 @@ function formatDate(value: string): string {
 
 export function ContractAdminPage() {
   const { agent } = useAgent();
-  const userId = agent?.agent_user_id ?? '';
+  const { entryId: routeEntryId } = useParams<{ entryId?: string }>();
+  const sessionQuery = useQuery({
+    queryKey: ['contract-admin-session'],
+    queryFn: fetchAdminSession,
+    retry: false,
+  });
+  const userId = sessionQuery.data?.user.id
+    ?? (import.meta.env.DEV ? agent?.agent_user_id : undefined)
+    ?? '';
+  const hasAdminIdentity = Boolean(userId || sessionQuery.data);
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedId = routeEntryId ?? null;
   const [regeneratedUrl, setRegeneratedUrl] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'complete' | 'archived'>('all');
+  const [editingRole, setEditingRole] = useState<ContractRole | null>(null);
   const entriesQuery = useQuery({
     queryKey: ['contract-admin-entries', userId],
     queryFn: () => listContractEntries(userId),
-    enabled: Boolean(userId),
+    enabled: hasAdminIdentity,
     retry: false,
   });
   const detailQuery = useQuery({
     queryKey: ['contract-admin-entry', selectedId, userId],
     queryFn: () => fetchContractAdminEntry(selectedId as string, userId),
-    enabled: Boolean(selectedId && userId),
+    enabled: Boolean(selectedId && hasAdminIdentity),
     retry: false,
   });
   const archiveMutation = useMutation({
@@ -60,11 +76,14 @@ export function ContractAdminPage() {
     (entry) => statusFilter === 'all' || entry.status === statusFilter,
   ) ?? [];
 
-  if (!userId) {
+  if (!hasAdminIdentity) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
         <AlertInline variant="warning" title="Perfil requerido">
-          Configurá tu agente desde la pantalla de inicio antes de abrir la administración.
+          Iniciá sesión con Google para abrir la administración.{' '}
+          <a href={getGoogleLoginUrl()} className="font-medium underline hover:text-white">
+            Iniciar sesión con Google
+          </a>
         </AlertInline>
       </main>
     );
@@ -117,22 +136,24 @@ export function ContractAdminPage() {
               ) : (
                 <div className="divide-y divide-white/[0.06]">
                   {filteredEntries.map((entry) => (
-                    <button
+                    <Link
                       key={entry.entryId}
-                      type="button"
-                      onClick={() => { setSelectedId(entry.entryId); setRegeneratedUrl(null); }}
-                      aria-pressed={selectedId === entry.entryId}
+                      to={contractAdminPath(entry.entryId)}
+                      onClick={() => { setEditingRole(null); setRegeneratedUrl(null); }}
+                      aria-current={selectedId === entry.entryId ? 'page' : undefined}
                       className={`grid w-full gap-3 px-5 py-4 text-left transition-colors sm:grid-cols-[9rem_1fr_auto] ${
                         selectedId === entry.entryId ? 'bg-indigo-500/10' : 'hover:bg-white/[0.03]'
                       }`}
                     >
-                      <span className="font-mono text-sm text-slate-200">{entry.entryId.slice(0, 8)}</span>
+                      <span>
+                        <span className="block text-sm font-medium text-slate-200">{entry.direccion || "Sin dirección"}</span>
+                      </span>
                       <span>
                         <span className="block text-sm text-slate-300">{getContractEntryWaitingStatus(entry)}</span>
                         <span className="mt-1 block text-xs text-slate-600">{entry.createdBy}</span>
                       </span>
                       <time className="text-xs text-slate-500" dateTime={entry.createdAt}>{formatDate(entry.createdAt)}</time>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -147,7 +168,9 @@ export function ContractAdminPage() {
               {detailQuery.data && (
                 <div>
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="font-mono text-sm text-slate-100">{detailQuery.data.entry.entryId}</h2>
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-100">{detailQuery.data.entry.direccion || "Sin dirección"}</h2>
+                      </div>
                     <span className="text-xs text-cyan-400">
                       {getContractEntryWaitingStatus(detailQuery.data.entry)}
                     </span>
@@ -207,6 +230,50 @@ export function ContractAdminPage() {
                         No se pudo completar la acción. Intentá nuevamente.
                       </AlertInline>
                     </div>
+                  )}
+
+                  {detailQuery.data.roleSchemas && (
+                    <div className="mt-6 border-t border-white/[0.07] pt-5">
+                      <h3 className="text-sm font-semibold text-slate-200">Editar datos enviados</h3>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {(["user", "client"] as const).map((role) => {
+                          const hasSubmission = role === "user"
+                            ? Boolean(detailQuery.data.userSubmission)
+                            : Boolean(detailQuery.data.clientSubmission);
+                          if (!hasSubmission) return null;
+                          return (
+                            <Button
+                              key={role}
+                              type="button"
+                              variant={editingRole === role ? "primary" : "secondary"}
+                              onClick={() => setEditingRole(role)}
+                            >
+                              Editar formulario del {role === "user" ? "usuario" : "cliente"}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {editingRole && detailQuery.data.roleSchemas?.[editingRole] && (
+                    <ContractAdminRoleEditForm
+                      entryId={detailQuery.data.entry.entryId}
+                      role={editingRole}
+                      schema={detailQuery.data.roleSchemas[editingRole]}
+                      values={(editingRole === "user"
+                        ? detailQuery.data.userSubmission
+                        : detailQuery.data.clientSubmission) ?? {}}
+                      userId={userId}
+                      onCancel={() => setEditingRole(null)}
+                      onSaved={() => {
+                        setEditingRole(null);
+                        void queryClient.invalidateQueries({ queryKey: ["contract-admin-entries"] });
+                        void queryClient.invalidateQueries({
+                          queryKey: ["contract-admin-entry", selectedId, userId],
+                        });
+                      }}
+                    />
                   )}
 
                   <ContractInspectionDetails inspection={detailQuery.data.inspection} />

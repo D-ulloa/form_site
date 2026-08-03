@@ -68,6 +68,18 @@ function hasMeaningfulValue(value: unknown): boolean {
   return value !== undefined && value !== null;
 }
 
+function dniUploadsAreRequired(
+  environment: NodeJS.ProcessEnv,
+  entry: ContractEntryRecord,
+): boolean {
+  // Migrated entries always have the SPEC-16 human identifier. Treat that as
+  // the durable marker that the SPEC-17 policy is active; the explicit switch
+  // also supports staged rollouts and production enforces it unconditionally.
+  return environment.CONTRACT_DNI_UPLOADS_REQUIRED === 'true'
+    || environment.NODE_ENV === 'production'
+    || entry.direccion !== undefined && entry.direccion !== null;
+}
+
 function validateDniReference(
   raw: unknown,
   definition: ContractDniUploadDefinition,
@@ -101,7 +113,11 @@ function validateDniReference(
   );
 
   if (!CONTRACT_DNI_IMAGE_MIME_TYPES.has(value.mimeType)) {
-    errors.push(issue(context.path, 'invalid_type', `${definition.label} must be an image file.`));
+    errors.push(issue(
+      context.path,
+      'invalid_type',
+      `${definition.label} solo acepta JPG, PNG, WEBP, GIF, HEIC, HEIF o PDF.`,
+    ));
   }
   if (value.sizeBytes > getContractDniMaxImageBytes(context.environment)) {
     errors.push(issue(context.path, 'max', `${definition.label} exceeds the configured image limit.`));
@@ -266,8 +282,14 @@ function validateRepeatedSection(
     for (const upload of section.uploads ?? []) {
       const rawUpload = item[upload.name];
       if (rawUpload === undefined || rawUpload === null) {
-        if (upload.required) {
-          errors.push(issue(`${itemPath}.${upload.name}`, 'required', `${upload.label} is required.`));
+        if (upload.required && dniUploadsAreRequired(environment, entry)) {
+          errors.push(issue(
+            `${itemPath}.${upload.name}`,
+            'required',
+            upload.slot === 'front'
+              ? 'Se requiere la imagen frontal del DNI.'
+              : 'Se requiere la imagen del dorso del DNI.',
+          ));
         }
         continue;
       }

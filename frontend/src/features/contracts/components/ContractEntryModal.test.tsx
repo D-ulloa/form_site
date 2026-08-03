@@ -103,7 +103,7 @@ describe('SPEC-12 contract generation actions', () => {
       name: 'Administrar contratos',
     })).toBeTruthy();
     const createButton = screen.getByRole('button', {
-      name: 'Generar nueva entrada para contrato',
+      name: 'Generar nuevo contrato de alquiler',
     });
 
     fireEvent.click(createButton);
@@ -122,7 +122,7 @@ describe('SPEC-12 contract generation actions', () => {
   it('shows only the definitive Spanish actions and removes technical copy', async () => {
     renderModal();
     fireEvent.click(screen.getByRole('button', {
-      name: 'Generar nueva entrada para contrato',
+      name: 'Generar nuevo contrato de alquiler',
     }));
 
     expect(await screen.findByText('Esperando ambos formularios')).toBeTruthy();

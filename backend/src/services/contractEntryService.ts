@@ -23,6 +23,8 @@ import {
 
 export interface ContractEntryLinks {
   readonly entryId: string;
+  readonly direccion: string;
+  readonly adminUrl: string;
   readonly userUrl: string;
   readonly clientUrl: string;
   readonly createdAt: string;
@@ -77,10 +79,15 @@ function buildRoleUrl(
   return url.toString();
 }
 
+function buildAdminUrl(baseUrl: string, entryId: string): string {
+  return new URL(`/contracts/admin/${encodeURIComponent(entryId)}`, `${baseUrl}/`).toString();
+}
+
 export function toContractEntrySummary(entry: ContractEntryRecord): ContractEntrySummary {
   return {
     entryId: entry.id,
     schemaId: entry.schemaId,
+    direccion: entry.direccion ?? null,
     createdBy: entry.createdBy,
     createdAt: entry.createdAt,
     userFilled: entry.userFilled,
@@ -97,6 +104,7 @@ export async function createContractEntry(
     readonly schemaId: string;
     readonly createdBy: string;
     readonly publicBaseUrl: string;
+    readonly direccion?: string;
   },
   repository: ContractEntryRepository,
   environment: NodeJS.ProcessEnv = process.env,
@@ -114,10 +122,12 @@ export async function createContractEntry(
   const entryId = generateId();
   const userToken = generateToken();
   const clientToken = generateToken();
+  const direccion = input.direccion?.trim() || 'Sin dirección';
 
   await repository.createEntry({
     id: entryId,
     schemaId: input.schemaId,
+    direccion,
     createdBy: input.createdBy,
     createdAt,
     userTokenHash: hashContractAccessToken(userToken, environment),
@@ -127,6 +137,8 @@ export async function createContractEntry(
   const baseUrl = normalizeBaseUrl(input.publicBaseUrl);
   return {
     entryId,
+    direccion,
+    adminUrl: buildAdminUrl(baseUrl, entryId),
     userUrl: buildRoleUrl(baseUrl, entryId, 'user', userToken),
     clientUrl: buildRoleUrl(baseUrl, entryId, 'client', clientToken),
     createdAt,
@@ -191,6 +203,7 @@ export async function submitContractEntryRole(
     readonly authorizedTokenHash: string | null;
     readonly fields: Readonly<Record<string, unknown>>;
     readonly metadata: ContractSubmissionMetadata;
+    readonly mode?: "create" | "update";
   },
   repository: ContractEntryRepository,
   dependencies: {
@@ -223,7 +236,7 @@ export async function submitContractEntryRole(
   }
 
   const submissionId = (dependencies.generateSubmissionId ?? randomUUID)();
-  const entry = await repository.saveRoleSubmission({
+  const submissionInput = {
     entryId: input.entry.id,
     authorizedTokenHash: input.authorizedTokenHash,
     role: input.role,
@@ -231,7 +244,10 @@ export async function submitContractEntryRole(
     metadata: input.metadata,
     submittedAt: input.metadata.receivedAt,
     submissionId,
-  });
+  };
+  const entry = input.mode === "update" && repository.updateRoleSubmission
+    ? await repository.updateRoleSubmission(submissionInput)
+    : await repository.saveRoleSubmission(submissionInput);
 
   return {
     submissionId,

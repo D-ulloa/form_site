@@ -7,7 +7,7 @@ Status: 2026-07-29.
 - `/` — action selection page.
 - `/properties/new` — new property form page.
 - `/properties/success/:submissionId` — result page for the submission.
-- Contract Generation creates an entry card from `/`; hosted forms use `/contracts/:entryId/user` and `/contracts/:entryId/client`, and administration uses `/contracts/admin`.
+- Contract Generation creates an entry card from `/`; hosted forms use `/contracts/:entryId/user` and `/contracts/:entryId/client`, and each administration link uses the stable `/contracts/admin/:entryId` path.
 
 The main workflow is:
 
@@ -27,7 +27,7 @@ The Contract Generation workflow is:
 6. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
 7. Evidence selection does not upload in the background. On client `Guardar`, the form locks, the browser requests signed evidence upload URLs, uploads the files to private storage, and submits their stable references with the validated client fields. A failed final response retains those references for retry and refreshes server state to detect an already-committed submission.
 8. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
-9. Configured administrators use `/contracts/admin` to inspect schema-ordered submissions and associated media, archive entries, or regenerate links.
+9. Administrators sign in with the Google allowlist from the main page, then use `/contracts/admin/:entryId` links to inspect schema-ordered submissions and associated media, archive entries, or regenerate role links.
 
 ## Backend endpoints
 
@@ -41,6 +41,8 @@ The Contract Generation workflow is:
 - `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and database-backed, ordered inspection with short-lived media links.
 - `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
+- `GET /api/auth/google` and `GET /api/auth/google/callback` — Google OAuth administrator login; the backend stores only a signed, HTTP-only session cookie.
+- `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the administrator session.
 
 Legacy SPEC-09 compatibility endpoints:
 

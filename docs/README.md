@@ -39,6 +39,7 @@ The top-level files are intentionally minimized in favor of numbered folders tha
 - `docs/12-SPEC-contract-generation-frontend-focused-en.md` — implemented Spanish-only contract UI, Propietario presentation, compact actions, and conditional guarantor groups.
 - `docs/13-SPEC-contract-generation-reworked.md` — manual entry creation, Contrato subdivisions, and ordered database-backed administrator inspection with media.
 - `docs/14-SPEC-contract-generation-reworked.md` — implemented per-guarantor salary-receipt/property-guarantee supporting files with passive selection, private storage, and subsection-grouped administrator views.
+- `docs/17-SPEC-contract-generation-reworked.md` — implemented stable administration links, Argentinian placeholders, Google OAuth administrator login, and required DNI uploads.
 - `docs/09-SPEC-contract-generation.md` — superseded Google Forms/Sheets workflow retained for history.
 
 ## How to use this folder
