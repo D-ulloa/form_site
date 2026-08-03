@@ -1,4 +1,4 @@
-export type ContractFieldType =
+﻿export type ContractFieldType =
   | 'string'
   | 'email'
   | 'number'
@@ -173,7 +173,7 @@ export interface MappedContractSheetRow {
 }
 
 export type ContractRole = 'user' | 'client';
-export type ContractEntryStatus = 'open' | 'complete' | 'archived';
+export type ContractEntryStatus = 'open' | 'complete' | 'archived' | 'generar_contrato';
 
 export interface ContractRoleSchema {
   readonly schemaId: string;
@@ -290,3 +290,4 @@ export interface ContractAdminInspection {
   readonly hasSubmissions: boolean;
   readonly submissions: readonly ContractAdminInspectionSubmission[];
 }
+

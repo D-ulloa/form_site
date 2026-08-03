@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+﻿import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import {
   ContractSchemaNotFoundError,
@@ -77,6 +77,7 @@ import { getContractGoogleOAuthSession } from '../services/contractGoogleOAuth.j
 
 const EntryIdSchema = z.string().uuid();
 const RoleSchema = z.enum(['user', 'client']);
+const EntryStatusSchema = z.enum(['open', 'complete', 'archived', 'generar_contrato']);
 const CreateEntryBodySchema = z.object({
   schemaId: z.string().trim().min(1).max(128).default(RENT_CONTRACT_SCHEMA_ID),
   createdBy: z.string().trim().min(1).max(256).optional(),
@@ -84,7 +85,7 @@ const CreateEntryBodySchema = z.object({
   direccion: z.string().trim().min(1).max(256).optional(),
 }).strict().transform((value) => ({
   ...value,
-  direccion: value.Direccion ?? value.direccion ?? "Sin dirección",
+  direccion: value.Direccion ?? value.direccion ?? "Sin direcciÃ³n",
 }));
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
@@ -492,6 +493,19 @@ export function createContractEntriesRouter(
   router.patch('/admin/entries/:entryId/submissions/:role', updateAdminRoleSubmission);
   router.put('/admin/entries/:entryId/submissions/:role', updateAdminRoleSubmission);
 
+  router.post('/admin/entries/:entryId/status', async (req, res) => {
+    setPrivateHeaders(res);
+    try {
+      const principal = authenticate(req, dependencies.environment);
+      authorizeContractAdmin(principal, dependencies.environment);
+      const entryId = EntryIdSchema.parse(req.params.entryId);
+      const body = z.object({ status: EntryStatusSchema }).parse(req.body);
+      const entry = await dependencies.repository.updateStatus!(entryId, body.status);
+      res.status(200).json({ entry: toContractEntrySummary(entry) });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
   router.post('/admin/entries/:entryId/archive', async (req, res) => {
     setPrivateHeaders(res);
     try {
@@ -680,3 +694,5 @@ export function createContractEntriesRouter(
 }
 
 export default createContractEntriesRouter();
+
+

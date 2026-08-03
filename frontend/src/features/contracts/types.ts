@@ -1,4 +1,4 @@
-export type ContractFieldType =
+﻿export type ContractFieldType =
   | 'string'
   | 'email'
   | 'number'
@@ -403,7 +403,7 @@ export function getMissingContractEvidence(
 }
 
 export type ContractRole = 'user' | 'client';
-export type ContractEntryStatus = 'open' | 'complete' | 'archived';
+export type ContractEntryStatus = 'open' | 'complete' | 'archived' | 'generar_contrato';
 
 export interface ContractEntrySummary {
   entryId: string;
@@ -519,7 +519,9 @@ export interface ContractEntryInspection {
 export function getContractEntryWaitingStatus(entry: ContractEntrySummary): string {
   if (entry.status === 'archived') return 'Archivado';
   if (entry.status === 'complete') return 'Completo';
+  if (entry.status === 'generar_contrato') return 'Generar contrato';
   if (entry.userFilled) return 'Esperando al cliente';
-  if (entry.clientFilled) return 'Esperando la información del contrato';
+  if (entry.clientFilled) return 'Esperando la informaciÃ³n del contrato';
   return 'Esperando ambos formularios';
 }
+
