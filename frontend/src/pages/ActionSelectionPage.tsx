@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button.tsx';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
 import { useAgent, type AgentData } from '../app/contexts/AgentContext.tsx';
 import { ContractEntryModal } from '../features/contracts/components/ContractEntryModal.tsx';
+import {
+  fetchAdminSession,
+  getGoogleLoginUrl,
+  logoutAdmin,
+  type AdminSession,
+} from '../features/contracts/services/adminAuthApi.ts';
 
 type PendingAction = 'property' | 'contract' | null;
 
@@ -12,10 +18,18 @@ export function ActionSelectionPage() {
   const { agent, isConfigured } = useAgent();
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
-  const [contractUserId, setContractUserId] = useState('');
+  const [contractUserId, setContractUserId] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
+  const [loginMessage, setLoginMessage] = useState<string | null>(null);
 
-  const runAction = (action: Exclude<PendingAction, null>, userId: string) => {
+  useEffect(() => {
+    void fetchAdminSession()
+      .then(setAdminSession)
+      .catch(() => setAdminSession(null));
+  }, []);
+
+  const runAction = (action: Exclude<PendingAction, null>, userId?: string) => {
     if (action === 'property') {
       navigate('/properties/new');
       return;
@@ -26,13 +40,18 @@ export function ActionSelectionPage() {
   };
 
   const handleAction = (action: Exclude<PendingAction, null>) => {
-    if (!isConfigured || !agent) {
+    if (action === 'property' && (!isConfigured || !agent)) {
       setPendingAction(action);
       setShowAgentModal(true);
       return;
     }
 
-    runAction(action, agent.agent_user_id);
+    if (action === 'contract' && !adminSession) {
+      setLoginMessage('Iniciá sesión con Google para administrar contratos.');
+      return;
+    }
+
+    runAction(action, adminSession?.user.id);
   };
 
   const handleAgentSaved = (savedAgent: AgentData) => {
@@ -69,7 +88,32 @@ export function ActionSelectionPage() {
           >
             {isConfigured ? agent!.agent_name : 'Configurar agente'}
           </Button>
+          {adminSession ? (
+            <button
+              type="button"
+              className="text-xs text-slate-400 hover:text-white"
+              onClick={() => { void logoutAdmin().then(() => setAdminSession(null)); }}
+            >
+              {adminSession.user.email} · Cerrar sesión
+            </button>
+          ) : (
+            <a
+              href={getGoogleLoginUrl()}
+              className="rounded-lg border border-cyan-400/30 px-3 py-2 text-xs font-medium text-cyan-200 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
+            >
+              Iniciar sesión con Google
+            </a>
+          )}
         </div>
+
+        {loginMessage && (
+          <div className="mt-6 rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200" role="alert">
+            {loginMessage}{' '}
+            <a href={getGoogleLoginUrl()} className="font-medium underline hover:text-white">
+              Iniciar sesión con Google
+            </a>
+          </div>
+        )}
       </header>
 
       {/* Main content */}

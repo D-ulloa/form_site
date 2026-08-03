@@ -17,6 +17,7 @@ import { ContractFieldRenderer } from './ContractFieldRenderer.tsx';
 import { ContractFileReceiver } from './ContractFileReceiver.tsx';
 
 const ACCEPTED_DNI_TYPES = [
+  'application/pdf',
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -122,6 +123,7 @@ function ContractDniUploadControl({
   userId,
   onValue,
   onPendingChange,
+  error: fieldError,
 }: {
   definition: ContractDniUploadDefinition;
   collection: 'inquilinos' | 'garantes';
@@ -132,6 +134,7 @@ function ContractDniUploadControl({
   userId?: string;
   onValue: (value: ContractDniImageReference | undefined) => void;
   onPendingChange: (pending: boolean) => void;
+  error?: string;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,11 +145,11 @@ function ContractDniUploadControl({
     if (!file) return;
     setError(null);
     if (!ACCEPTED_DNI_TYPES.includes(file.type)) {
-      setError('Seleccioná una imagen JPG, PNG, WEBP, GIF, HEIC o HEIF.');
+      setError('Seleccioná un archivo JPG, PNG, WEBP, GIF, HEIC, HEIF o PDF.');
       return;
     }
     if (file.size <= 0 || file.size > MAX_DNI_IMAGE_BYTES) {
-      setError('La imagen debe pesar hasta 10 MB.');
+      setError('El archivo debe pesar hasta 10 MB.');
       return;
     }
 
@@ -196,6 +199,9 @@ function ContractDniUploadControl({
         }}
         className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
       />
+      <p className="mt-2 text-xs text-slate-500">
+        Subir DNI — {definition.slot === 'front' ? 'Frontal' : 'Dorso'} (ej. 12.345.678) · Obligatorio · JPG, PNG o PDF · Máximo 10 MB
+      </p>
       <p className="mt-2 text-xs text-slate-500" role="status">
         {pending ? 'Subiendo…' : reference ? `Cargado: ${reference.originalName}` : 'Sin imagen cargada'}
       {reference && !pending && (reference.downloadUrl ?? reference.viewUrl) && (
@@ -219,6 +225,7 @@ function ContractDniUploadControl({
           Eliminar imagen
         </button>
       )}
+      {fieldError && <p className="mt-2 text-xs text-red-400" role="alert">{fieldError}</p>}
       {error && <p className="mt-2 text-xs text-red-400" role="alert">{error}</p>}
     </div>
   );
@@ -389,7 +396,16 @@ export function ContractRepeatableSection({
                       entryId={entryId}
                       token={token}
                       userId={userId}
-                      onValue={(next) => form.setValue(fieldPath, next, { shouldDirty: true })}
+                      error={nestedFieldError(
+                        form.formState.errors,
+                        repeatable.name,
+                        index,
+                        upload.name,
+                      )?.message?.toString()}
+                      onValue={(next) => {
+                        form.clearErrors(fieldPath);
+                        form.setValue(fieldPath, next, { shouldDirty: true });
+                      }}
                       onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
                     />
                   );

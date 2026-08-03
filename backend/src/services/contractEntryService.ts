@@ -24,6 +24,7 @@ import {
 export interface ContractEntryLinks {
   readonly entryId: string;
   readonly direccion: string;
+  readonly adminUrl: string;
   readonly userUrl: string;
   readonly clientUrl: string;
   readonly createdAt: string;
@@ -76,6 +77,10 @@ function buildRoleUrl(
   const url = new URL(`/contracts/${encodeURIComponent(entryId)}/${role}`, `${baseUrl}/`);
   url.searchParams.set('token', token);
   return url.toString();
+}
+
+function buildAdminUrl(baseUrl: string, entryId: string): string {
+  return new URL(`/contracts/admin/${encodeURIComponent(entryId)}`, `${baseUrl}/`).toString();
 }
 
 export function toContractEntrySummary(entry: ContractEntryRecord): ContractEntrySummary {
@@ -133,6 +138,7 @@ export async function createContractEntry(
   return {
     entryId,
     direccion,
+    adminUrl: buildAdminUrl(baseUrl, entryId),
     userUrl: buildRoleUrl(baseUrl, entryId, 'user', userToken),
     clientUrl: buildRoleUrl(baseUrl, entryId, 'client', clientToken),
     createdAt,

@@ -14,6 +14,7 @@ export type ContractComputedField =
 export interface ContractFieldDefinition {
   readonly name: string;
   readonly label: string;
+  readonly placeholder?: string;
   readonly type: ContractFieldType;
   readonly required: boolean;
   readonly sensitive?: boolean;

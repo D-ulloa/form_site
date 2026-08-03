@@ -12,6 +12,7 @@ const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const CONTRACT_DNI_VIEW_TTL_SECONDS = 10 * 60;
 
 export const CONTRACT_DNI_IMAGE_MIME_TYPES = new Set([
+  'application/pdf',
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -96,7 +97,9 @@ function validateDescriptor(
     throw new ContractDniUploadValidationError('DNI upload originalName is required.');
   }
   if (!CONTRACT_DNI_IMAGE_MIME_TYPES.has(descriptor.mimeType)) {
-    throw new ContractDniUploadValidationError('DNI uploads accept image files only.');
+    throw new ContractDniUploadValidationError(
+      'DNI uploads accept JPG, PNG, WEBP, GIF, HEIC, HEIF, or PDF files.',
+    );
   }
   if (
     !Number.isSafeInteger(descriptor.sizeBytes) ||

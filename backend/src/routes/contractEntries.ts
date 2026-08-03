@@ -73,6 +73,7 @@ import {
   verifyContractAccessToken,
 } from '../services/contractTokenService.js';
 import { normalizeContractRequestIp } from '../services/contractRequestContext.js';
+import { getContractGoogleOAuthSession } from '../services/contractGoogleOAuth.js';
 
 const EntryIdSchema = z.string().uuid();
 const RoleSchema = z.enum(['user', 'client']);
@@ -95,7 +96,7 @@ const DniPresignBodySchema = z.object({
     slot: z.enum(['front', 'back']),
     originalName: z.string().trim().min(1).max(256),
     mimeType: z.string().refine((value) => CONTRACT_DNI_IMAGE_MIME_TYPES.has(value), {
-      message: 'DNI uploads accept image files only.',
+      message: 'DNI uploads accept JPG, PNG, WEBP, GIF, HEIC, HEIF, or PDF files.',
     }),
     sizeBytes: z.number().int().positive(),
   }).strict()).min(1).max(20),
@@ -190,10 +191,12 @@ function resolveDependencies(
 }
 
 function authenticate(req: Request, environment: NodeJS.ProcessEnv) {
+  const session = getContractGoogleOAuthSession(req, environment);
   return authenticateContractRequest({
     authorization: req.get('Authorization'),
     authenticatedUserId: req.get('X-Authenticated-User-Id'),
     developmentUserId: req.get('X-User-Id'),
+    ...(session ? { oauthUser: { userId: session.userId, email: session.email } } : {}),
   }, environment);
 }
 

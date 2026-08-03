@@ -13,6 +13,7 @@ function App() {
         <Route path="/properties/new" element={<NewPropertyPage />} />
         <Route path="/properties/success/:submissionId" element={<SubmissionSuccessPage />} />
         <Route path="/contracts/admin" element={<ContractAdminPage />} />
+        <Route path="/contracts/admin/:entryId" element={<ContractAdminPage />} />
         <Route path="/contracts/:entryId/:role" element={<ContractFormPage />} />
       </Routes>
     </BrowserRouter>

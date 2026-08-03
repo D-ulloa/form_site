@@ -41,6 +41,7 @@ const ContractFieldSchema = z
         'field name must be a flat alphanumeric identifier',
       ),
     label: z.string().min(1, 'field label is required'),
+    placeholder: z.string().min(1).optional(),
     type: z.enum(['string', 'email', 'number', 'date', 'boolean', 'select']),
     required: z.boolean(),
     sensitive: z.boolean().optional(),
@@ -146,6 +147,7 @@ const ContractEntrySummarySchema = z.object({
 const ContractEntryLinksSchema = z.object({
   entryId: z.string().uuid(),
   direccion: z.string().min(1).optional(),
+  adminUrl: z.string().url().optional(),
   userUrl: z.string().url(),
   clientUrl: z.string().url(),
   createdAt: z.string().min(1),
@@ -485,7 +487,7 @@ export async function fetchContractAudit(
 }
 
 export async function createContractEntry(
-  userId: string,
+  userId?: string,
   direccion?: string,
 ): Promise<ContractEntryLinks> {
   try {
@@ -657,7 +659,7 @@ export async function submitContractRole(
 }
 
 export async function listContractEntries(
-  userId: string,
+  userId?: string,
 ): Promise<ContractEntrySummary[]> {
   try {
     const response = await axios.get<unknown>(`${CONTRACTS_API_PATH}/admin/entries`, {
@@ -676,7 +678,7 @@ export async function listContractEntries(
 
 export async function fetchContractAdminEntry(
   entryId: string,
-  userId: string,
+  userId?: string,
 ): Promise<ContractAdminEntryDetail> {
   try {
     const response = await axios.get<unknown>(
@@ -697,7 +699,7 @@ export async function updateContractAdminSubmission(
   entryId: string,
   role: ContractRole,
   fields: Record<string, unknown>,
-  userId: string,
+  userId?: string,
 ): Promise<{ entry: ContractEntrySummary; submissionId: string; submittedAt: string }> {
   try {
     const response = await axios.patch<unknown>(
@@ -721,7 +723,7 @@ export async function updateContractAdminSubmission(
 
 export async function archiveContractEntry(
   entryId: string,
-  userId: string,
+  userId?: string,
 ): Promise<ContractEntrySummary> {
   try {
     const response = await axios.post<unknown>(
@@ -742,7 +744,7 @@ export async function archiveContractEntry(
 export async function regenerateContractToken(
   entryId: string,
   role: ContractRole,
-  userId: string,
+  userId?: string,
 ): Promise<{ role: ContractRole; url: string }> {
   try {
     const response = await axios.post<unknown>(

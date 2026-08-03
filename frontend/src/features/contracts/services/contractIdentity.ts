@@ -25,3 +25,7 @@ export function contractIdentityHeaders(
 
   return { 'X-User-Id': userId };
 }
+
+export function contractAdminPath(entryId: string): string {
+  return `/contracts/admin/${encodeURIComponent(entryId)}`;
+}

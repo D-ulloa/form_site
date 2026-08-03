@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import propertiesRouter from './routes/properties.js';
 import contractsRouter from './routes/contracts.js';
 import contractEntriesRouter from './routes/contractEntries.js';
+import contractGoogleOAuthRouter from './routes/contractGoogleOAuth.js';
 import { parseTrustProxyHops } from './utils/serverConfig.js';
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.get('/health', (_req, res) => {
 app.use('/properties', propertiesRouter);
 app.use('/api/contracts', contractEntriesRouter);
 app.use('/api/contracts', contractsRouter);
+app.use('/api/auth', contractGoogleOAuthRouter);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

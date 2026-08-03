@@ -17,6 +17,7 @@ export type ContractComputedField = 'formatted_start' | 'formatted_update';
 export interface ContractField {
   name: string;
   label: string;
+  placeholder?: string;
   type: ContractFieldType;
   required: boolean;
   sensitive?: boolean;
@@ -421,6 +422,7 @@ export interface ContractEntrySummary {
 export interface ContractEntryLinks {
   entryId: string;
   direccion?: string;
+  adminUrl?: string;
   userUrl: string;
   clientUrl: string;
   createdAt: string;

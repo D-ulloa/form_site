@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useForm, type FieldError, type FieldErrors } from 'react-hook-form';
+import { useForm, type FieldError } from 'react-hook-form';
 import { AlertInline } from '../../../components/ui/AlertInline.tsx';
 import { Button } from '../../../components/ui/Button.tsx';
 import { ContractFieldRenderer } from './ContractFieldRenderer.tsx';
@@ -20,7 +20,7 @@ interface ContractAdminRoleEditFormProps {
   role: ContractRole;
   schema: ContractRoleSchemaDefinition;
   values: ContractFormValues;
-  userId: string;
+  userId?: string;
   onCancel: () => void;
   onSaved: () => void;
 }
@@ -58,7 +58,6 @@ export function ContractAdminRoleEditForm({
     formState: { errors },
     handleSubmit,
     register,
-    reset,
   } = form;
   const save = useMutation({
     mutationFn: (fields: Record<string, unknown>) =>
@@ -66,12 +65,7 @@ export function ContractAdminRoleEditForm({
     onSuccess: onSaved,
   });
 
-  useEffect(() => {
-    reset(buildContractDefaultValues(schema, values));
-    setMessage(null);
-  }, [reset, schema, values]);
-
-  const invalidSubmit = (_errors: FieldErrors<ContractFormValues>) => {
+  const invalidSubmit = () => {
     setMessage('Revisá los campos marcados antes de guardar los cambios.');
   };
 

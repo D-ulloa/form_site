@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { AlertInline } from '../../../components/ui/AlertInline.tsx';
 import { Button } from '../../../components/ui/Button.tsx';
 import { createContractEntry } from '../services/contractApi.ts';
+import { contractAdminPath } from '../services/contractIdentity.ts';
 
 interface ContractEntryModalProps {
   open: boolean;
-  userId: string;
+  userId?: string;
   onClose: () => void;
 }
 
@@ -78,8 +79,11 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
   };
 
   const openContractAdministration = () => {
+    const adminPath = creation.data
+      ? contractAdminPath(creation.data.entryId)
+      : '/contracts/admin';
     close();
-    navigate('/contracts/admin');
+    navigate(adminPath);
   };
 
   if (!open) return null;
@@ -173,8 +177,8 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
                   <p className="text-xs font-medium uppercase tracking-wide text-emerald-400">
                     Esperando ambos formularios
                   </p>
-                  <p className="mt-2 font-mono text-base text-slate-100">
-                    {creation.data.entryId.slice(0, 8)}
+                  <p className="mt-2 text-base text-slate-100">
+                    {creation.data.direccion || 'Sin dirección'}
                   </p>
                 </div>
                 <time className="text-xs text-slate-500" dateTime={creation.data.createdAt}>

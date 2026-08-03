@@ -501,6 +501,50 @@ export function ContractFormPage() {
       setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
       return;
     }
+    const missingDniUploads: Array<{
+      collection: string;
+      itemIndex: number;
+      uploadName: string;
+      message: string;
+    }> = [];
+    schema.sections.forEach((section) => {
+      if (!section.repeatable) return;
+      const items = Array.isArray(values[section.repeatable.name])
+        ? values[section.repeatable.name] as unknown[]
+        : [];
+      items.forEach((item, itemIndex) => {
+        const itemValues = typeof item === 'object' && item !== null
+          ? item as Record<string, unknown>
+          : {};
+        (section.uploads ?? []).filter((upload) => upload.required).forEach((upload) => {
+          if (itemValues[upload.name] !== undefined && itemValues[upload.name] !== null) return;
+          missingDniUploads.push({
+            collection: section.repeatable!.name,
+            itemIndex,
+            uploadName: upload.name,
+            message: upload.slot === 'front'
+              ? 'Se requiere la imagen frontal del DNI.'
+              : 'Se requiere la imagen del dorso del DNI.',
+          });
+        });
+      });
+    });
+    if (missingDniUploads.length > 0) {
+      missingDniUploads.forEach((missing) => {
+        setError(`${missing.collection}.${missing.itemIndex}.${missing.uploadName}`, {
+          type: 'required',
+          message: missing.message,
+        });
+      });
+      const firstMissing = missingDniUploads[0];
+      if (firstMissing) {
+        document.getElementById(
+          `dni-${firstMissing.collection}-${firstMissing.itemIndex}-${firstMissing.uploadName.includes('back') ? 'back' : 'front'}`,
+        )?.focus();
+      }
+      setSubmitMessage('Completá las imágenes Frontal y Dorso del DNI antes de guardar.');
+      return;
+    }
     const hasIncompleteDniPair = schema.sections.some((section) => {
       if (!section.repeatable || (section.uploads?.length ?? 0) !== 2) return false;
       const rawItems = values[section.repeatable.name];
