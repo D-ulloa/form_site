@@ -80,4 +80,11 @@ For Contract Generation, the service account is required rather than a fallback.
 
 ## Supabase administrator authentication
 
-SPEC-19 uses Supabase Auth for email/password registration and login. The backend uses the server-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to create confirmed accounts, and the signup trigger records each main-page account in `public.contract_admin_users` with administrator access. The browser receives only a signed HttpOnly session cookie. Google credentials remain documented above only for the property workflow and retained Sheets integrations.
+SPEC-19 uses Supabase Auth for email/password registration and login, plus
+Google OAuth through the browser's public Supabase client. The backend uses the
+server-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to create confirmed
+password accounts and validate the Google access token. The signup trigger or
+the OAuth session handoff records each main-page account in
+`public.contract_admin_users` with administrator access. The browser receives
+the application's signed HttpOnly session cookie; the service-role key is never
+sent to the browser.

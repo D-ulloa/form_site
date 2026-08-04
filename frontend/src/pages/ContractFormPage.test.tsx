@@ -75,7 +75,7 @@ const contractSection = {
       label: 'Ajuste',
       type: 'select',
       required: false,
-      options: ['IPC', 'IPL'],
+      options: ['IPC', 'ICL'],
     },
     { name: 'submission_date', label: 'Fecha Actual', type: 'date', required: true },
   ],

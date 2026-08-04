@@ -8,6 +8,7 @@ import {
   fetchAdminSession,
   loginAdmin,
   registerAdmin,
+  startGoogleLogin,
 } from '../features/contracts/services/adminAuthApi.ts';
 import { ActionSelectionPage } from './ActionSelectionPage.tsx';
 import { AuthPage } from './AuthPage.tsx';
@@ -17,6 +18,7 @@ vi.mock('../features/contracts/services/adminAuthApi.ts', () => ({
   fetchAdminSession: vi.fn(),
   loginAdmin: vi.fn(),
   registerAdmin: vi.fn(),
+  startGoogleLogin: vi.fn(),
   logoutAdmin: vi.fn(),
 }));
 
@@ -42,6 +44,7 @@ beforeEach(() => {
     authenticated: true,
     user: { id: 'user-id', email: 'admin@example.test', name: 'Admin' },
   });
+  vi.mocked(startGoogleLogin).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -50,7 +53,7 @@ afterEach(() => {
 });
 
 describe('SPEC-19 authentication screens', () => {
-  it('renders an unnamed password-only login in the site palette', () => {
+  it('renders password login and Google OAuth in the site palette', () => {
     const { container } = renderAuth('/login');
 
     expect(screen.getByRole('heading', { name: 'Iniciá sesión' })).toBeTruthy();
@@ -58,7 +61,7 @@ describe('SPEC-19 authentication screens', () => {
     expect(screen.getByLabelText(/^Contraseña/u)).toBeTruthy();
     expect(screen.getByLabelText('Recordarme en este navegador')).toBeTruthy();
     expect(screen.queryByText(/OPEV-H/iu)).toBeNull();
-    expect(screen.queryByText(/Google/iu)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Continuar con Google' })).toBeTruthy();
     expect(container.querySelector('main')?.className).toContain('bg-[var(--bg-base)]');
   });
 
@@ -113,6 +116,15 @@ describe('SPEC-19 authentication screens', () => {
       });
     });
     expect(await screen.findByText('Sesión iniciada')).toBeTruthy();
+  });
+
+  it('starts Google OAuth from the login screen', async () => {
+    renderAuth('/login');
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
+
+    await waitFor(() => {
+      expect(startGoogleLogin).toHaveBeenCalledOnce();
+    });
   });
 });
 

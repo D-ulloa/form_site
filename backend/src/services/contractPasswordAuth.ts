@@ -23,6 +23,11 @@ export interface ContractPasswordCredentials {
   readonly rememberMe?: boolean;
 }
 
+export interface ContractGoogleAccessToken {
+  readonly accessToken: string;
+  readonly rememberMe?: boolean;
+}
+
 export type ContractPasswordSessionData = Omit<ContractPasswordSession, 'expiresAt'>;
 
 export class ContractPasswordAuthConfigurationError extends Error {
@@ -56,6 +61,8 @@ function getServiceClient(environment: NodeJS.ProcessEnv): SupabaseClient {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+type ContractAuthClientFactory = (environment: NodeJS.ProcessEnv) => SupabaseClient;
 
 function sessionSecret(environment: NodeJS.ProcessEnv): string {
   const secret = environment.CONTRACT_TOKEN_SECRET?.trim();
@@ -193,6 +200,17 @@ function normalizeName(value: unknown, email: string): string {
     : email;
 }
 
+function isGoogleUser(user: {
+  app_metadata?: Record<string, unknown>;
+  identities?: ReadonlyArray<{ provider?: string | null }> | null;
+}): boolean {
+  const provider = user.app_metadata?.provider;
+  const providers = user.app_metadata?.providers;
+  return provider === 'google'
+    || (Array.isArray(providers) && providers.includes('google'))
+    || Boolean(user.identities?.some((identity) => identity.provider === 'google'));
+}
+
 async function isAdminUser(client: SupabaseClient, userId: string): Promise<boolean> {
   const { data, error } = await client
     .from('contract_admin_users')
@@ -246,7 +264,10 @@ async function makeSession(
   return {
     userId: user.id,
     email,
-    name: normalizeName(user.user_metadata?.full_name, email),
+    name: normalizeName(
+      user.user_metadata?.full_name ?? user.user_metadata?.name,
+      email,
+    ),
     isAdmin: true,
   };
 }
@@ -284,9 +305,10 @@ export async function registerContractUser(
 export async function loginContractUser(
   credentials: ContractPasswordCredentials,
   environment: NodeJS.ProcessEnv = process.env,
+  clientFactory: ContractAuthClientFactory = getServiceClient,
 ): Promise<ContractPasswordSessionData> {
-  const client = getServiceClient(environment);
-  const { data, error } = await client.auth.signInWithPassword({
+  const authClient = clientFactory(environment);
+  const { data, error } = await authClient.auth.signInWithPassword({
     email: normalizeEmail(credentials.email),
     password: credentials.password,
   });
@@ -296,5 +318,40 @@ export async function loginContractUser(
       'El correo o la contraseña no son correctos.',
     );
   }
+  // signInWithPassword replaces the client's Authorization header with the
+  // user's JWT. Use a fresh service-role client for the administrator lookup,
+  // because RLS intentionally exposes no role rows to browser users.
+  return makeSession(clientFactory(environment), data.user);
+}
+
+/**
+ * Convert a verified Supabase Google session into the same signed application
+ * session used by password authentication. The access token is verified by
+ * Supabase Auth; it is never stored in the application cookie.
+ */
+export async function loginContractGoogleUser(
+  credentials: ContractGoogleAccessToken,
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<ContractPasswordSessionData> {
+  const accessToken = credentials.accessToken.trim();
+  if (!accessToken || accessToken.length > 16384) {
+    throw new ContractPasswordAuthError(
+      'invalid_credentials',
+      'No se pudo validar la cuenta de Google.',
+    );
+  }
+
+  const client = getServiceClient(environment);
+  const { data, error } = await client.auth.getUser(accessToken);
+  if (error || !data.user || !isGoogleUser(data.user)) {
+    throw new ContractPasswordAuthError(
+      'invalid_credentials',
+      'No se pudo validar la cuenta de Google.',
+    );
+  }
+
+  // OAuth-created users do not pass through the password registration route,
+  // so grant the same durable administrator access explicitly.
+  await ensureContractAdminUser(client, data.user.id);
   return makeSession(client, data.user);
 }

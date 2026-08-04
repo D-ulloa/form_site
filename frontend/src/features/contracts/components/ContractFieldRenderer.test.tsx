@@ -169,7 +169,7 @@ describe('ContractFieldRenderer accessibility', () => {
         label: 'Ajuste',
         type: 'select',
         required: false,
-        options: ['IPC', 'IPL'],
+        options: ['IPC', 'ICL'],
       }),
       makeField({
         name: 'contract_formatted_start',

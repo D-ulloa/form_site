@@ -9,6 +9,7 @@ import {
   CONTRACT_PASSWORD_SESSION_COOKIE,
   ContractPasswordAuthError,
   ensureContractAdminUser,
+  loginContractUser,
   type ContractPasswordCredentials,
   type ContractPasswordSessionData,
 } from '../src/services/contractPasswordAuth.js';
@@ -28,6 +29,10 @@ const SESSION: ContractPasswordSessionData = {
 function createApp(overrides: {
   register?: (credentials: ContractPasswordCredentials) => Promise<ContractPasswordSessionData>;
   login?: (credentials: ContractPasswordCredentials) => Promise<ContractPasswordSessionData>;
+  googleLogin?: (credentials: {
+    accessToken: string;
+    rememberMe?: boolean;
+  }) => Promise<ContractPasswordSessionData>;
 } = {}) {
   const app = express();
   app.use(express.json());
@@ -35,6 +40,7 @@ function createApp(overrides: {
     environment: ENVIRONMENT,
     register: async (credentials) => overrides.register?.(credentials) ?? SESSION,
     login: async (credentials) => overrides.login?.(credentials) ?? SESSION,
+    googleLogin: async (credentials) => overrides.googleLogin?.(credentials) ?? SESSION,
   }));
   return app;
 }
@@ -104,6 +110,101 @@ test('SPEC-19 remembered login persists the cookie and logout invalidates it', a
   const logout = await agent.post('/api/auth/logout').expect(204);
   assert.match(logout.headers['set-cookie']?.[0] ?? '', /Max-Age=0/u);
   await agent.get('/api/auth/session').expect(200, { authenticated: false });
+});
+
+test('password login performs the administrator lookup with a fresh service client', async () => {
+  const user = {
+    id: SESSION.userId,
+    email: SESSION.email,
+    user_metadata: { full_name: SESSION.name },
+  };
+  const authClient = {
+    auth: {
+      signInWithPassword: async () => ({ data: { user }, error: null }),
+    },
+  };
+  const adminClient = {
+    from(table: string) {
+      assert.equal(table, 'contract_admin_users');
+      return {
+        select(columns: string) {
+          assert.equal(columns, 'user_id');
+          return {
+            eq(column: string, userId: string) {
+              assert.equal(column, 'user_id');
+              assert.equal(userId, user.id);
+              return {
+                maybeSingle: async () => ({ data: { user_id: user.id }, error: null }),
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+  const clients = [authClient, adminClient];
+
+  const session = await loginContractUser(
+    { email: user.email, password: 'valid-password' },
+    ENVIRONMENT,
+    () => clients.shift() as never,
+  );
+
+  assert.deepEqual(session, SESSION);
+  assert.equal(clients.length, 0);
+});
+
+test('Google OAuth sessions use the same signed administrator cookie', async () => {
+  let received: { accessToken: string; rememberMe?: boolean } | undefined;
+  const agent = request.agent(createApp({
+    googleLogin: async (credentials) => {
+      received = credentials;
+      return SESSION;
+    },
+  }));
+
+  const login = await agent
+    .post('/api/auth/google/session')
+    .send({ accessToken: 'supabase-google-access-token', rememberMe: true })
+    .expect(200);
+
+  assert.deepEqual(received, {
+    accessToken: 'supabase-google-access-token',
+    rememberMe: true,
+  });
+  assert.deepEqual(login.body, {
+    authenticated: true,
+    user: {
+      id: SESSION.userId,
+      email: SESSION.email,
+      name: SESSION.name,
+    },
+  });
+  assert.match(login.headers['set-cookie']?.[0] ?? '', /Max-Age=2592000/u);
+  await agent.get('/api/auth/session').expect(200, {
+    authenticated: true,
+    user: { id: SESSION.userId, email: SESSION.email, name: SESSION.name },
+  });
+});
+
+test('Google OAuth sessions reject missing access tokens before calling Supabase', async () => {
+  let calls = 0;
+  const app = createApp({
+    googleLogin: async () => {
+      calls += 1;
+      return SESSION;
+    },
+  });
+
+  await request(app)
+    .post('/api/auth/google/session')
+    .send({ rememberMe: true })
+    .expect(400, {
+      error: 'INVALID_REQUEST',
+      message: 'No se pudo validar la cuenta de Google.',
+      retriable: false,
+    });
+  assert.equal(calls, 0);
 });
 
 test('SPEC-19 routes reject invalid input and map authentication failures', async () => {

@@ -7,6 +7,7 @@ import {
   fetchAdminSession,
   loginAdmin,
   registerAdmin,
+  startGoogleLogin,
   type AdminAuthError,
 } from '../features/contracts/services/adminAuthApi.ts';
 
@@ -39,6 +40,17 @@ function ProductMark() {
   );
 }
 
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.4-.18-2.05H12v3.88h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.22Z" />
+      <path fill="#34A853" d="M12 21.6c2.63 0 4.84-.87 6.45-2.35l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.6Z" />
+      <path fill="#FBBC05" d="M6.54 13.69A5.84 5.84 0 0 1 6.23 12c0-.59.1-1.16.31-1.69V7.78H3.3A9.6 9.6 0 0 0 2.25 12c0 1.53.37 2.97 1.05 4.22l3.24-2.53Z" />
+      <path fill="#EA4335" d="M12 6.28c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 3.36 14.63 2.4 12 2.4a9.74 9.74 0 0 0-8.7 5.38l3.24 2.53C7.31 8 9.46 6.28 12 6.28Z" />
+    </svg>
+  );
+}
+
 export function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate();
   const isRegister = mode === 'register';
@@ -49,8 +61,10 @@ export function AuthPage({ mode }: AuthPageProps) {
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [isGooglePending, setIsGooglePending] = useState(false);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -88,6 +102,23 @@ export function AuthPage({ mode }: AuthPageProps) {
       setError(authError.message || 'No se pudo completar la autenticación.');
     } finally {
       setIsPending(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    if (isRegister && !termsAccepted) {
+      setError('Aceptá crear una cuenta para continuar.');
+      return;
+    }
+    setIsGooglePending(true);
+    try {
+      await startGoogleLogin();
+    } catch (caughtError) {
+      const authError = caughtError as AdminAuthError;
+      setError(authError.message || 'No se pudo iniciar el acceso con Google.');
+    } finally {
+      setIsGooglePending(false);
     }
   };
 
@@ -213,13 +244,33 @@ export function AuthPage({ mode }: AuthPageProps) {
             <label className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-slate-400">
               <input
                 type="checkbox"
-                defaultChecked
+                checked={termsAccepted}
+                onChange={(event) => setTermsAccepted(event.target.checked)}
                 required
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 accent-indigo-500"
               />
               Acepto crear una cuenta para acceder a las herramientas de gestión.
             </label>
           )}
+
+          <div className="flex items-center gap-3 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-600">
+            <span className="h-px flex-1 bg-white/[0.08]" />
+            <span>o</span>
+            <span className="h-px flex-1 bg-white/[0.08]" />
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            loading={isGooglePending}
+            disabled={isPending}
+            onClick={() => { void handleGoogleSignIn(); }}
+            leftIcon={<GoogleMark />}
+            className="w-full"
+          >
+            Continuar con Google
+          </Button>
 
           <Button type="submit" size="lg" loading={isPending} className="w-full">
             {isRegister ? 'Registrarse' : 'Iniciar sesión'}

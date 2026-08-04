@@ -83,6 +83,26 @@ The frontend uses Vite and sets the API prefix in `frontend/src/features/propert
 
 No contract secret is configured in the frontend. The frontend sends same-origin credentials to the password-auth API. The property flow may still send its configured agent ID during local development; contract creation and administration use the Supabase session instead.
 
+Google authentication also requires these public Vite variables in
+`frontend/.env.local` (or the frontend deployment environment):
+
+- `VITE_SUPABASE_URL` — the linked Supabase project URL.
+- `VITE_SUPABASE_ANON_KEY` — the project's public anon/publishable key. Never use
+  `SUPABASE_SERVICE_ROLE_KEY` in a `VITE_*` variable.
+
+The Google button uses Supabase Auth's PKCE flow and returns to
+`/auth/callback`; the callback exchanges the Supabase session for the existing
+HttpOnly application cookie. Configure Google in Supabase Auth before using it:
+
+1. Enable Google under Authentication → Providers and enter the Google OAuth
+   client ID and secret.
+2. In Google Cloud, add
+   `https://<project-ref>.supabase.co/auth/v1/callback` as an authorized redirect
+   URI for that OAuth client.
+3. Add the app callback URL to Supabase Auth's allowed redirect URLs, for
+   example `http://localhost:5173/auth/callback` and
+   `https://<production-host>/auth/callback`.
+
 For an intentionally insecure hosted preview, set `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` on the frontend and `CONTRACT_ALLOW_INSECURE_AGENT_ID=true` on the backend. Both values are case-sensitive. The Vite variable is embedded at build time, so redeploy after changing it.
 
 ## Example

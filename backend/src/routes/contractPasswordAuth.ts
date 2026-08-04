@@ -3,11 +3,13 @@ import {
   clearContractPasswordSessionCookie,
   ContractPasswordAuthConfigurationError,
   ContractPasswordAuthError,
+  loginContractGoogleUser,
   getContractPasswordSession,
   loginContractUser,
   registerContractUser,
   serializeContractPasswordSessionCookie,
   type ContractPasswordCredentials,
+  type ContractGoogleAccessToken,
   type ContractPasswordSession,
   type ContractPasswordSessionData,
 } from '../services/contractPasswordAuth.js';
@@ -36,6 +38,16 @@ function authBody(body: unknown): ContractPasswordCredentials {
   };
 }
 
+function googleAuthBody(body: unknown): ContractGoogleAccessToken {
+  const value = typeof body === 'object' && body !== null
+    ? body as Record<string, unknown>
+    : {};
+  return {
+    accessToken: typeof value.accessToken === 'string' ? value.accessToken.trim() : '',
+    rememberMe: value.rememberMe === true,
+  };
+}
+
 function validateCredentials(
   credentials: ContractPasswordCredentials,
   registration: boolean,
@@ -57,6 +69,17 @@ function validateCredentials(
   if ((credentials.name?.length ?? 0) > 256) return 'El nombre es demasiado largo.';
   if ((credentials.company?.length ?? 0) > 256) return 'El nombre de la empresa es demasiado largo.';
   if ((credentials.role?.length ?? 0) > 256) return 'El cargo o rol es demasiado largo.';
+  return null;
+}
+
+function validateGoogleAccessToken(credentials: ContractGoogleAccessToken): string | null {
+  if (
+    !credentials.accessToken
+    || credentials.accessToken.length > 16384
+    || /[\u0000-\u001F\u007F]/u.test(credentials.accessToken)
+  ) {
+    return 'No se pudo validar la cuenta de Google.';
+  }
   return null;
 }
 
@@ -111,6 +134,10 @@ export interface ContractPasswordAuthRouterDependencies {
     credentials: ContractPasswordCredentials,
     environment: NodeJS.ProcessEnv,
   ) => Promise<ContractPasswordSessionData>;
+  readonly googleLogin: (
+    credentials: ContractGoogleAccessToken,
+    environment: NodeJS.ProcessEnv,
+  ) => Promise<ContractPasswordSessionData>;
   readonly getSession: (
     req: Request,
     environment: NodeJS.ProcessEnv,
@@ -126,6 +153,7 @@ function resolveDependencies(
     environment: overrides.environment ?? process.env,
     register: overrides.register ?? registerContractUser,
     login: overrides.login ?? loginContractUser,
+    googleLogin: overrides.googleLogin ?? loginContractGoogleUser,
     getSession: overrides.getSession ?? getContractPasswordSession,
     serializeSessionCookie:
       overrides.serializeSessionCookie ?? serializeContractPasswordSessionCookie,
@@ -185,6 +213,37 @@ export function createContractPasswordAuthRouter(
     }
     try {
       const session = await dependencies.login(
+        credentials,
+        dependencies.environment,
+      );
+      res.set(
+        'Set-Cookie',
+        dependencies.serializeSessionCookie(
+          session,
+          dependencies.environment,
+          credentials.rememberMe,
+        ),
+      );
+      res.status(200).json({ authenticated: true, user: publicUser(session) });
+    } catch (error) {
+      sendAuthError(res, error);
+    }
+  });
+
+  router.post('/google/session', async (req, res) => {
+    setPrivateHeaders(res);
+    const credentials = googleAuthBody(req.body);
+    const validationError = validateGoogleAccessToken(credentials);
+    if (validationError) {
+      res.status(400).json({
+        error: 'INVALID_REQUEST',
+        message: validationError,
+        retriable: false,
+      });
+      return;
+    }
+    try {
+      const session = await dependencies.googleLogin(
         credentials,
         dependencies.environment,
       );

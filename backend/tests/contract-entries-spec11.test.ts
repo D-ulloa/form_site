@@ -135,7 +135,7 @@ test('SPEC-11 role schema exposes repeatable client sections and revised contrac
   assert.equal(contractFields.some((field) => field.name === 'approve_contract'), false);
   assert.deepEqual(
     contractFields.find((field) => field.name === 'contract_selection')?.options,
-    ['IPC', 'IPL'],
+    ['IPC', 'ICL'],
   );
   assert.equal(contractFields.find((field) => field.name === 'contract_formatted_start')?.readOnly, true);
   assert.equal(contractFields.find((field) => field.name === 'contract_formatted_update')?.readOnly, true);
@@ -168,6 +168,14 @@ test('user submissions overwrite computed dates and reject approval or invalid A
     assert.equal(validation.fields.contract_formatted_start, '2026-07-31');
     assert.equal(validation.fields.contract_formatted_update, '2027-01-31');
   }
+
+  const iclValidation = validateContractRoleSubmissionFields({
+    entry: entry(),
+    role: 'user',
+    roleSchema,
+    fields: { ...validUserFields(), contract_selection: 'ICL' },
+  }, ENVIRONMENT);
+  assert.equal(iclValidation.success, true);
 
   for (const invalidFields of [
     { ...validUserFields(), approve_contract: 'Sí' },
