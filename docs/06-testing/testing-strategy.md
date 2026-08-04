@@ -26,7 +26,7 @@ The backend suite runs with `cd backend && npm test`. It covers:
 - SPEC-12 Spanish-only hosted-form UI, `Propietario` presentation, compact contract-generation actions, hidden role-schema panels, guarantor subsection rendering, and per-guarantor salary-receipt/property-guarantee validation in both the browser and backend.
 - SPEC-13 `Contrato` subdivision metadata, manual-only entry creation, immutable submission-row reads, schema-defined user/client inspection order, every partial/empty state, and validated short-lived DNI viewing URLs.
 - SPEC-14 per-guarantor file-receiver metadata, exact evidence MIME and configurable size limits, client-token-authorized/rate-limited evidence presigning, strict path and live Storage-metadata verification, duplicate-reference rejection, typed verification outages, two-files-per-receiver and one-file-per-guarantor rules, and subsection-grouped administrator signed views without storage-location leakage.
-- SPEC-17 stable `/contracts/admin/:entryId` links, `Direccion`-first presentation, Argentinian placeholders, Google OAuth session boundaries, and required Frontal/Dorso DNI validation including PDF acceptance.
+- SPEC-17 stable `/contracts/admin/:entryId` links, `Direccion`-first presentation, Argentinian placeholders, and required Frontal/Dorso DNI validation including PDF acceptance.
 - The retained SPEC-09 compatibility boundary, including:
 - Runtime contract configuration, public/private projection, malformed destination rejection, and strict service-account-only Google auth.
 - Strict request validation for unknown fields, no numeric coercion, email, impossible ISO dates, minimum limits, contract-type mismatch, and allowed `meta.origin` values.

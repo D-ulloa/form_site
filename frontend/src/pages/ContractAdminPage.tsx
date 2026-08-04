@@ -8,7 +8,6 @@ import { ContractInspectionDetails } from '../features/contracts/components/Cont
 import { ContractAdminRoleEditForm } from '../features/contracts/components/ContractAdminRoleEditForm.tsx';
 import {
   fetchAdminSession,
-  getGoogleLoginUrl,
 } from '../features/contracts/services/adminAuthApi.ts';
 import {
   archiveContractEntry,
@@ -30,16 +29,13 @@ function formatDate(value: string): string {
 }
 
 export function ContractAdminPage() {
-  const { agent } = useAgent();
   const { entryId: routeEntryId } = useParams<{ entryId?: string }>();
   const sessionQuery = useQuery({
     queryKey: ['contract-admin-session'],
     queryFn: fetchAdminSession,
     retry: false,
   });
-  const userId = sessionQuery.data?.user.id
-    ?? (import.meta.env.DEV ? agent?.agent_user_id : undefined)
-    ?? '';
+  const userId = sessionQuery.data?.user.id ?? '';
   const hasAdminIdentity = Boolean(userId || sessionQuery.data);
   const queryClient = useQueryClient();
   const navigate = useNavigate();

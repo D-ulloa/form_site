@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import propertiesRouter from './routes/properties.js';
 import contractsRouter from './routes/contracts.js';
 import contractEntriesRouter from './routes/contractEntries.js';
-import contractGoogleOAuthRouter from './routes/contractGoogleOAuth.js';
+import contractPasswordAuthRouter from './routes/contractPasswordAuth.js';
 import { parseTrustProxyHops } from './utils/serverConfig.js';
 
 dotenv.config();
@@ -18,7 +18,7 @@ if (trustProxyHops > 0) {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '256kb' }));
 
 // Strip Vercel's experimentalServices route prefix if present
@@ -37,7 +37,7 @@ app.get('/health', (_req, res) => {
 app.use('/properties', propertiesRouter);
 app.use('/api/contracts', contractEntriesRouter);
 app.use('/api/contracts', contractsRouter);
-app.use('/api/auth', contractGoogleOAuthRouter);
+app.use('/api/auth', contractPasswordAuthRouter);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

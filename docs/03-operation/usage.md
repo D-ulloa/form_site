@@ -41,8 +41,8 @@ The Contract Generation workflow is:
 - `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and database-backed, ordered inspection with short-lived media links.
 - `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
-- `GET /api/auth/google` and `GET /api/auth/google/callback` — Google OAuth administrator login; the backend stores only a signed, HTTP-only session cookie.
-- `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the administrator session.
+- `POST /api/auth/register` and `POST /api/auth/login` — Supabase email/password account creation and login; the backend stores only a signed, HTTP-only session cookie.
+- `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the password-auth session.
 
 Legacy SPEC-09 compatibility endpoints:
 

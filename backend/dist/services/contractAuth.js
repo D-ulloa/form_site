@@ -51,12 +51,23 @@ export function authenticateContractRequest(input, environment = process.env) {
     if (input.authorization !== undefined) {
         return authenticateBearer(input.authorization, environment);
     }
+    if (input.passwordSession !== undefined) {
+        return {
+            mode: 'supabase',
+            userId: parseUserIdentity(input.passwordSession.userId, 'Supabase user id'),
+            email: parseUserIdentity(input.passwordSession.email, 'Supabase email').toLowerCase(),
+            isAdmin: input.passwordSession.isAdmin,
+        };
+    }
     if (input.developmentUserId !== undefined) {
-        if (environment.NODE_ENV !== 'development') {
-            throw new ContractAuthenticationError('X-User-Id authentication is enabled only in development.');
+        const isDevelopment = environment.NODE_ENV === 'development';
+        const allowInsecureAgentId = environment.CONTRACT_ALLOW_INSECURE_AGENT_ID === 'true';
+        if (!isDevelopment && !allowInsecureAgentId) {
+            throw new ContractAuthenticationError('X-User-Id authentication is enabled only in development unless '
+                + 'CONTRACT_ALLOW_INSECURE_AGENT_ID=true.');
         }
         return {
-            mode: 'development',
+            mode: isDevelopment ? 'development' : 'insecure_agent',
             userId: parseUserIdentity(input.developmentUserId, 'X-User-Id'),
         };
     }
@@ -67,6 +78,29 @@ export function authorizeContractUserScope(principal, attributedUserId) {
         return;
     if (principal.userId !== attributedUserId) {
         throw new ContractAuthorizationError('The authenticated user does not match the contract owner.');
+    }
+}
+export function getContractPrincipalUserId(principal, attributedUserId) {
+    if (principal.mode !== 'api_key')
+        return principal.userId;
+    const normalized = attributedUserId?.trim();
+    if (!normalized || normalized.length > 256 || /[\u0000-\u001F\u007F]/u.test(normalized)) {
+        throw new ContractAuthenticationError('createdBy is required when using server API-key authentication.');
+    }
+    return normalized;
+}
+export function authorizeContractAdmin(principal, environment = process.env) {
+    if (principal.mode === 'api_key')
+        return;
+    if (principal.mode === 'supabase') {
+        if (principal.isAdmin)
+            return;
+        throw new ContractAuthorizationError('Contract administrator access is required.');
+    }
+    const admins = new Set((environment.CONTRACT_ADMIN_USER_IDS ?? '')
+        .split(',').map((value) => value.trim()).filter(Boolean));
+    if (!admins.has(principal.userId)) {
+        throw new ContractAuthorizationError('Contract administrator access is required.');
     }
 }
 //# sourceMappingURL=contractAuth.js.map
