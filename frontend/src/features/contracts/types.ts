@@ -521,7 +521,8 @@ export function getContractEntryWaitingStatus(entry: ContractEntrySummary): stri
   if (entry.status === 'complete') return 'Completo';
   if (entry.status === 'generar_contrato') return 'Generar contrato';
   if (entry.userFilled) return 'Esperando al cliente';
-  if (entry.clientFilled) return 'Esperando la informaciÃ³n del contrato';
+  if (entry.clientFilled) return 'Esperando la información del contrato';
   return 'Esperando ambos formularios';
 }
+
 

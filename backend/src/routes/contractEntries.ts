@@ -85,7 +85,7 @@ const CreateEntryBodySchema = z.object({
   direccion: z.string().trim().min(1).max(256).optional(),
 }).strict().transform((value) => ({
   ...value,
-  direccion: value.Direccion ?? value.direccion ?? "Sin direcciÃ³n",
+  direccion: value.Direccion ?? value.direccion ?? "Sin dirección",
 }));
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
@@ -694,5 +694,6 @@ export function createContractEntriesRouter(
 }
 
 export default createContractEntriesRouter();
+
 
 

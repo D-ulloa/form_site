@@ -46,6 +46,8 @@ export function ContractAdminPage() {
   const [regeneratedUrl, setRegeneratedUrl] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'complete' | 'archived' | 'generar_contrato'>('all');
   const [editingRole, setEditingRole] = useState<ContractRole | null>(null);
+  const [pendingGenerateId, setPendingGenerateId] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const entriesQuery = useQuery({
     queryKey: ['contract-admin-entries', userId],
     queryFn: () => listContractEntries(userId),
@@ -75,11 +77,22 @@ export function ContractAdminPage() {
 
   const generateMutation = useMutation({
     mutationFn: (entryId: string) => updateContractAdminEntryStatus(entryId, 'generar_contrato', userId),
+    onMutate: (entryId) => {
+      setPendingGenerateId(entryId);
+      setGenerateError(null);
+      return undefined;
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['contract-admin-entries'] });
       if (selectedId) {
         await queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId] });
       }
+    },
+    onError: () => {
+      setGenerateError('No se pudo marcar el contrato como "Generar contrato". Intentá nuevamente.');
+    },
+    onSettled: () => {
+      setPendingGenerateId(null);
     },
   });
   const filteredEntries = entriesQuery.data?.filter(
@@ -90,9 +103,9 @@ export function ContractAdminPage() {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
         <AlertInline variant="warning" title="Perfil requerido">
-          IniciÃ¡ sesiÃ³n con Google para abrir la administraciÃ³n.{' '}
+          Iniciá sesión con Google para abrir la administración.{' '}
           <a href={getGoogleLoginUrl()} className="font-medium underline hover:text-white">
-            Iniciar sesiÃ³n con Google
+            Iniciar sesión con Google
           </a>
         </AlertInline>
       </main>
@@ -104,7 +117,7 @@ export function ContractAdminPage() {
       <header className="glass sticky top-0 z-10 border-b border-white/[0.07]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-cyan-400">GeneraciÃ³n de contratos</p>
+            <p className="text-xs uppercase tracking-wide text-cyan-400">Generación de contratos</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-100">Administrar contratos</h1>
           </div>
           <Link to="/" className="text-sm text-slate-400 hover:text-white">Volver</Link>
@@ -112,13 +125,18 @@ export function ContractAdminPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        {entriesQuery.isPending && <p className="text-sm text-slate-400" role="status">Cargando contratosâ€¦</p>}
+        {entriesQuery.isPending && <p className="text-sm text-slate-400" role="status">Cargando contratos…</p>}
         {entriesQuery.isError && (
-          <AlertInline variant="error" title="No se pudo abrir la administraciÃ³n">
-            IntentÃ¡ nuevamente en unos instantes.
+          <AlertInline variant="error" title="No se pudo abrir la administración">
+            Intentá nuevamente en unos instantes.
           </AlertInline>
         )}
 
+        {generateMutation.isError && (
+           <AlertInline variant="error" title="No se pudo iniciar la generación">
+            {generateError ?? "No se pudo actualizar el estado del contrato. Intentá nuevamente."}
+          </AlertInline>
+        )}
         {entriesQuery.data && (
           <div className="grid gap-6 lg:grid-cols-[minmax(18rem,0.75fr)_minmax(0,1.25fr)]">
             <section className="overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-surface)]">
@@ -160,7 +178,7 @@ export function ContractAdminPage() {
                         className="text-left"
                       >
                         <span>
-                          <span className="block text-sm font-medium text-slate-200">{entry.direccion || "Sin direcciÃ³n"}</span>
+                          <span className="block text-sm font-medium text-slate-200">{entry.direccion || "Sin dirección"}</span>
                         </span>
                         <span>
                           <span className="block text-sm text-slate-300">{getContractEntryWaitingStatus(entry)}</span>
@@ -173,6 +191,7 @@ export function ContractAdminPage() {
                           type="button"
                           variant="secondary"
                           disabled={entry.status === 'archived'}
+                          loading={generateMutation.isPending && pendingGenerateId === entry.entryId}
                           onClick={() => {
                             generateMutation.mutate(entry.entryId);
                           }}
@@ -187,8 +206,8 @@ export function ContractAdminPage() {
             </section>
 
             <aside className="rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 lg:sticky lg:top-24 lg:self-start">
-              {!selectedId && <p className="text-sm text-slate-500">SeleccionÃ¡ una entrada para inspeccionarla.</p>}
-              {detailQuery.isPending && selectedId && <p className="text-sm text-slate-400">Cargando detalleâ€¦</p>}
+              {!selectedId && <p className="text-sm text-slate-500">Seleccioná una entrada para inspeccionarla.</p>}
+              {detailQuery.isPending && selectedId && <p className="text-sm text-slate-400">Cargando detalle…</p>}
               {detailQuery.isError && (
                 <AlertInline variant="error">No se pudo cargar el detalle.</AlertInline>
               )}
@@ -196,7 +215,7 @@ export function ContractAdminPage() {
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-base font-semibold text-slate-100">{detailQuery.data.entry.direccion || "Sin direcciÃ³n"}</h2>
+                      <h2 className="text-base font-semibold text-slate-100">{detailQuery.data.entry.direccion || "Sin dirección"}</h2>
                       </div>
                     <span className="text-xs text-cyan-400">
                       {getContractEntryWaitingStatus(detailQuery.data.entry)}
@@ -228,7 +247,7 @@ export function ContractAdminPage() {
                       disabled={detailQuery.data.entry.status === 'archived'}
                       loading={archiveMutation.isPending}
                       onClick={() => {
-                        if (window.confirm('Â¿Archivar esta entrada y cerrar sus enlaces?')) {
+                        if (window.confirm('¿Archivar esta entrada y cerrar sus enlaces?')) {
                           archiveMutation.mutate(detailQuery.data.entry.entryId);
                         }
                       }}
@@ -254,7 +273,7 @@ export function ContractAdminPage() {
                   {(tokenMutation.isError || archiveMutation.isError) && (
                     <div className="mt-4">
                       <AlertInline variant="error">
-                        No se pudo completar la acciÃ³n. IntentÃ¡ nuevamente.
+                        No se pudo completar la acción. Intentá nuevamente.
                       </AlertInline>
                     </div>
                   )}
@@ -313,6 +332,9 @@ export function ContractAdminPage() {
     </div>
   );
 }
+
+
+
 
 
 

@@ -343,7 +343,7 @@ export function parseContractPublicSchema(value: unknown): ContractPublicSchema 
     const details = result.error.issues
       .map((issue) => `${issue.path.join('.') || 'schema'}: ${issue.message}`)
       .join(' | ');
-    throw new Error(`El servidor devolviÃ³ un esquema de contrato invÃ¡lido. ${details}`);
+    throw new Error(`El servidor devolvió un esquema de contrato inválido. ${details}`);
   }
   return result.data;
 }
@@ -351,7 +351,7 @@ export function parseContractPublicSchema(value: unknown): ContractPublicSchema 
 function parseContractSubmitResponse(value: unknown): ContractSubmitResponse {
   const result = ContractSubmitResponseSchema.safeParse(value);
   if (!result.success) {
-    throw new Error('El servidor procesÃ³ el contrato, pero devolviÃ³ un recibo invÃ¡lido.');
+    throw new Error('El servidor procesó el contrato, pero devolvió un recibo inválido.');
   }
   return {
     receipt: {
@@ -387,16 +387,16 @@ function getBodyMessage(body: ContractApiErrorBody, status?: number): string {
   const reportedMessage = body.message || details || errors || body.error;
 
   if (status === 401) {
-    return body.message || 'Tu sesiÃ³n venciÃ³. VolvÃ© a identificarte antes de enviar.';
+    return body.message || 'Tu sesión venció. Volvé a identificarte antes de enviar.';
   }
   if (status === 403) {
-    return body.message || 'No tenÃ©s permiso para generar contratos.';
+    return body.message || 'No tenés permiso para generar contratos.';
   }
   if (status === 502 || status === 503) {
-    return reportedMessage || 'Google Sheets no estÃ¡ disponible temporalmente. IntentÃ¡ nuevamente.';
+    return reportedMessage || 'Google Sheets no está disponible temporalmente. Intentá nuevamente.';
   }
   if (status === 400) {
-    return reportedMessage || 'RevisÃ¡ los campos marcados antes de enviar.';
+    return reportedMessage || 'Revisá los campos marcados antes de enviar.';
   }
   return reportedMessage || (status ? `Error del servidor (${status}).` : 'Error inesperado.');
 }
@@ -416,7 +416,7 @@ export function normalizeContractRequestError(error: unknown): Error {
 
     if (!error.response) {
       return new ContractRequestError(
-        'No se pudo conectar con el servidor. VerificÃ¡ tu conexiÃ³n e intentÃ¡ nuevamente.',
+        'No se pudo conectar con el servidor. Verificá tu conexión e intentá nuevamente.',
         { retriable: true },
       );
     }
@@ -430,7 +430,7 @@ export function normalizeContractRequestError(error: unknown): Error {
 
   return error instanceof Error
     ? error
-    : new ContractRequestError('OcurriÃ³ un error inesperado al procesar el contrato.');
+    : new ContractRequestError('Ocurrió un error inesperado al procesar el contrato.');
 }
 
 export async function fetchContractSchema(
@@ -491,7 +491,7 @@ export async function createContractEntry(
 ): Promise<ContractEntryLinks> {
   try {
     const response = await axios.post<unknown>(`${CONTRACTS_API_PATH}/create`, {
-      Direccion: direccion?.trim() || "Sin direcciÃ³n",
+      Direccion: direccion?.trim() || "Sin dirección",
     }, {
       withCredentials: true,
       headers: contractIdentityHeaders(userId),
@@ -499,7 +499,7 @@ export async function createContractEntry(
     return parseResponse(
       ContractEntryLinksSchema,
       response.data,
-      'El servidor creÃ³ la entrada, pero devolviÃ³ enlaces invÃ¡lidos.',
+      'El servidor creó la entrada, pero devolvió enlaces inválidos.',
     );
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -524,7 +524,7 @@ export async function fetchContractRoleSchema(
     return parseResponse(
       ContractRoleSchemaResponseSchema,
       response.data,
-      'El servidor devolviÃ³ un formulario de contrato invÃ¡lido.',
+      'El servidor devolvió un formulario de contrato inválido.',
     );
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -550,10 +550,10 @@ export async function requestContractDniUploadUrl(
     const parsed = parseResponse(
       ContractDniPresignResponseSchema,
       response.data,
-      'El servidor devolviÃ³ una referencia de carga de DNI invÃ¡lida.',
+      'El servidor devolvió una referencia de carga de DNI inválida.',
     );
     const upload = parsed.uploads[0];
-    if (!upload) throw new Error('El servidor no devolviÃ³ la carga de DNI solicitada.');
+    if (!upload) throw new Error('El servidor no devolvió la carga de DNI solicitada.');
     return upload;
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -603,10 +603,10 @@ export async function requestContractEvidenceUploadUrls(
       const parsed = parseResponse(
         ContractEvidencePresignResponseSchema,
         response.data,
-        'El servidor devolviÃ³ referencias de carga de comprobantes invÃ¡lidas.',
+        'El servidor devolvió referencias de carga de comprobantes inválidas.',
       ).uploads;
       if (parsed.length !== batch.length) {
-        throw new Error('El servidor no devolviÃ³ todas las referencias de carga.');
+        throw new Error('El servidor no devolvió todas las referencias de carga.');
       }
       uploads.push(...parsed);
     }
@@ -650,7 +650,7 @@ export async function submitContractRole(
     return parseResponse(
       ContractRoleSubmitResponseSchema,
       response.data,
-      'El servidor guardÃ³ la respuesta, pero devolviÃ³ un recibo invÃ¡lido.',
+      'El servidor guardó la respuesta, pero devolvió un recibo inválido.',
     );
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -668,7 +668,7 @@ export async function listContractEntries(
     return parseResponse(
       z.object({ entries: z.array(ContractEntrySummarySchema) }),
       response.data,
-      'El servidor devolviÃ³ una lista de contratos invÃ¡lida.',
+      'El servidor devolvió una lista de contratos inválida.',
     ).entries;
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -687,7 +687,7 @@ export async function fetchContractAdminEntry(
     return parseResponse(
       ContractAdminDetailSchema,
       response.data,
-      'El servidor devolviÃ³ un contrato invÃ¡lido.',
+      'El servidor devolvió un contrato inválido.',
     );
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -734,7 +734,7 @@ export async function updateContractAdminEntryStatus(
     return parseResponse(
       z.object({ entry: ContractEntrySummarySchema }),
       response.data,
-      'El servidor devolviÃ³ un estado invÃ¡lido.',
+      'El servidor devolvió un estado inválido.',
     ).entry;
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -753,7 +753,7 @@ export async function archiveContractEntry(
     return parseResponse(
       z.object({ entry: ContractEntrySummarySchema }),
       response.data,
-      'El servidor devolviÃ³ un contrato archivado invÃ¡lido.',
+      'El servidor devolvió un contrato archivado inválido.',
     ).entry;
   } catch (error) {
     throw normalizeContractRequestError(error);
@@ -774,12 +774,13 @@ export async function regenerateContractToken(
     return parseResponse(
       z.object({ role: z.enum(['user', 'client']), url: z.string().url() }),
       response.data,
-      'El servidor devolviÃ³ un enlace regenerado invÃ¡lido.',
+      'El servidor devolvió un enlace regenerado inválido.',
     );
   } catch (error) {
     throw normalizeContractRequestError(error);
   }
 }
+
 
 
 
