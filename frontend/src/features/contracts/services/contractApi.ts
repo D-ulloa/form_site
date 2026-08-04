@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import { z } from 'zod';
 import type {
   ContractAdminEntryDetail,
@@ -741,26 +741,6 @@ export async function updateContractAdminSubmission(
   }
 }
 
-export async function updateContractAdminEntryStatus(
-  entryId: string,
-  status: 'open' | 'complete' | 'archived' | 'generar_contrato',
-  userId?: string,
-): Promise<ContractEntrySummary> {
-  try {
-    const response = await axios.post<unknown>(
-      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/status`,
-      { status },
-      { withCredentials: true, headers: contractIdentityHeaders(userId) },
-    );
-    return parseResponse(
-      z.object({ entry: ContractEntrySummarySchema }),
-      response.data,
-      'El servidor devolvió un estado inválido.',
-    ).entry;
-  } catch (error) {
-    throw normalizeContractRequestError(error);
-  }
-}
 export async function archiveContractEntry(
   entryId: string,
   userId?: string,
@@ -801,7 +781,4 @@ export async function regenerateContractToken(
     throw normalizeContractRequestError(error);
   }
 }
-
-
-
 
