@@ -105,8 +105,11 @@ export function ContractAdminPage() {
       }
       setGenerateSuccess("Estado actualizado correctamente");
     },
-    onError: () => {
-      setGenerateError('No se pudo marcar el contrato como "Generar contrato". Intentá nuevamente.');
+    onError: (error) => {
+      const message = error instanceof Error
+        ? error.message
+        : 'No se pudo marcar el contrato como "Generar contrato". Intentá nuevamente.';
+      setGenerateError(message);
     },
     onSettled: () => {
       setPendingGenerateId(null);
