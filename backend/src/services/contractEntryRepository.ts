@@ -275,7 +275,7 @@ export function createContractEntryRepository(
 
     async updateGenerationTrigger(entryId: string) {
       const { data, error } = await getClient().from('contract_entries')
-        .update({ generar_contrato_trigger: true })
+        .update({ status: 'generar_contrato', generar_contrato_trigger: true })
         .eq('id', entryId)
         .select('*')
         .single();
