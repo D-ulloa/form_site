@@ -85,11 +85,7 @@ const CreateEntryBodySchema = z.object({
   direccion: z.string().trim().min(1).max(256).optional(),
 }).strict().transform((value) => ({
   ...value,
-<<<<<<< HEAD
-  direccion: value.Direccion ?? value.direccion ?? "Sin direcciÃ³n",
-=======
   direccion: value.Direccion ?? value.direccion ?? "Sin direcci�n",
->>>>>>> d427fed (fix)
 }));
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
