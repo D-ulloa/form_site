@@ -1,6 +1,7 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractInspectionDetails } from '../features/contracts/components/ContractInspectionDetails.tsx';
@@ -13,6 +14,7 @@ import {
   fetchContractAdminEntry,
   listContractEntries,
   regenerateContractToken,
+  updateContractAdminEntryStatus,
 } from '../features/contracts/services/contractApi.ts';
 import { contractAdminPath } from '../features/contracts/services/contractIdentity.ts';
 import {
@@ -36,10 +38,16 @@ export function ContractAdminPage() {
   const userId = sessionQuery.data?.user.id ?? '';
   const hasAdminIdentity = Boolean(userId || sessionQuery.data);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const selectedId = routeEntryId ?? null;
+
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateStatusMessage, setGenerateStatusMessage] = useState<string | null>(null);
+  const [generatingEntryId, setGeneratingEntryId] = useState<string | null>(null);
   const [regeneratedUrl, setRegeneratedUrl] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'complete' | 'archived'>('all');
   const [editingRole, setEditingRole] = useState<ContractRole | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'complete' | 'archived' | 'generar_contrato'>('all');
+
   const entriesQuery = useQuery({
     queryKey: ['contract-admin-entries', userId],
     queryFn: () => listContractEntries(userId),
@@ -52,19 +60,52 @@ export function ContractAdminPage() {
     enabled: Boolean(selectedId && hasAdminIdentity),
     retry: false,
   });
+
   const archiveMutation = useMutation({
     mutationFn: (entryId: string) => archiveContractEntry(entryId, userId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['contract-admin-entries'] });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
       if (selectedId) {
-        await queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId] });
+        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId, userId] });
       }
     },
   });
+
   const tokenMutation = useMutation({
     mutationFn: ({ entryId, role }: { entryId: string; role: ContractRole }) =>
       regenerateContractToken(entryId, role, userId),
     onSuccess: (result) => setRegeneratedUrl(result.url),
+  });
+
+  const generateContractMutation = useMutation({
+    mutationFn: (entryId: string) => updateContractAdminEntryStatus(entryId, 'generar_contrato', userId),
+    onMutate: (entryId) => {
+      setGenerateError(null);
+      setGenerateStatusMessage(null);
+      setGeneratingEntryId(entryId);
+      return entryId;
+    },
+    onSuccess: () => {
+      setGenerateError(null);
+      setGenerateStatusMessage('Estado actualizado correctamente.');
+      void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
+      if (selectedId) {
+        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId, userId] });
+      }
+    },
+    onError: (error) => {
+      setGenerateStatusMessage(null);
+      if (!(error instanceof Error)) {
+        setGenerateError('No se pudo actualizar el estado del contrato.');
+        return;
+      }
+      const message = error.message || 'No se pudo iniciar la generación.';
+      setGenerateError(message.includes('STATUS_VALUE_NOT_SUPPORTED') ? message : `No se pudo iniciar la generación. ${message}`);
+    },
+    onSettled: () => {
+      setGeneratingEntryId(null);
+      setTimeout(() => setGenerateStatusMessage(null), 3500);
+    },
   });
 
   const filteredEntries = entriesQuery.data?.filter(
@@ -75,10 +116,10 @@ export function ContractAdminPage() {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
         <AlertInline variant="warning" title="Perfil requerido">
-          Iniciá sesión para abrir la administración.{' '}
-          <Link to="/login" className="font-medium underline hover:text-white">
-            Iniciar sesión
-          </Link>
+          Iniciá sesión con Google para abrir la administración.{''}
+          <a href={getGoogleLoginUrl()} className="font-medium underline hover:text-white">
+            Iniciar sesión con Google
+          </a>
         </AlertInline>
       </main>
     );
@@ -111,6 +152,20 @@ export function ContractAdminPage() {
                 <div>
                   <h2 className="text-sm font-semibold text-slate-200">Entradas</h2>
                   <p className="mt-1 text-xs text-slate-500">{filteredEntries.length} contratos</p>
+                  {generateError && (
+                    <div className="mt-2 px-5">
+                      <AlertInline variant="error" title="No se pudo iniciar la generación">
+                        {generateError}
+                      </AlertInline>
+                    </div>
+                  )}
+                  {generateStatusMessage && (
+                    <div className="mt-2 px-5">
+                      <AlertInline variant="success" title="Actualización guardada">
+                        {generateStatusMessage}
+                      </AlertInline>
+                    </div>
+                  )}
                 </div>
                 <label className="flex items-center gap-2 text-xs text-slate-500">
                   Estado
@@ -122,33 +177,71 @@ export function ContractAdminPage() {
                     <option value="all">Todos</option>
                     <option value="open">Abiertos</option>
                     <option value="complete">Completos</option>
+                    <option value="generar_contrato">Generando contrato</option>
                     <option value="archived">Archivados</option>
                   </select>
                 </label>
               </div>
+
               {filteredEntries.length === 0 ? (
                 <p className="px-5 py-10 text-center text-sm text-slate-500">No hay contratos para este filtro.</p>
               ) : (
                 <div className="divide-y divide-white/[0.06]">
                   {filteredEntries.map((entry) => (
-                    <Link
+                    <div
                       key={entry.entryId}
-                      to={contractAdminPath(entry.entryId)}
-                      onClick={() => { setEditingRole(null); setRegeneratedUrl(null); }}
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => {
+                        setEditingRole(null);
+                        setRegeneratedUrl(null);
+                        navigate(contractAdminPath(entry.entryId));
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        setEditingRole(null);
+                        setRegeneratedUrl(null);
+                        navigate(contractAdminPath(entry.entryId));
+                      }}
                       aria-current={selectedId === entry.entryId ? 'page' : undefined}
-                      className={`grid w-full gap-3 px-5 py-4 text-left transition-colors sm:grid-cols-[9rem_1fr_auto] ${
-                        selectedId === entry.entryId ? 'bg-indigo-500/10' : 'hover:bg-white/[0.03]'
-                      }`}
+                      className={
+                        'grid w-full min-w-0 gap-2 px-5 py-4 text-left items-start transition-colors grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] ' +
+                        (selectedId === entry.entryId ? 'bg-indigo-500/10' : 'hover:bg-white/[0.03]')
+                      }
                     >
-                      <span>
-                        <span className="block text-sm font-medium text-slate-200">{entry.direccion || "Sin dirección"}</span>
-                      </span>
-                      <span>
-                        <span className="block text-sm text-slate-300">{getContractEntryWaitingStatus(entry)}</span>
-                        <span className="mt-1 block text-xs text-slate-600">{entry.createdBy}</span>
-                      </span>
-                      <time className="text-xs text-slate-500" dateTime={entry.createdAt}>{formatDate(entry.createdAt)}</time>
-                    </Link>
+                      <div className="min-w-0">
+                        <span className="block min-w-0 text-sm font-medium text-slate-200 truncate">
+                          {entry.direccion || 'Sin dirección'}
+                        </span>
+                        <span className="mt-1 block min-w-0 truncate text-sm text-slate-300">
+                          {getContractEntryWaitingStatus(entry)}
+                        </span>
+                        <span className="mt-1 block max-w-full truncate text-xs text-slate-600">{entry.createdBy}</span>
+                        <time className="mt-1 block text-xs text-slate-500" dateTime={entry.createdAt}>
+                          {formatDate(entry.createdAt)}
+                        </time>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={generateContractMutation.isPending && generatingEntryId === entry.entryId}
+                        className="w-full md:w-auto justify-self-start md:justify-self-end whitespace-nowrap"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (entry.status === 'archived' || (generateContractMutation.isPending && generatingEntryId === entry.entryId)) {
+                            return;
+                          }
+                          generateContractMutation.mutate(entry.entryId);
+                        }}
+                      >
+                        {generateContractMutation.isPending && generatingEntryId === entry.entryId
+                          ? 'Generando contrato'
+                          : 'Generar contrato'}
+                      </Button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -164,8 +257,8 @@ export function ContractAdminPage() {
                 <div>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-base font-semibold text-slate-100">{detailQuery.data.entry.direccion || "Sin dirección"}</h2>
-                      </div>
+                      <h2 className="text-base font-semibold text-slate-100">{detailQuery.data.entry.direccion || 'Sin dirección'}</h2>
+                    </div>
                     <span className="text-xs text-cyan-400">
                       {getContractEntryWaitingStatus(detailQuery.data.entry)}
                     </span>
@@ -231,8 +324,8 @@ export function ContractAdminPage() {
                     <div className="mt-6 border-t border-white/[0.07] pt-5">
                       <h3 className="text-sm font-semibold text-slate-200">Editar datos enviados</h3>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {(["user", "client"] as const).map((role) => {
-                          const hasSubmission = role === "user"
+                        {(['user', 'client'] as const).map((role) => {
+                          const hasSubmission = role === 'user'
                             ? Boolean(detailQuery.data.userSubmission)
                             : Boolean(detailQuery.data.clientSubmission);
                           if (!hasSubmission) return null;
@@ -240,10 +333,10 @@ export function ContractAdminPage() {
                             <Button
                               key={role}
                               type="button"
-                              variant={editingRole === role ? "primary" : "secondary"}
+                              variant={editingRole === role ? 'primary' : 'secondary'}
                               onClick={() => setEditingRole(role)}
                             >
-                              Editar formulario del {role === "user" ? "usuario" : "cliente"}
+                              Editar formulario del {role === 'user' ? 'usuario' : 'cliente'}
                             </Button>
                           );
                         })}
@@ -256,16 +349,16 @@ export function ContractAdminPage() {
                       entryId={detailQuery.data.entry.entryId}
                       role={editingRole}
                       schema={detailQuery.data.roleSchemas[editingRole]}
-                      values={(editingRole === "user"
+                      values={(editingRole === 'user'
                         ? detailQuery.data.userSubmission
                         : detailQuery.data.clientSubmission) ?? {}}
                       userId={userId}
                       onCancel={() => setEditingRole(null)}
                       onSaved={() => {
                         setEditingRole(null);
-                        void queryClient.invalidateQueries({ queryKey: ["contract-admin-entries"] });
+                        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
                         void queryClient.invalidateQueries({
-                          queryKey: ["contract-admin-entry", selectedId, userId],
+                          queryKey: ['contract-admin-entry', selectedId, userId],
                         });
                       }}
                     />
@@ -281,3 +374,4 @@ export function ContractAdminPage() {
     </div>
   );
 }
+

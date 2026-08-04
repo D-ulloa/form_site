@@ -403,7 +403,7 @@ export function getMissingContractEvidence(
 }
 
 export type ContractRole = 'user' | 'client';
-export type ContractEntryStatus = 'open' | 'complete' | 'archived';
+export type ContractEntryStatus = 'open' | 'complete' | 'archived' | 'generar_contrato';
 
 export interface ContractEntrySummary {
   entryId: string;
@@ -517,9 +517,12 @@ export interface ContractEntryInspection {
 }
 
 export function getContractEntryWaitingStatus(entry: ContractEntrySummary): string {
+  if (entry.status === 'generar_contrato') return 'Generando contrato';
   if (entry.status === 'archived') return 'Archivado';
-  if (entry.status === 'complete') return 'Completo';
+  if (entry.status === 'complete') return 'Completado';
   if (entry.userFilled) return 'Esperando al cliente';
   if (entry.clientFilled) return 'Esperando la información del contrato';
   return 'Esperando ambos formularios';
 }
+
+

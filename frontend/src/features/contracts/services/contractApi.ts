@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import { z } from 'zod';
 import type {
   ContractAdminEntryDetail,
@@ -140,7 +140,7 @@ const ContractEntrySummarySchema = z.object({
   clientFilled: z.boolean(),
   userSubmittedAt: z.string().nullable(),
   clientSubmittedAt: z.string().nullable(),
-  status: z.enum(['open', 'complete', 'archived']),
+  status: z.enum(['open', 'complete', 'archived', 'generar_contrato']),
   archivedAt: z.string().nullable(),
 });
 
@@ -683,7 +683,7 @@ export async function fetchContractAdminEntry(
   try {
     const response = await axios.get<unknown>(
       `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}`,
-      { withCredentials: true, headers: contractIdentityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
     );
     return parseResponse(
       ContractAdminDetailSchema,
@@ -695,6 +695,26 @@ export async function fetchContractAdminEntry(
   }
 }
 
+export async function updateContractAdminEntryStatus(
+  entryId: string,
+  status: ContractEntrySummary['status'],
+  userId?: string,
+): Promise<ContractEntrySummary> {
+  try {
+    const response = await axios.post<unknown>(
+      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/status`,
+      { status },
+      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
+    );
+    return parseResponse(
+      z.object({ entry: ContractEntrySummarySchema }),
+      response.data,
+      'El servidor no pudo actualizar el estado del contrato.',
+    ).entry;
+  } catch (error) {
+    throw normalizeContractRequestError(error);
+  }
+}
 export async function updateContractAdminSubmission(
   entryId: string,
   role: ContractRole,
@@ -705,7 +725,7 @@ export async function updateContractAdminSubmission(
     const response = await axios.patch<unknown>(
       CONTRACTS_API_PATH + "/admin/entries/" + encodeURIComponent(entryId) + "/submissions/" + role,
       { fields },
-      { withCredentials: true, headers: contractIdentityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
     );
     return parseResponse(
       z.object({
@@ -729,7 +749,7 @@ export async function archiveContractEntry(
     const response = await axios.post<unknown>(
       `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/archive`,
       {},
-      { withCredentials: true, headers: contractIdentityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
     );
     return parseResponse(
       z.object({ entry: ContractEntrySummarySchema }),
@@ -750,7 +770,7 @@ export async function regenerateContractToken(
     const response = await axios.post<unknown>(
       `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/tokens/${role}/regenerate`,
       {},
-      { withCredentials: true, headers: contractIdentityHeaders(userId) },
+      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
     );
     return parseResponse(
       z.object({ role: z.enum(['user', 'client']), url: z.string().url() }),
@@ -761,3 +781,4 @@ export async function regenerateContractToken(
     throw normalizeContractRequestError(error);
   }
 }
+
