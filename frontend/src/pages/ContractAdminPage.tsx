@@ -158,8 +158,11 @@ export function ContractAdminPage() {
         )}
 
         {generateMutation.isError && (
-           <AlertInline variant="error" title="No se pudo iniciar la generación">
-            {generateError ?? "No se pudo actualizar el estado del contrato. Intentá nuevamente."}
+          <AlertInline variant="error" title="No se pudo iniciar la generación">
+            {generateError
+              ?? (generateMutation.error instanceof Error
+                ? generateMutation.error.message
+                : "No se pudo iniciar la generación.")}
           </AlertInline>
         )}
         {generateSuccess && (
