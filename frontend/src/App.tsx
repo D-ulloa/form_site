@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ActionSelectionPage } from './pages/ActionSelectionPage.tsx';
-import { NewPropertyPage } from './pages/NewPropertyPage.tsx';
-import { SubmissionSuccessPage } from './pages/SubmissionSuccessPage.tsx';
-import { ContractFormPage } from './pages/ContractFormPage.tsx';
-import { ContractAdminPage } from './pages/ContractAdminPage.tsx';
+import { ActionSelectionPage } from './pages/ActionSelectionPage';
+import { NewPropertyPage } from './pages/NewPropertyPage';
+import { SubmissionSuccessPage } from './pages/SubmissionSuccessPage';
+import { ContractFormPage } from './pages/ContractFormPage';
+import { ContractAdminPage } from './pages/ContractAdminPage';
 
 function App() {
   return (
