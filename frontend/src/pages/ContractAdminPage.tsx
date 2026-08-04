@@ -105,11 +105,16 @@ export function ContractAdminPage() {
       }
       setGenerateSuccess("Estado actualizado correctamente");
     },
-    onError: (error) => {
-      const message = error instanceof Error
-        ? error.message
-        : 'No se pudo marcar el contrato como "Generar contrato". Intentá nuevamente.';
-      setGenerateError(message);
+    onError: (error: unknown) => {
+      const fallbackMessage =
+        error instanceof Error
+          ? error.message
+          : error !== null && typeof error === "object" && "message" in error && typeof (error as { message: unknown }).message === "string"
+            ? (error as { message: string }).message
+            : error !== null && typeof error === "object" && "error" in error && typeof (error as { error: unknown }).error === "string"
+              ? `Error del backend: ${(error as { error: string }).error}`
+              : "No se pudo iniciar la generación.";
+      setGenerateError(fallbackMessage);
     },
     onSettled: () => {
       setPendingGenerateId(null);
