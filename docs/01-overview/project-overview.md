@@ -28,7 +28,7 @@ This repository implements two internal workflows in an admin-style web applicat
 - The frontend is responsible for form UI, client-side validation, media selection, and API calls. Contract definitions are fetched from the backend instead of duplicated in the browser bundle.
 - The backend is responsible for independent payload validation, Supabase contract persistence, role-token authorization, Google Drive folder creation, property Sheet appends, Make webhook dispatch, and auditability.
 - No edit workflow is implemented in v1: submissions create new property assets only.
-- Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes; administrators can authenticate with the Google OAuth allowlist, and authenticated owners may open the user form without a token.
+- Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes; main-page Supabase email/password accounts receive administrator access immediately, and authenticated owners may open the user form without a token.
 
 ## Property flow
 

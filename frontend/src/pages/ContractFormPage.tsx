@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useForm, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
-import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractFieldRenderer } from '../features/contracts/components/ContractFieldRenderer.tsx';
@@ -390,7 +389,6 @@ function ReadOnlyContractSection({
 export function ContractFormPage() {
   const params = useParams<{ entryId: string; role: string }>();
   const location = useLocation();
-  const { agent } = useAgent();
   const role = roleFromRoute(params.role);
   const entryId = params.entryId ?? '';
   const token = useMemo(
@@ -437,14 +435,14 @@ export function ContractFormPage() {
       entryId,
       role as ContractRole,
       token,
-      agent?.agent_user_id,
+      undefined,
     ),
     enabled: Boolean(entryId && role),
     retry: false,
   });
   const submission = useMutation({
     mutationFn: (fields: Record<string, unknown>) =>
-      submitContractRole(entryId, role as ContractRole, token, fields, agent?.agent_user_id),
+      submitContractRole(entryId, role as ContractRole, token, fields, undefined),
   });
 
   useEffect(() => {
@@ -622,7 +620,7 @@ export function ContractFormPage() {
         values,
         entryId,
         token,
-        agent?.agent_user_id,
+        undefined,
       );
       if (uploadedValues !== values && uploadedValues.garantes !== undefined) {
         setValue('garantes', uploadedValues.garantes, {
@@ -776,7 +774,7 @@ export function ContractFormPage() {
                             form={form}
                             entryId={entryId}
                             token={token}
-                            userId={agent?.agent_user_id}
+                            userId={undefined}
                             onUploadPendingChange={setUploadPending}
                           />
                         ) : (

@@ -6,3 +6,6 @@ backend/.env
 
 # Generated submission and contract audit records
 backend/logs/*.json
+
+# Supabase CLI machine-local linked project metadata
+supabase/.temp/
