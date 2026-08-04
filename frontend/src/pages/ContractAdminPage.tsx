@@ -48,6 +48,7 @@ export function ContractAdminPage() {
   const [editingRole, setEditingRole] = useState<ContractRole | null>(null);
   const [pendingGenerateId, setPendingGenerateId] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
   const entriesQuery = useQuery({
     queryKey: ['contract-admin-entries', userId],
     queryFn: () => listContractEntries(userId),
@@ -80,13 +81,29 @@ export function ContractAdminPage() {
     onMutate: (entryId) => {
       setPendingGenerateId(entryId);
       setGenerateError(null);
+      setGenerateSuccess(null);
       return undefined;
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['contract-admin-entries'] });
+    onSuccess: async (updatedEntry) => {
+      await queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
+      queryClient.setQueryData<readonly unknown[]>(
+        ['contract-admin-entries', userId],
+        (current) => {
+          if (!Array.isArray(current)) return current;
+          return current.map((entry) =>
+            typeof entry === 'object' &&
+            entry !== null &&
+            'entryId' in entry &&
+            entry.entryId === updatedEntry.entryId
+              ? { ...entry, ...(updatedEntry as object), status: updatedEntry.status }
+              : entry,
+          );
+        },
+      );
       if (selectedId) {
-        await queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId] });
+        await queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId, userId] });
       }
+      setGenerateSuccess("Estado actualizado correctamente");
     },
     onError: () => {
       setGenerateError('No se pudo marcar el contrato como "Generar contrato". Intentá nuevamente.');
@@ -135,6 +152,11 @@ export function ContractAdminPage() {
         {generateMutation.isError && (
            <AlertInline variant="error" title="No se pudo iniciar la generación">
             {generateError ?? "No se pudo actualizar el estado del contrato. Intentá nuevamente."}
+          </AlertInline>
+        )}
+        {generateSuccess && (
+          <AlertInline variant="success" title="Contrato actualizado">
+            {generateSuccess}
           </AlertInline>
         )}
         {entriesQuery.data && (
@@ -332,6 +354,7 @@ export function ContractAdminPage() {
     </div>
   );
 }
+
 
 
 
