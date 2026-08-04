@@ -1,4 +1,4 @@
-﻿import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import {
   ContractSchemaNotFoundError,
@@ -85,7 +85,11 @@ const CreateEntryBodySchema = z.object({
   direccion: z.string().trim().min(1).max(256).optional(),
 }).strict().transform((value) => ({
   ...value,
+<<<<<<< HEAD
   direccion: value.Direccion ?? value.direccion ?? "Sin direcciÃ³n",
+=======
+  direccion: value.Direccion ?? value.direccion ?? "Sin direcci�n",
+>>>>>>> d427fed (fix)
 }));
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
@@ -500,7 +504,9 @@ export function createContractEntriesRouter(
       authorizeContractAdmin(principal, dependencies.environment);
       const entryId = EntryIdSchema.parse(req.params.entryId);
       const body = z.object({ status: EntryStatusSchema }).parse(req.body);
-      const entry = await dependencies.repository.updateStatus!(entryId, body.status);
+      const entry = body.status === 'generar_contrato'
+        ? await dependencies.repository.updateGenerationTrigger!(entryId)
+        : await dependencies.repository.updateStatus!(entryId, body.status);
       res.status(200).json({ entry: toContractEntrySummary(entry) });
     } catch (error) {
       sendError(res, error);
