@@ -46,10 +46,11 @@ Apply these migrations in order before enabling the complete flow:
 5. `backend/supabase/migrations/20260803000000_contract_spec17.sql`
 6. `backend/supabase/migrations/20260803010000_contract_spec19.sql`
 7. `backend/supabase/migrations/20260804000000_contract_add_generar_contrato_status.sql`
-8. `backend/supabase/migrations/20260805000000_contract_add_generation_trigger.sql`
-9. `backend/supabase/migrations/20260806000000_contract_generate_trigger_webhook.sql`
+8. `backend/supabase/migrations/20260804010000_contract_spec19_admin_repair.sql`
+9. `backend/supabase/migrations/20260805000000_contract_add_generation_trigger.sql`
+10. `backend/supabase/migrations/20260806000000_contract_generate_trigger_webhook.sql`
 
-The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket; the third provisions the default private evidence bucket with the SPEC-14 MIME allowlist; the fourth adds the durable `Direccion` identifier and update RPC; the fifth enables PDF DNI objects while preserving the private bucket policy; the sixth provisions the SPEC-19 administrator-grant table and signup trigger. The final three migrations add and connect the contract-generation status trigger/webhook. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
+The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket; the third provisions the default private evidence bucket with the SPEC-14 MIME allowlist; the fourth adds the durable `Direccion` identifier and update RPC; the fifth enables PDF DNI objects while preserving the private bucket policy; the sixth provisions the SPEC-19 administrator-grant table and signup trigger; the eighth repairs missing administrator grants for existing main-page accounts and reasserts the signup trigger. The seventh, ninth, and tenth migrations add and connect the contract-generation status trigger/webhook. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
 
 If either storage bucket setting changes from its default, provision an equivalent private bucket with the matching size and MIME restrictions. The migrations create only `contract-dni` and `contract-evidence`.
 

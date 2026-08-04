@@ -148,6 +148,19 @@ async function isAdminUser(client, userId) {
         throw new Error(`Supabase admin role lookup failed: ${error.message}`);
     return Boolean(data);
 }
+/**
+ * Keep the durable administrator grant in sync with a successful main-page
+ * registration. The database trigger remains the first line of defense, but
+ * this explicit upsert makes the registration flow self-healing when a
+ * deployment has the table but the trigger was not applied correctly.
+ */
+export async function ensureContractAdminUser(client, userId) {
+    const { error } = await client
+        .from('contract_admin_users')
+        .upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' });
+    if (error)
+        throw new Error(`Supabase admin role grant failed: ${error.message}`);
+}
 async function makeSession(client, user) {
     const email = normalizeEmail(user.email ?? '');
     if (!user.id || !email) {
@@ -183,6 +196,7 @@ export async function registerContractUser(credentials, environment = process.en
         }
         throw new Error(error?.message ?? 'Supabase no devolvió el usuario creado.');
     }
+    await ensureContractAdminUser(client, data.user.id);
     return makeSession(client, data.user);
 }
 export async function loginContractUser(credentials, environment = process.env) {

@@ -3,10 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createContractPasswordAuthRouter } from '../src/routes/contractPasswordAuth.js';
 import {
   CONTRACT_PASSWORD_SESSION_COOKIE,
   ContractPasswordAuthError,
+  ensureContractAdminUser,
   type ContractPasswordCredentials,
   type ContractPasswordSessionData,
 } from '../src/services/contractPasswordAuth.js';
@@ -142,6 +144,26 @@ test('SPEC-19 routes reject invalid input and map authentication failures', asyn
     .expect(200, { authenticated: false });
 });
 
+test('SPEC-19 reports a missing administrator grant separately from bad credentials', async () => {
+  const app = createApp({
+    login: async () => {
+      throw new ContractPasswordAuthError(
+        'not_admin',
+        'La cuenta no está habilitada para administrar contratos.',
+      );
+    },
+  });
+
+  await request(app)
+    .post('/api/auth/login')
+    .send({ email: 'admin@example.test', password: 'valid-password' })
+    .expect(403, {
+      error: 'NOT_ADMIN',
+      message: 'La cuenta no está habilitada para administrar contratos.',
+      retriable: false,
+    });
+});
+
 test('SPEC-19 migration grants only marked main-page signups', async () => {
   const migration = await readFile(
     new URL('../supabase/migrations/20260803010000_contract_spec19.sql', import.meta.url),
@@ -151,4 +173,34 @@ test('SPEC-19 migration grants only marked main-page signups', async () => {
   assert.match(migration, /main_page_registration' = 'true'/u);
   assert.match(migration, /create trigger contract_admin_on_signup/iu);
   assert.match(migration, /after insert on auth\.users/iu);
+  const repairMigration = await readFile(
+    new URL('../supabase/migrations/20260804010000_contract_spec19_admin_repair.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(repairMigration, /insert into public\.contract_admin_users \(user_id, role\)/iu);
+  assert.match(repairMigration, /select id,\s*'admin'\s+from auth\.users/iu);
+});
+
+test('SPEC-19 registration explicitly preserves the durable administrator grant', async () => {
+  let tableName: string | undefined;
+  let upserted: unknown;
+  let options: unknown;
+  const client = {
+    from(table: string) {
+      tableName = table;
+      return {
+        upsert: async (values: unknown, upsertOptions: unknown) => {
+          upserted = values;
+          options = upsertOptions;
+          return { error: null };
+        },
+      };
+    },
+  };
+
+  await ensureContractAdminUser(client as unknown as SupabaseClient, SESSION.userId);
+
+  assert.equal(tableName, 'contract_admin_users');
+  assert.deepEqual(upserted, { user_id: SESSION.userId, role: 'admin' });
+  assert.deepEqual(options, { onConflict: 'user_id' });
 });
