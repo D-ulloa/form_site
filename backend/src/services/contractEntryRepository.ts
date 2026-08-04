@@ -1,4 +1,4 @@
-﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   ContractEntryRecord,
   ContractRole,
@@ -68,6 +68,7 @@ export interface ContractEntryRepository {
   updateRoleSubmission?(input: UpdateContractRoleSubmissionInput): Promise<ContractEntryRecord>;
   archiveEntry(entryId: string, archivedAt: string): Promise<ContractEntryRecord>;
   updateStatus?(entryId: string, status: ContractEntryStatus): Promise<ContractEntryRecord>;
+  updateGenerationTrigger?(entryId: string): Promise<ContractEntryRecord>;
   replaceTokenHash(
     entryId: string,
     role: ContractRole,
@@ -271,6 +272,16 @@ export function createContractEntryRepository(
       return toEntry(data as ContractEntryRow);
     },
 
+
+    async updateGenerationTrigger(entryId: string) {
+      const { data, error } = await getClient().from('contract_entries')
+        .update({ generar_contrato_trigger: true })
+        .eq('id', entryId)
+        .select('*')
+        .single();
+      if (error || !data) throwDatabaseError(error ?? { message: 'No entry returned.' });
+      return toEntry(data as ContractEntryRow);
+    },
     async replaceTokenHash(entryId, role, tokenHash, occurredAt) {
       const { data, error } = await getClient().rpc('replace_contract_token_hash', {
         p_entry_id: entryId,
