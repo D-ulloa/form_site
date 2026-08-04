@@ -20,6 +20,7 @@ import {
   hashContractAccessToken,
   verifyContractAccessToken,
 } from '../src/services/contractTokenService.js';
+import { serializeContractPasswordSessionCookie } from '../src/services/contractPasswordAuth.js';
 
 const ENVIRONMENT: NodeJS.ProcessEnv = {
   NODE_ENV: 'development',
@@ -183,6 +184,33 @@ function createApp(
   }));
   return app;
 }
+
+test('SPEC-19 signed administrator sessions authorize the contract admin routes', async () => {
+  const repository = new MemoryContractRepository();
+  const cookie = serializeContractPasswordSessionCookie({
+    userId: '55555555-5555-4555-8555-555555555555',
+    email: 'admin@example.test',
+    name: 'Admin Example',
+    isAdmin: true,
+  }, ENVIRONMENT).split(';', 1)[0];
+
+  await request(createApp(repository))
+    .get('/api/contracts/admin/entries')
+    .set('Cookie', cookie ?? '')
+    .expect(200, { entries: [] });
+
+  const nonAdminCookie = serializeContractPasswordSessionCookie({
+    userId: '66666666-6666-4666-8666-666666666666',
+    email: 'user@example.test',
+    name: 'Regular User',
+    isAdmin: false,
+  }, ENVIRONMENT).split(';', 1)[0];
+
+  await request(createApp(repository))
+    .get('/api/contracts/admin/entries')
+    .set('Cookie', nonAdminCookie ?? '')
+    .expect(403);
+});
 
 test('role schemas enforce the SPEC-10 section split', () => {
   const client = getContractRoleSchema('rent-contract-v1', 'client');

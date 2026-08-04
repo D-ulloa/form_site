@@ -4,6 +4,7 @@ import {
   ContractAuthenticationError,
   ContractAuthorizationError,
   authenticateContractRequest,
+  authorizeContractAdmin,
   authorizeContractUserScope,
   type ContractAuthenticationInput,
 } from '../src/services/contractAuth.js';
@@ -77,6 +78,38 @@ test('trusted gateway identity is accepted in production and is user-scoped', ()
     () => authorizeContractUserScope(principal, 'different-user'),
     ContractAuthorizationError,
   );
+});
+
+test('Supabase password sessions are user-scoped and carry the administrator grant', () => {
+  const principal = authenticateContractRequest(
+    headers({
+      passwordSession: {
+        userId: 'supabase-user',
+        email: 'ADMIN@EXAMPLE.TEST',
+        isAdmin: true,
+      },
+    }),
+    { NODE_ENV: 'production' },
+  );
+  assert.deepEqual(principal, {
+    mode: 'supabase',
+    userId: 'supabase-user',
+    email: 'admin@example.test',
+    isAdmin: true,
+  });
+  assert.doesNotThrow(() => authorizeContractUserScope(principal, 'supabase-user'));
+  assert.doesNotThrow(() => authorizeContractAdmin(principal));
+
+  const nonAdmin = authenticateContractRequest(
+    headers({
+      passwordSession: {
+        userId: 'regular-user',
+        email: 'user@example.test',
+        isAdmin: false,
+      },
+    }),
+  );
+  assert.throws(() => authorizeContractAdmin(nonAdmin), ContractAuthorizationError);
 });
 
 test('development identity works only in development and production fails closed', () => {

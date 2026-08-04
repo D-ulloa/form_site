@@ -60,7 +60,9 @@ Property Google operations may use configured user OAuth with a service-account 
 
 ## Current contract authorization boundary
 
-SPEC-10 through SPEC-14 entry creation requires the existing trusted gateway, exact-development identity, or server API key. An intentionally insecure preview may also enable browser-supplied agent identity with both `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` and `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`; this is disabled by default and is not authentication. Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes require the server API key or a user identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
+The active main-page authentication flow uses Supabase email/password registration and login. The backend creates a signed, HttpOnly session cookie after Supabase authenticates the account; the SPEC-19 signup trigger records the administrator grant in `public.contract_admin_users`. Contract creation and administrator routes consume that session and no longer use Google OAuth or an agent ID. The legacy `X-User-Id` development path remains only for compatibility with the property and retained SPEC-09 flows.
+
+Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes accept a SPEC-19 administrator session, the server API key, or a compatibility identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
 
 ## Legacy SPEC-09 authorization boundary
 

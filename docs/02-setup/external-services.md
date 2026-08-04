@@ -78,6 +78,6 @@ The backend sends a JSON webhook payload to the Make webhook URL configured in `
 
 For Contract Generation, the service account is required rather than a fallback. Share only the configured destination spreadsheet with that principal and grant the minimum role required to read row 1 and append values (`Editor` on that spreadsheet). Contract submission does not require general Drive access or ownership of unrelated spreadsheets. Keep service-account JSON server-side and rotate credentials according to the deployment's secret-management policy.
 
-## Google OAuth administrator login
+## Supabase administrator authentication
 
-SPEC-17 uses the existing Google OAuth client credentials for administrator sign-in. Configure `CONTRACT_ADMIN_GOOGLE_EMAILS` as an explicit, comma-separated allowlist. The backend validates the Google account, maps it to the stable Google subject identifier, and stores only a signed HTTP-only session cookie. It does not expose OAuth refresh tokens to the browser. Set `CONTRACT_GOOGLE_OAUTH_REDIRECT_URI` when the callback URL differs from the URL derived from `CONTRACT_PUBLIC_BASE_URL`.
+SPEC-19 uses Supabase Auth for email/password registration and login. The backend uses the server-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to create confirmed accounts, and the signup trigger records each main-page account in `public.contract_admin_users` with administrator access. The browser receives only a signed HttpOnly session cookie. Google credentials remain documented above only for the property workflow and retained Sheets integrations.

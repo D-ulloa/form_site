@@ -73,7 +73,7 @@ import {
   verifyContractAccessToken,
 } from '../services/contractTokenService.js';
 import { normalizeContractRequestIp } from '../services/contractRequestContext.js';
-import { getContractGoogleOAuthSession } from '../services/contractGoogleOAuth.js';
+import { getContractPasswordSession } from '../services/contractPasswordAuth.js';
 
 const EntryIdSchema = z.string().uuid();
 const RoleSchema = z.enum(['user', 'client']);
@@ -85,7 +85,7 @@ const CreateEntryBodySchema = z.object({
   direccion: z.string().trim().min(1).max(256).optional(),
 }).strict().transform((value) => ({
   ...value,
-  direccion: value.Direccion ?? value.direccion ?? "Sin dirección",
+  direccion: value.Direccion ?? value.direccion ?? "Sin direcciÃ³n",
 }));
 const SubmitRoleBodySchema = z.object({
   fields: z.record(z.string(), z.unknown()),
@@ -192,12 +192,18 @@ function resolveDependencies(
 }
 
 function authenticate(req: Request, environment: NodeJS.ProcessEnv) {
-  const session = getContractGoogleOAuthSession(req, environment);
+  const session = getContractPasswordSession(req, environment);
   return authenticateContractRequest({
     authorization: req.get('Authorization'),
     authenticatedUserId: req.get('X-Authenticated-User-Id'),
     developmentUserId: req.get('X-User-Id'),
-    ...(session ? { oauthUser: { userId: session.userId, email: session.email } } : {}),
+    ...(session ? {
+      passwordSession: {
+        userId: session.userId,
+        email: session.email,
+        isAdmin: session.isAdmin,
+      },
+    } : {}),
   }, environment);
 }
 
@@ -696,6 +702,5 @@ export function createContractEntriesRouter(
 }
 
 export default createContractEntriesRouter();
-
 
 

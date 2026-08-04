@@ -1,6 +1,6 @@
 # Usage
 
-Status: 2026-07-29.
+Status: 2026-08-04.
 
 ## Frontend user flow
 
@@ -19,15 +19,16 @@ The main workflow is:
 
 The Contract Generation workflow is:
 
-1. Select `Generar contrato` on `/`; opening the section does not create a database entry.
-2. From that passive section, `Administrar contratos` can open `/contracts/admin` without creating an entry.
-3. To start a new contract, click `Generar nueva entrada para contrato` to make the authenticated create call.
-4. Open the hosted user form and copy the client link from the entry card.
-5. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI image pair for each record. Every guarantor also selects at least one salary-receipt or property-guarantee evidence file; each of the two receivers accepts at most two files.
-6. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
-7. Evidence selection does not upload in the background. On client `Guardar`, the form locks, the browser requests signed evidence upload URLs, uploads the files to private storage, and submits their stable references with the validated client fields. A failed final response retains those references for retry and refreshes server state to detect an already-committed submission.
-8. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
-9. Administrators sign in with the Google allowlist from the main page, then use `/contracts/admin/:entryId` links to inspect schema-ordered submissions and associated media, archive entries, or regenerate role links.
+1. Register or sign in with email/password from `/`; a new main-page account receives administrator access immediately.
+2. Select `Generar contrato` on `/`; opening the section does not create a database entry.
+3. From that passive section, `Administrar contratos` can open `/contracts/admin` without creating an entry.
+4. To start a new contract, click `Generar nueva entrada para contrato` to make the authenticated create call.
+5. Open the hosted user form and copy the client link from the entry card.
+6. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI image pair for each record. Every guarantor also selects at least one salary-receipt or property-guarantee evidence file; each of the two receivers accepts at most two files.
+7. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
+8. Evidence selection does not upload in the background. On client `Guardar`, the form locks, the browser requests signed evidence upload URLs, uploads the files to private storage, and submits their stable references with the validated client fields. A failed final response retains those references for retry and refreshes server state to detect an already-committed submission.
+9. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload.
+10. Administrators use `/contracts/admin/:entryId` links to inspect schema-ordered submissions and associated media, archive entries, or regenerate role links.
 
 ## Backend endpoints
 
@@ -41,8 +42,8 @@ The Contract Generation workflow is:
 - `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and database-backed, ordered inspection with short-lived media links.
 - `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
-- `GET /api/auth/google` and `GET /api/auth/google/callback` — Google OAuth administrator login; the backend stores only a signed, HTTP-only session cookie.
-- `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the administrator session.
+- `POST /api/auth/register` and `POST /api/auth/login` — Supabase email/password account creation and login; the backend stores only a signed, HTTP-only session cookie.
+- `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the password-auth session.
 
 Legacy SPEC-09 compatibility endpoints:
 
@@ -54,7 +55,7 @@ Property endpoints are implemented in `backend/src/routes/properties.ts`; curren
 
 Legacy SPEC-09 submit and audit calls require a valid bearer API key, a trusted gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. An insecure preview can accept the last header outside development by setting `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`. `X-Request-Id` is optional and supports correlation. The public schema route does not require authentication.
 
-In development, the frontend derives `X-User-Id` from the configured agent for current owner/admin requests and legacy submit/audit requests. In production, it sends no API key and relies on the same-origin gateway by default. Setting `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` makes a production bundle send the browser-controlled agent ID instead. The gateway identity has precedence over forwarded authorization.
+The current contract UI sends the same-origin SPEC-19 session cookie and does not depend on the configured property agent. Property requests and retained SPEC-09 compatibility calls may still use their agent identity in development. In production, the contract UI sends no API key. Setting `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` remains a compatibility-only preview option; the trusted gateway and explicit API-key modes keep precedence over browser-controlled identity.
 
 For legacy SPEC-09, every user-scoped identity replaces the submitted `meta.userId` before audit creation and may read only audits with that resulting owner. A valid API key preserves the submitted `meta.userId` for audit attribution and is not owner-scoped when reading audits. The audit control retains its real `href`, but JavaScript intercepts normal activation to fetch and render the JSON inside the receipt view.
 

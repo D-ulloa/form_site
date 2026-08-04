@@ -1,15 +1,11 @@
 ﻿import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractInspectionDetails } from '../features/contracts/components/ContractInspectionDetails.tsx';
 import { ContractAdminRoleEditForm } from '../features/contracts/components/ContractAdminRoleEditForm.tsx';
-import {
-  fetchAdminSession,
-  getGoogleLoginUrl,
-} from '../features/contracts/services/adminAuthApi.ts';
+import { fetchAdminSession } from '../features/contracts/services/adminAuthApi.ts';
 import {
   archiveContractEntry,
   fetchContractAdminEntry,
@@ -30,17 +26,14 @@ function formatDate(value: string): string {
 }
 
 export function ContractAdminPage() {
-  const { agent } = useAgent();
   const { entryId: routeEntryId } = useParams<{ entryId?: string }>();
   const sessionQuery = useQuery({
     queryKey: ['contract-admin-session'],
     queryFn: fetchAdminSession,
     retry: false,
   });
-  const userId = sessionQuery.data?.user.id
-    ?? (import.meta.env.DEV ? agent?.agent_user_id : undefined)
-    ?? '';
-  const hasAdminIdentity = Boolean(userId || sessionQuery.data);
+  const userId = sessionQuery.data?.user.id ?? '';
+  const hasAdminIdentity = Boolean(sessionQuery.data);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const selectedId = routeEntryId ?? null;
@@ -116,14 +109,22 @@ export function ContractAdminPage() {
     (entry) => statusFilter === 'all' || entry.status === statusFilter,
   ) ?? [];
 
+  if (sessionQuery.isPending) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center px-6 text-sm text-slate-400" role="status">
+        Comprobando sesión…
+      </main>
+    );
+  }
+
   if (!hasAdminIdentity) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
-        <AlertInline variant="warning" title="Perfil requerido">
-          Iniciá sesión con Google para abrir la administración.{''}
-          <a href={getGoogleLoginUrl()} className="font-medium underline hover:text-white">
-            Iniciar sesión con Google
-          </a>
+        <AlertInline variant="warning" title="Sesión requerida">
+          Iniciá sesión para abrir la administración.{' '}
+          <Link to="/login" className="font-medium underline hover:text-white">
+            Iniciar sesión
+          </Link>
         </AlertInline>
       </main>
     );
@@ -378,4 +379,3 @@ export function ContractAdminPage() {
     </div>
   );
 }
-
