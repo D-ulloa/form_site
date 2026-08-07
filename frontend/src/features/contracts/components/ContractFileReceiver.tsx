@@ -129,6 +129,11 @@ export function ContractFileReceiver({
       <p id={helpId} className="mt-1 text-xs text-slate-500">
         Hasta 2 archivos — PDF, JPG, PNG
       </p>
+      <p className="mt-2 text-xs text-slate-400" role="status" aria-live="polite">
+        {files.length > 0
+          ? `${files.length} archivo${files.length === 1 ? '' : 's'} seleccionado${files.length === 1 ? '' : 's'}`
+          : 'Sin archivos seleccionados'}
+      </p>
       <input
         id={inputId}
         name={inputId}

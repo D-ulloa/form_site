@@ -106,7 +106,7 @@ function clientSubmission(
       guarantor_full_name: 'Garante, Graciela',
     }],
     inquilinos: [{
-      tenant_age: 31,
+      tenant_is_adult: true,
       tenant_email: 'inquilino@example.test',
       tenant_nationality: 'Argentina',
       tenant_phone: '3515550199',
@@ -292,7 +292,7 @@ test('admin inspection ignores payload key order and emits user then client in f
       'tenant_phone',
       'tenant_nationality',
       'tenant_email',
-      'tenant_age',
+      'tenant_is_adult',
     ],
   );
   assert.deepEqual(

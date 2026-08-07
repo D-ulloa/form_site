@@ -66,6 +66,17 @@ describe('SPEC-14 contract evidence file receiver', () => {
     expect(screen.queryByText('También se aceptan archivos BMP y TIFF.')).toBeNull();
   });
 
+  it('SPEC-20 reports selected and empty upload status accurately', () => {
+    render(<Harness />);
+    expect(screen.getByRole('status').textContent).toBe('Sin archivos seleccionados');
+
+    const file = new File(['evidence'], 'archivo.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByLabelText('Subir recibo de sueldo'), {
+      target: { files: [file] },
+    });
+    expect(screen.getByRole('status').textContent).toBe('1 archivo seleccionado');
+  });
+
   it.each([
     ['application/pdf', 'archivo.pdf'],
     ['image/jpeg', 'archivo.jpg'],

@@ -310,7 +310,7 @@ The following shows the envelope and representative field types. A valid `rent-c
   "fields": {
     "tenant_full_name": "Apellidos, Nombres",
     "tenant_email": "tenant@example.com",
-    "tenant_age": 30,
+    "tenant_is_adult": true,
     "contract_start_date": "2026-08-01",
     "contract_months": 24
   },

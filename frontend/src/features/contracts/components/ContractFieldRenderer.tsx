@@ -32,7 +32,7 @@ const PLACEHOLDERS: Record<string, string> = {
   tenant_phone: '+54 9 11 1234-5678',
   tenant_nationality: 'Argentina',
   tenant_email: 'juan.perez@ejemplo.com',
-  tenant_age: '35',
+  tenant_is_adult: '',
   guarantor_full_name: 'María Pérez',
   guarantor_dni: '23.456.789',
   guarantor_phone: '+54 9 351 765-4321',
