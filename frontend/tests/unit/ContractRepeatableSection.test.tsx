@@ -210,6 +210,7 @@ describe('SPEC-11 repeatable contract sections', () => {
     expect(screen.getAllByRole('heading', { name: /Inquilino 1/ })).toHaveLength(1);
     expect(screen.getAllByLabelText('Frente DNI')).toHaveLength(1);
     expect(screen.getAllByLabelText('Dorso DNI')).toHaveLength(1);
+    expect(screen.getAllByText('Seleccionar archivo')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Inquilino' }));

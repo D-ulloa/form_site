@@ -226,6 +226,17 @@ function getAccessToken(req: Request): string | undefined {
 }
 
 function getPublicBaseUrl(req: Request, environment: NodeJS.ProcessEnv): string {
+  // Vercel creates a unique hostname for every preview deployment. A fixed
+  // CONTRACT_PUBLIC_BASE_URL would make links from every preview point at the
+  // production application, so prefer the deployment URL in Preview.
+  if (environment.VERCEL_ENV?.trim().toLowerCase() === "preview") {
+    const vercelUrl = environment.VERCEL_URL?.trim();
+    if (vercelUrl) {
+      return /^https?:\/\//iu.test(vercelUrl) ? vercelUrl : "https://" + vercelUrl;
+    }
+    return req.protocol + "://" + (req.get("host") ?? "localhost");
+  }
+
   const configured = environment.CONTRACT_PUBLIC_BASE_URL?.trim();
   if (configured) return configured;
   if (environment.NODE_ENV === 'production') {

@@ -252,6 +252,31 @@ test('hosted create accepts the agent ID with the explicit insecure opt-in', asy
   assert.equal(repository.entry?.createdBy, 'hosted-agent');
 });
 
+test("preview create links use the current Vercel deployment URL", async () => {
+  const repository = new MemoryContractRepository();
+  const app = createApp(repository, {
+    ...ENVIRONMENT,
+    NODE_ENV: "production",
+    CONTRACT_PUBLIC_BASE_URL: "https://production.example.test",
+    CONTRACT_ALLOW_INSECURE_AGENT_ID: "true",
+    VERCEL_ENV: "preview",
+    VERCEL_URL: "form-site-preview.example.vercel.app",
+  });
+  app.set("trust proxy", 1);
+
+  const created = await request(app)
+    .post("/api/contracts/create")
+    .set("X-Forwarded-Proto", "https")
+    .set("X-User-Id", "preview-agent")
+    .send({});
+
+  assert.equal(created.status, 201);
+  assert.equal(new URL(created.body.userUrl as string).origin,
+    "https://form-site-preview.example.vercel.app");
+  assert.equal(new URL(created.body.clientUrl as string).origin,
+    "https://form-site-preview.example.vercel.app");
+});
+
 test('create, both role submissions, admin inspection, token regeneration, and archive', async () => {
   const repository = new MemoryContractRepository();
   const app = createApp(repository);

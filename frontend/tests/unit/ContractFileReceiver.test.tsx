@@ -62,6 +62,8 @@ describe('SPEC-14 contract evidence file receiver', () => {
     const input = screen.getByLabelText('Subir recibo de sueldo') as HTMLInputElement;
     expect(input.multiple).toBe(true);
     expect(input.accept).toBe(definition.acceptedMimeTypes.join(','));
+    expect(input.className).toContain('sr-only');
+    expect(screen.getByText('Seleccionar archivos')).toBeTruthy();
     expect(screen.getByText('Hasta 2 archivos — PDF, JPG, PNG')).toBeTruthy();
     expect(screen.queryByText('También se aceptan archivos BMP y TIFF.')).toBeNull();
   });

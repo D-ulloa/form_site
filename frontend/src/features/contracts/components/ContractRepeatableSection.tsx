@@ -188,6 +188,12 @@ function ContractDniUploadControl({
       <label htmlFor={inputId} className="text-sm font-medium text-slate-300">
         {definition.label}
       </label>
+      <label
+        htmlFor={inputId}
+        className="mt-2 inline-flex cursor-pointer rounded-lg bg-indigo-500/15 px-3 py-2 text-xs text-indigo-300 transition-colors hover:bg-indigo-500/30 hover:text-indigo-200"
+      >
+        {reference ? 'Reemplazar archivo' : 'Seleccionar archivo'}
+      </label>
       <input
         id={inputId}
         type="file"
@@ -197,7 +203,7 @@ function ContractDniUploadControl({
           void selectFile(event.target.files?.[0]);
           event.currentTarget.value = '';
         }}
-        className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
+        className="sr-only"
       />
       <p className="mt-2 text-xs text-slate-500">
         Subir DNI — {definition.slot === 'front' ? 'Frontal' : 'Dorso'} (ej. 12.345.678) · Obligatorio · JPG, PNG o PDF · Máximo 10 MB

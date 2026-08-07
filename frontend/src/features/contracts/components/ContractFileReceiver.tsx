@@ -134,6 +134,12 @@ export function ContractFileReceiver({
           ? `${files.length} archivo${files.length === 1 ? '' : 's'} seleccionado${files.length === 1 ? '' : 's'}`
           : 'Sin archivos seleccionados'}
       </p>
+      <label
+        htmlFor={inputId}
+        className="mt-2 inline-flex cursor-pointer rounded-lg bg-indigo-500/15 px-3 py-2 text-xs text-indigo-300 transition-colors hover:bg-indigo-500/30 hover:text-indigo-200"
+      >
+        Seleccionar archivos
+      </label>
       <input
         id={inputId}
         name={inputId}
@@ -149,7 +155,7 @@ export function ContractFileReceiver({
           addFiles(Array.from(event.target.files ?? []));
           event.currentTarget.value = '';
         }}
-        className="mt-3 block w-full rounded-lg text-xs text-slate-400 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
+        className="sr-only"
       />
 
       {visibleErrors.length > 0 && (
