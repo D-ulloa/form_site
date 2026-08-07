@@ -1,9 +1,10 @@
 import { Router, type Request } from 'express';
-import { clearContractPasswordSessionCookie, serializeContractPasswordSessionCookie, type ContractPasswordCredentials, type ContractPasswordSession, type ContractPasswordSessionData } from '../services/contractPasswordAuth.js';
+import { clearContractPasswordSessionCookie, serializeContractPasswordSessionCookie, type ContractPasswordCredentials, type ContractGoogleAccessToken, type ContractPasswordSession, type ContractPasswordSessionData } from '../services/contractPasswordAuth.js';
 export interface ContractPasswordAuthRouterDependencies {
     readonly environment: NodeJS.ProcessEnv;
     readonly register: (credentials: ContractPasswordCredentials, environment: NodeJS.ProcessEnv) => Promise<ContractPasswordSessionData>;
     readonly login: (credentials: ContractPasswordCredentials, environment: NodeJS.ProcessEnv) => Promise<ContractPasswordSessionData>;
+    readonly googleLogin: (credentials: ContractGoogleAccessToken, environment: NodeJS.ProcessEnv) => Promise<ContractPasswordSessionData>;
     readonly getSession: (req: Request, environment: NodeJS.ProcessEnv) => ContractPasswordSession | null;
     readonly serializeSessionCookie: typeof serializeContractPasswordSessionCookie;
     readonly clearSessionCookie: typeof clearContractPasswordSessionCookie;

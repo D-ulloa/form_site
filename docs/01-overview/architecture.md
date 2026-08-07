@@ -1,6 +1,6 @@
 # Architecture
 
-Status: 2026-07-29.
+Status: 2026-08-06.
 
 ## Stack
 
@@ -24,8 +24,8 @@ Important frontend flows:
 - `NewPropertyPage`: composes section components and orchestrates form submission.
 - `SubmissionSuccessPage`: shows submission status and integration results.
 - `ContractEntryModal`: remains passive until its dedicated create action is clicked, then presents the hosted user form and copyable client link.
-- `ContractFormPage`: renders role-only fields, including repeatable client records, private front/back DNI uploads, passive per-guarantor supporting-file receivers, live read-only computed dates, and the user-side `Contrato` subdivisions, then switches to read-only after submission. Supporting files remain local until the explicit `Guardar` action performs the upload preflight; the form locks during that sequence and retains stable references for safe retry.
-- `ContractAdminPage`: lists entries; renders selected immutable submissions in schema order with partial/empty states, DNI media, and supporting files grouped under their guarantor subdivisions with signed views; and archives or regenerates role links for administrators.
+- `ContractFormPage`: renders role-only fields, including repeatable client records, private front/back DNI uploads, passive per-guarantor supporting-file receivers, live read-only computed dates, and the user-side `Contrato` subdivisions. Submitted role data can be corrected through the same role flow; administrator inspection remains read-only while administrator editing uses the dedicated update route. Supporting files remain local until the explicit `Guardar` action performs the upload preflight; the form locks during that sequence and retains stable references for safe retry.
+- `ContractAdminPage`: lists entries; renders selected immutable submissions in schema order with partial/empty states, DNI media, and supporting files grouped under their guarantor subdivisions with signed views; and lets administrators edit role data, update generation status, archive entries, or regenerate role links.
 
 The contract UI contains no Supabase service key or token hashing secret. It consumes role-authorized schema routes and treats frontend validation as usability only; the backend remains authoritative.
 
@@ -60,7 +60,7 @@ Property Google operations may use configured user OAuth with a service-account 
 
 ## Current contract authorization boundary
 
-The active main-page authentication flow uses Supabase email/password registration and login. The backend creates a signed, HttpOnly session cookie after Supabase authenticates the account; the SPEC-19 signup trigger records the administrator grant in `public.contract_admin_users`. Contract creation and administrator routes consume that session and no longer use Google OAuth or an agent ID. The legacy `X-User-Id` development path remains only for compatibility with the property and retained SPEC-09 flows.
+The active main-page authentication flow supports Supabase email/password registration and login plus Google OAuth through Supabase. The backend converts either successful method into a signed, HttpOnly application session cookie; main-page registrations and Google OAuth sessions receive administrator access in `public.contract_admin_users`. Contract creation and administrator routes do not use the property agent ID. The legacy `X-User-Id` development path remains only for compatibility with the property and retained SPEC-09 flows.
 
 Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes accept a SPEC-19 administrator session, the server API key, or a compatibility identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
 

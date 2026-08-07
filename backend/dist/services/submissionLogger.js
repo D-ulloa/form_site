@@ -8,6 +8,10 @@ const LOGS_DIR = join(__dirname, '..', '..', 'logs');
  * Errors are caught and logged to console — this must never crash a request.
  */
 export async function persistSubmissionLog(log) {
+    if (process.env.VERCEL) {
+        console.log(`[logger] Submission log ${JSON.stringify(log)}`);
+        return;
+    }
     try {
         await mkdir(LOGS_DIR, { recursive: true });
         const filepath = join(LOGS_DIR, `${log.submission_id}.json`);

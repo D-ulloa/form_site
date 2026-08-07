@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: 2026-06-05.
+Status: 2026-08-06.
 
 This folder is reserved for durable plans, specifications, audits, and decisions.
 

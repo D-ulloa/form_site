@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { clearContractPasswordSessionCookie, ContractPasswordAuthConfigurationError, ContractPasswordAuthError, getContractPasswordSession, loginContractUser, registerContractUser, serializeContractPasswordSessionCookie, } from '../services/contractPasswordAuth.js';
+import { clearContractPasswordSessionCookie, ContractPasswordAuthConfigurationError, ContractPasswordAuthError, loginContractGoogleUser, getContractPasswordSession, loginContractUser, registerContractUser, serializeContractPasswordSessionCookie, } from '../services/contractPasswordAuth.js';
 function setPrivateHeaders(res) {
     res.set('Cache-Control', 'no-store');
     res.set('X-Content-Type-Options', 'nosniff');
@@ -18,6 +18,15 @@ function authBody(body) {
         ...(stringValue(value.name) ? { name: stringValue(value.name) } : {}),
         ...(stringValue(value.company) ? { company: stringValue(value.company) } : {}),
         ...(stringValue(value.role) ? { role: stringValue(value.role) } : {}),
+        rememberMe: value.rememberMe === true,
+    };
+}
+function googleAuthBody(body) {
+    const value = typeof body === 'object' && body !== null
+        ? body
+        : {};
+    return {
+        accessToken: typeof value.accessToken === 'string' ? value.accessToken.trim() : '',
         rememberMe: value.rememberMe === true,
     };
 }
@@ -41,6 +50,14 @@ function validateCredentials(credentials, registration) {
         return 'El nombre de la empresa es demasiado largo.';
     if ((credentials.role?.length ?? 0) > 256)
         return 'El cargo o rol es demasiado largo.';
+    return null;
+}
+function validateGoogleAccessToken(credentials) {
+    if (!credentials.accessToken
+        || credentials.accessToken.length > 16384
+        || /[\u0000-\u001F\u007F]/u.test(credentials.accessToken)) {
+        return 'No se pudo validar la cuenta de Google.';
+    }
     return null;
 }
 function publicUser(session) {
@@ -84,6 +101,7 @@ function resolveDependencies(overrides) {
         environment: overrides.environment ?? process.env,
         register: overrides.register ?? registerContractUser,
         login: overrides.login ?? loginContractUser,
+        googleLogin: overrides.googleLogin ?? loginContractGoogleUser,
         getSession: overrides.getSession ?? getContractPasswordSession,
         serializeSessionCookie: overrides.serializeSessionCookie ?? serializeContractPasswordSessionCookie,
         clearSessionCookie: overrides.clearSessionCookie ?? clearContractPasswordSessionCookie,
@@ -127,6 +145,27 @@ export function createContractPasswordAuthRouter(dependencyOverrides = {}) {
         }
         try {
             const session = await dependencies.login(credentials, dependencies.environment);
+            res.set('Set-Cookie', dependencies.serializeSessionCookie(session, dependencies.environment, credentials.rememberMe));
+            res.status(200).json({ authenticated: true, user: publicUser(session) });
+        }
+        catch (error) {
+            sendAuthError(res, error);
+        }
+    });
+    router.post('/google/session', async (req, res) => {
+        setPrivateHeaders(res);
+        const credentials = googleAuthBody(req.body);
+        const validationError = validateGoogleAccessToken(credentials);
+        if (validationError) {
+            res.status(400).json({
+                error: 'INVALID_REQUEST',
+                message: validationError,
+                retriable: false,
+            });
+            return;
+        }
+        try {
+            const session = await dependencies.googleLogin(credentials, dependencies.environment);
             res.set('Set-Cookie', dependencies.serializeSessionCookie(session, dependencies.environment, credentials.rememberMe));
             res.status(200).json({ authenticated: true, user: publicUser(session) });
         }

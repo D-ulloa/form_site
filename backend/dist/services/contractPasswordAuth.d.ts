@@ -16,6 +16,10 @@ export interface ContractPasswordCredentials {
     readonly role?: string;
     readonly rememberMe?: boolean;
 }
+export interface ContractGoogleAccessToken {
+    readonly accessToken: string;
+    readonly rememberMe?: boolean;
+}
 export type ContractPasswordSessionData = Omit<ContractPasswordSession, 'expiresAt'>;
 export declare class ContractPasswordAuthConfigurationError extends Error {
     constructor();
@@ -24,6 +28,7 @@ export declare class ContractPasswordAuthError extends Error {
     readonly code: 'invalid_credentials' | 'email_in_use' | 'not_admin';
     constructor(code: 'invalid_credentials' | 'email_in_use' | 'not_admin', message: string);
 }
+type ContractAuthClientFactory = (environment: NodeJS.ProcessEnv) => SupabaseClient;
 export declare function clearContractPasswordSessionCookie(environment?: NodeJS.ProcessEnv): string;
 export declare function getContractPasswordSession(req: Request, environment?: NodeJS.ProcessEnv): ContractPasswordSession | null;
 export declare function serializeContractPasswordSessionCookie(session: ContractPasswordSessionData, environment?: NodeJS.ProcessEnv, rememberMe?: boolean): string;
@@ -35,5 +40,12 @@ export declare function serializeContractPasswordSessionCookie(session: Contract
  */
 export declare function ensureContractAdminUser(client: SupabaseClient, userId: string): Promise<void>;
 export declare function registerContractUser(credentials: ContractPasswordCredentials, environment?: NodeJS.ProcessEnv): Promise<ContractPasswordSessionData>;
-export declare function loginContractUser(credentials: ContractPasswordCredentials, environment?: NodeJS.ProcessEnv): Promise<ContractPasswordSessionData>;
+export declare function loginContractUser(credentials: ContractPasswordCredentials, environment?: NodeJS.ProcessEnv, clientFactory?: ContractAuthClientFactory): Promise<ContractPasswordSessionData>;
+/**
+ * Convert a verified Supabase Google session into the same signed application
+ * session used by password authentication. The access token is verified by
+ * Supabase Auth; it is never stored in the application cookie.
+ */
+export declare function loginContractGoogleUser(credentials: ContractGoogleAccessToken, environment?: NodeJS.ProcessEnv): Promise<ContractPasswordSessionData>;
+export {};
 //# sourceMappingURL=contractPasswordAuth.d.ts.map

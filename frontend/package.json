@@ -8,10 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run src",
+    "test": "vitest run tests/unit tests/integration",
     "test:e2e": "playwright test",
     "test:e2e:vercel": "PLAYWRIGHT_BASE_URL=https://form-site-pi.vercel.app PLAYWRIGHT_LIVE=1 playwright test --grep 'live:'",
-    "test:watch": "vitest src"
+    "test:watch": "vitest tests/unit tests/integration"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

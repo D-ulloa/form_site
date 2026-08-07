@@ -69,10 +69,10 @@ const sections = [
             {
                 name: 'contract_selection',
                 label: 'Ajuste',
-                placeholder: 'Seleccioná IPC o IPL',
+                placeholder: 'Seleccioná IPC o ICL',
                 type: 'select',
                 required: false,
-                options: ['IPC', 'IPL'],
+                options: ['IPC', 'ICL'],
             },
             { name: 'submission_date', label: 'Fecha de contrato', placeholder: '31/12/2026', type: 'date', required: true },
         ],

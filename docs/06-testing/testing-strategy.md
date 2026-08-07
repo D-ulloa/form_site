@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Status: 2026-07-29.
+Status: 2026-08-06.
 
 ## Current coverage
 
@@ -26,8 +26,11 @@ The backend suite runs with `cd backend && npm test`. It covers:
 - SPEC-12 Spanish-only hosted-form UI, `Propietario` presentation, compact contract-generation actions, hidden role-schema panels, guarantor subsection rendering, and per-guarantor salary-receipt/property-guarantee validation in both the browser and backend.
 - SPEC-13 `Contrato` subdivision metadata, manual-only entry creation, immutable submission-row reads, schema-defined user/client inspection order, every partial/empty state, and validated short-lived DNI viewing URLs.
 - SPEC-14 per-guarantor file-receiver metadata, exact evidence MIME and configurable size limits, client-token-authorized/rate-limited evidence presigning, strict path and live Storage-metadata verification, duplicate-reference rejection, typed verification outages, two-files-per-receiver and one-file-per-guarantor rules, and subsection-grouped administrator signed views without storage-location leakage.
+- SPEC-15 UI polish and downloadable attachment presentation.
+- SPEC-16 editable feedback, administrator corrections, and `Direccion` identification.
 - SPEC-17 stable `/contracts/admin/:entryId` links, `Direccion`-first presentation, Argentinian placeholders, and required Frontal/Dorso DNI validation including PDF acceptance.
-- SPEC-19 email/password request validation, signed and remembered session cookies, logout, Supabase administrator-principal boundaries, migration trigger markers, dedicated unnamed login/register screens, and removal of Google/agent authentication actions from the main entry.
+- SPEC-18 `IPC`/`ICL` selection, simplified upload guidance, and editable feedback recovery.
+- SPEC-19 email/password request validation, Google OAuth session exchange, signed and remembered session cookies, logout, Supabase administrator-principal boundaries, migration trigger markers, dedicated unnamed login/register screens, and removal of agent setup from the main entry.
 - The retained SPEC-09 compatibility boundary, including:
 - Runtime contract configuration, public/private projection, malformed destination rejection, and strict service-account-only Google auth.
 - Strict request validation for unknown fields, no numeric coercion, email, impossible ISO dates, minimum limits, contract-type mismatch, and allowed `meta.origin` values.
@@ -51,7 +54,7 @@ The frontend suite covers:
 - Editable and read-only `Vigencia`, `Canon`, and `Ajuste` groups; passive contract-entry opening with an explicit creation action; and structured administrator inspection for both, partial, empty, and media states.
 - Copy success and failure, normalized single-submit locking, retained data and focused server field errors, safe Sheet/audit receipt links, and Step B accessibility.
 - Authenticated inline audit loading and failure display while retaining the audit `href`.
-- Dedicated SPEC-19 login/register fields, password confirmation, API submission, redirects, site-palette presentation, and unnamed/Google-free authentication copy.
+- Dedicated SPEC-19 login/register fields, password confirmation, API submission, redirects, site-palette presentation, and Google-compatible unnamed authentication copy.
 - `AgentModal` dialog labeling, cancellation, and accessibility.
 - Axe checks for all field controls, Step B, and `AgentModal`.
 
@@ -76,4 +79,4 @@ The frontend suite covers:
 
 Tests that write audits use a temporary directory and remove their own fixtures; they must not modify committed historical files under `backend/logs/`.
 
-Focused SPEC-14 backend coverage lives in `backend/tests/contract-entries-spec14.test.ts`.
+Focused SPEC-14 backend coverage lives in `backend/tests/integration/contract-entries-spec14.test.ts`.

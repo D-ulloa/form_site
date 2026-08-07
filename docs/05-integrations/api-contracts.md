@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: 2026-07-29.
+Status: 2026-08-06.
 
 ## `POST /properties/submit`
 
@@ -64,9 +64,9 @@ Response body shape:
 - `413` for payload size violations.
 - `500` for backend failures.
 
-## SPEC-10 through SPEC-14 contract entry API
+## SPEC-10 through SPEC-19 current contract entry API
 
-All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the gateway/development/API-key identity boundary by default; an intentionally insecure preview can opt into caller-supplied agent IDs. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
+All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the Supabase application session, trusted gateway, API-key, or explicitly enabled development identity boundary; an intentionally insecure preview can opt into caller-supplied agent IDs. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
 
 ### `POST /api/contracts/create`
 
@@ -74,11 +74,11 @@ Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optio
 
 ### `GET /api/contracts/:entryId/schema?role=user|client&token=...`
 
-Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. Each `Garantes` subsection also exposes its SPEC-14 `fileReceivers` metadata: `name`, Spanish `label`, `maxFiles: 2`, `maxSizeBytes`, and the exact accepted MIME list. User sections are `Propietario` and `Contrato`; the latter exposes `Vigencia`, `Canon`, and `Ajuste` subsection metadata in form order. `contract_selection` is a select with `IPC`/`ICL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted or complete role pages remain accessible as read-only. Archived entries return `410`.
+Returns `{ schemaId, contractType, role, sections, entry, readOnly, values }`. Client sections are `Inquilino` and `Garantes` and include `repeatable` metadata (`name`, item/add labels, `minItems: 1`) plus two `uploads` definitions for the front/back DNI slots. Each `Garantes` subsection also exposes its SPEC-14 `fileReceivers` metadata: `name`, Spanish `label`, `maxFiles: 2`, `maxSizeBytes`, and the exact accepted MIME list. User sections are `Propietario` and `Contrato`; the latter exposes `Vigencia`, `Canon`, and `Ajuste` subsection metadata in form order. `contract_selection` is a select with `IPC`/`ICL`, and the formatted date definitions are marked `readOnly` and `computed`. Submitted role pages remain accessible for correction through the same role flow; administrator inspection is read-only. Archived entries return `410`.
 
 ### `POST /api/contracts/:entryId/dni-uploads/presign?token=...`
 
-Client token required. Request: `{ "uploads": [{ "collection": "inquilinos|garantes", "itemIndex": 0, "slot": "front|back", "originalName": "dni.jpg", "mimeType": "image/jpeg", "sizeBytes": 1000 }] }`. A request may contain at most one front and one back descriptor for a collection/item index. Only configured raster image MIME types and positive sizes within `CONTRACT_DNI_MAX_IMAGE_BYTES` are accepted.
+Client token required. Request: `{ "uploads": [{ "collection": "inquilinos|garantes", "itemIndex": 0, "slot": "front|back", "originalName": "dni.jpg", "mimeType": "image/jpeg", "sizeBytes": 1000 }] }`. A request may contain at most one front and one back descriptor for a collection/item index. PDF plus the configured JPG, PNG, WEBP, GIF, HEIC, and HEIF MIME types, with positive sizes within `CONTRACT_DNI_MAX_IMAGE_BYTES`, are accepted.
 
 Returns `{ "uploads": [{ uploadUrl, originalName, mimeType, sizeBytes, storagePath, storageBucket, publicPath, slot }] }`. `uploadUrl` is used for the direct `PUT` and must not be persisted. The remaining private reference is included in the corresponding repeated record at role submission time.
 
@@ -152,13 +152,13 @@ Request: `{ "fields": { ... } }`. User fields remain flat. Client fields use fir
 }
 ```
 
-Both repeatable arrays require at least one strict object. Each object accepts only that section's scalar fields, configured front/back references, and configured evidence arrays. DNI images are optional as a pair: neither may be present, or both must be present. A lone side, extra field/slot, non-image MIME type, oversized object, wrong bucket/path, or reference belonging to another entry returns `400`.
+Both repeatable arrays require at least one strict object. Each object accepts only that section's scalar fields, configured front/back references, and configured evidence arrays. Current visible DNI receivers require both sides. PDF and the configured image MIME types are accepted. A lone side, extra field/slot, unsupported MIME type, oversized object, wrong bucket/path, or reference belonging to another entry returns `400`.
 
 Every guarantor must retain the existing SPEC-12 scalar-subsection rule and also provide at least one evidence reference across `recibo_sueldo_files` and `garantia_propietaria_files`. Each evidence array accepts zero to two strict `{ filename, mimeType, size, storagePath, storageBucket }` objects. The backend revalidates the exact MIME set, configured size, private bucket, entry/client/guarantor-index/field/filename-scoped path, and path uniqueness. It then reads each private object's Storage metadata with concurrency capped at four and requires exact MIME/byte-size matches before persistence. Unknown properties, transient `uploadUrl` values, duplicate paths, a missing/mismatched object, a third file, or no evidence across the pair return `400`; a Storage outage or incomplete metadata returns retriable `503 EVIDENCE_VERIFICATION_UNAVAILABLE`.
 
 The user payload must not contain `approve_contract`. `contract_selection`, when present, must be `IPC` or `ICL`. Caller-provided `contract_formatted_start`/`contract_formatted_update` values are ignored: the server stores `Formateada_1` as the last calendar day before the `contract_start_date` month and stores `Formateada_2` as that date plus the optional nonnegative whole-number `contract_update` months.
 
-The server supplies entry, role, IP, user agent, and timestamps; caller-supplied metadata is not accepted. Success returns `{ submissionId, entryId, status, submittedAt }`. The transactional Supabase function writes `contract_submissions`, updates the role fields on `contract_entries`, and writes `combined_submission` when both roles are filled. Duplicate role submissions return `409`; throttled attempts return `429` and `Retry-After`.
+The server supplies entry, role, IP, user agent, and timestamps; caller-supplied metadata is not accepted. Success returns `{ submissionId, entryId, status, submittedAt }`. The transactional Supabase function writes `contract_submissions`, updates the role fields on `contract_entries`, and writes `combined_submission` when both roles are filled. Repeated role submissions use the correction path, append a new submission-history row, and return `200`; throttled attempts return `429` and `Retry-After`.
 
 ### Administrator endpoints
 
@@ -166,8 +166,10 @@ The server supplies entry, role, IP, user agent, and timestamps; caller-supplied
 - `GET /api/contracts/admin/entries/:entryId`
 - `POST /api/contracts/admin/entries/:entryId/archive`
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate`
+- `PATCH` or `PUT /api/contracts/admin/entries/:entryId/submissions/:role` — validate and replace a submitted role payload while retaining submission history.
+- `POST /api/contracts/admin/entries/:entryId/status` — update lifecycle status; selecting `generar_contrato` sets the trigger flag used by the configured Supabase-to-Make webhook.
 
-The API key is an administrator. Every user-scoped identity must also appear in `CONTRACT_ADMIN_USER_IDS`; this means an insecure preview caller can spoof an administrator ID. Read responses never expose token hashes. A regenerated raw URL is returned once.
+The API key and authenticated Supabase accounts recorded in `public.contract_admin_users` are administrators. Compatibility user-scoped identities must also appear in `CONTRACT_ADMIN_USER_IDS`; an insecure preview caller can spoof an administrator ID. Read responses never expose token hashes. A regenerated raw URL is returned once.
 
 `GET /api/contracts/admin/entries/:entryId` reads the selected entry and its immutable `contract_submissions` rows from Supabase. It retains the compatibility properties `entry`, `userSubmission`, `clientSubmission`, and `combinedSubmission`, and adds an ordered inspection model:
 
@@ -229,6 +231,14 @@ SPEC-14 evidence appears in the `media` array of the matching guarantor subsecti
 ```
 
 The server validates each stored evidence reference before signing it. Evidence view URLs expire after ten minutes; `storageBucket`, `storagePath`, and upload URLs are omitted from the normalized inspection response.
+
+## Authentication endpoints
+
+- `POST /api/auth/register` — creates a confirmed Supabase account, grants administrator access, and sets the signed HttpOnly application cookie.
+- `POST /api/auth/login` — validates email/password credentials and sets the signed HttpOnly application cookie.
+- `POST /api/auth/google/session` — validates a Supabase Google access token and sets the same application cookie; Google OAuth is an alternate login.
+- `GET /api/auth/session` — returns the current authenticated application session.
+- `POST /api/auth/logout` — clears the application session cookie.
 
 ## Legacy SPEC-09 contract endpoint authorization
 
@@ -402,8 +412,8 @@ Property API calls are implemented in `frontend/src/features/properties/services
 - In development, the frontend sends requests to the current origin.
 - In production, it prefixes requests with `/_/backend`.
 - The public contract schema call does not send a credential.
-- Protected browser calls rely on the same-origin authenticated gateway in production by default and use the local identity header when the backend has exact `NODE_ENV=development`.
-- With `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true`, the production bundle also sends `X-User-Id` from the configured agent. The backend accepts it outside development only with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`. Production never sends a browser API key.
+- Protected current-contract browser calls rely on the same-origin application session cookie. Retained SPEC-09 compatibility calls may use the gateway, API key, or exact-development identity boundary.
+- With `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true`, the production bundle may also send `X-User-Id` from the configured property agent for compatibility. The backend accepts it outside development only with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`. Production never sends a browser API key.
 - Selecting the receipt's audit link is intercepted to make an authenticated, same-origin request and render the returned redacted JSON inline. The underlying safe `href` remains available.
 
 ## Integration contracts
