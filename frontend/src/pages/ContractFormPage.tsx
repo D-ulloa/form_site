@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useForm, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
-import { useAgent } from '../app/contexts/AgentContext.tsx';
+import { createPortal } from 'react-dom';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractFieldRenderer } from '../features/contracts/components/ContractFieldRenderer.tsx';
@@ -34,15 +34,19 @@ import {
 } from '../features/contracts/utils/contractComputedDates.ts';
 
 function roleFromRoute(value: string | undefined): ContractRole | null {
-  return value === 'user' || value === 'client' ? value : null;
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'cliente') return 'client';
+  if (normalized === 'usuario') return 'user';
+  if (normalized === 'user') return 'user';
+  if (normalized === 'client') return 'client';
+  return null;
 }
-
 function displayValue(value: unknown): string {
-  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (typeof value === 'boolean') return value ? 'SÃƒÂ­' : 'No';
   if (typeof value === 'object' && value !== null && 'originalName' in value) {
     return `Imagen: ${String((value as Record<string, unknown>).originalName)}`;
   }
-  return value === undefined || value === '' ? '—' : String(value);
+  return value === undefined || value === '' ? 'Ã¢â‚¬â€' : String(value);
 }
 
 function formatFileSize(size: number): string {
@@ -52,6 +56,31 @@ function formatFileSize(size: number): string {
 }
 function attachmentUrl(value: { viewUrl?: string; downloadUrl?: string }): string | undefined {
   return value.downloadUrl ?? value.viewUrl;
+}
+
+async function downloadAttachment(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch {
+    const fallback = document.createElement('a');
+    fallback.href = url;
+    fallback.download = filename;
+    fallback.target = '_blank';
+    fallback.rel = 'noopener noreferrer';
+    document.body.appendChild(fallback);
+    fallback.click();
+    fallback.remove();
+  }
 }
 
 function ReadOnlyEvidenceFiles({
@@ -85,8 +114,10 @@ function ReadOnlyEvidenceFiles({
                 <a
                   href={href}
                   download={file.filename}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void downloadAttachment(href, file.filename);
+                  }}
                   className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
                 >
                   Descargar archivo
@@ -111,8 +142,9 @@ function ReadOnlyDniFiles({
     const raw = values[definition.name];
     if (typeof raw !== "object" || raw === null) return [];
     const reference = raw as Partial<ContractDniImageReference>;
-    if (typeof reference.originalName !== "string") return [];
-    return [{ definition, reference }];
+    const originalName = reference.originalName;
+    if (typeof originalName !== "string") return [];
+    return [{ definition, reference, originalName }];
   });
   if (files.length === 0) return null;
 
@@ -120,20 +152,22 @@ function ReadOnlyDniFiles({
     <div className="mt-5 border-t border-white/[0.07] pt-4">
       <p className="text-xs font-medium text-slate-400">Documentos adjuntos</p>
       <ul className="mt-2 space-y-2">
-        {files.map(({ definition, reference }) => {
+        {files.map(({ definition, reference, originalName }) => {
           const href = attachmentUrl(reference);
           return (
             <li key={definition.name} className="rounded-lg bg-black/15 p-3 text-xs text-slate-300">
-              <p className="break-all">{definition.label}: {reference.originalName}</p>
+              <p className="break-all">{definition.label}: {originalName}</p>
               {typeof reference.mimeType === "string" && typeof reference.sizeBytes === "number" && (
-                <p className="mt-1 text-slate-500">{reference.mimeType} · {formatFileSize(reference.sizeBytes)}</p>
+                <p className="mt-1 text-slate-500">{reference.mimeType} Ã‚Â· {formatFileSize(reference.sizeBytes)}</p>
               )}
               {href && (
                 <a
                   href={href}
-                  download={reference.originalName}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download={originalName}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void downloadAttachment(href, originalName);
+                  }}
                   className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
                 >
                   Descargar archivo
@@ -221,7 +255,7 @@ async function replaceFilesWithEvidenceReferences(
     userId,
   );
   if (presigned.length !== pending.length) {
-    throw new Error('El servidor no devolvió todas las referencias de carga.');
+    throw new Error('El servidor no devolviÃƒÂ³ todas las referencias de carga.');
   }
 
   await Promise.all(pending.map((upload, index) => {
@@ -276,8 +310,6 @@ function ReadOnlyFieldList({
     </dl>
   );
 }
-
-
 function ReadOnlyContractSection({
   section,
   values,
@@ -343,7 +375,7 @@ function ReadOnlyContractSection({
               />
               {section.subsections && (
                 <fieldset className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-3">
-                  <legend className="px-1 text-xs font-semibold text-cyan-100">Garantías</legend>
+                  <legend className="px-1 text-xs font-semibold text-cyan-100">GarantÃƒÂ­as</legend>
                   <div className="mt-1">
                     {section.subsections.map((subsection) => (
                 <section
@@ -387,10 +419,10 @@ function ReadOnlyContractSection({
     </div>
   );
 }
+
 export function ContractFormPage() {
   const params = useParams<{ entryId: string; role: string }>();
   const location = useLocation();
-  const { agent } = useAgent();
   const role = roleFromRoute(params.role);
   const entryId = params.entryId ?? '';
   const token = useMemo(
@@ -406,6 +438,7 @@ export function ContractFormPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<Set<string>>(() => new Set());
   const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const [dismissedSubmissionId, setDismissedSubmissionId] = useState<string | null>(null);
   const initializedFormKey = useRef<string | null>(null);
   const form = useForm<ContractFormValues>({ defaultValues: {} });
   const {
@@ -437,14 +470,14 @@ export function ContractFormPage() {
       entryId,
       role as ContractRole,
       token,
-      agent?.agent_user_id,
+      undefined,
     ),
     enabled: Boolean(entryId && role),
     retry: false,
   });
   const submission = useMutation({
     mutationFn: (fields: Record<string, unknown>) =>
-      submitContractRole(entryId, role as ContractRole, token, fields, agent?.agent_user_id),
+      submitContractRole(entryId, role as ContractRole, token, fields, undefined),
   });
 
   useEffect(() => {
@@ -478,7 +511,7 @@ export function ContractFormPage() {
   if (!role) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
-        <AlertInline variant="error" title="Ruta de contrato inválida">
+        <AlertInline variant="error" title="Ruta de contrato invÃƒÂ¡lida">
           El enlace debe corresponder al formulario del usuario o del cliente.
         </AlertInline>
       </main>
@@ -494,19 +527,20 @@ export function ContractFormPage() {
     setIsEditing(true);
     setSubmitMessage(null);
     setReconciledMessage(null);
+    setDismissedSubmissionId(null);
   };
 
   const invalidSubmit = (fieldErrors: FieldErrors<ContractFormValues>) => {
     const first = Object.keys(fieldErrors)[0];
     if (first) document.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
-    setSubmitMessage('Revisá los campos marcados antes de guardar.');
+    setSubmitMessage('RevisÃƒÂ¡ los campos marcados antes de guardar.');
   };
 
   const validSubmit = async (values: ContractFormValues) => {
     if (!schema || submission.isPending || evidenceUploading) return;
     clearErrors();
     if (pendingUploads.size > 0) {
-      setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
+      setSubmitMessage('EsperÃƒÂ¡ a que terminen de subir las imÃƒÂ¡genes del DNI.');
       return;
     }
     const missingDniUploads: Array<{
@@ -550,7 +584,7 @@ export function ContractFormPage() {
           `dni-${firstMissing.collection}-${firstMissing.itemIndex}-${firstMissing.uploadName.includes('back') ? 'back' : 'front'}`,
         )?.focus();
       }
-      setSubmitMessage('Completá las imágenes Frontal y Dorso del DNI antes de guardar.');
+      setSubmitMessage('CompletÃƒÂ¡ las imÃƒÂ¡genes Frontal y Dorso del DNI antes de guardar.');
       return;
     }
     const hasIncompleteDniPair = schema.sections.some((section) => {
@@ -574,7 +608,7 @@ export function ContractFormPage() {
       missingSubsections.forEach(({ collection, itemIndex }) => {
         setError(`${collection}.${itemIndex}._subsections`, {
           type: 'required',
-          message: 'Completá al menos Recibo de sueldo o Garantía propietaria.',
+          message: 'CompletÃƒÂ¡ al menos Recibo de sueldo o GarantÃƒÂ­a propietaria.',
         });
       });
       const firstMissing = missingSubsections[0];
@@ -588,7 +622,7 @@ export function ContractFormPage() {
         )?.focus();
       }
       setSubmitMessage(
-        'Cada garante debe completar Recibo de sueldo o Garantía propietaria.',
+        'Cada garante debe completar Recibo de sueldo o GarantÃƒÂ­a propietaria.',
       );
       return;
     }
@@ -598,7 +632,7 @@ export function ContractFormPage() {
         setError(`${collection}.${itemIndex}._files`, {
           type: 'required',
           message:
-            'Adjuntá al menos un archivo en Recibo de sueldo o Garantía propietaria.',
+            'AdjuntÃƒÂ¡ al menos un archivo en Recibo de sueldo o GarantÃƒÂ­a propietaria.',
         });
       });
       const firstMissing = missingEvidence[0];
@@ -608,7 +642,7 @@ export function ContractFormPage() {
         )?.focus();
       }
       setSubmitMessage(
-        'Cada garante debe adjuntar al menos un archivo en Recibo de sueldo o Garantía propietaria.',
+        'Cada garante debe adjuntar al menos un archivo en Recibo de sueldo o GarantÃƒÂ­a propietaria.',
       );
       return;
     }
@@ -622,7 +656,7 @@ export function ContractFormPage() {
         values,
         entryId,
         token,
-        agent?.agent_user_id,
+        undefined,
       );
       if (uploadedValues !== values && uploadedValues.garantes !== undefined) {
         setValue('garantes', uploadedValues.garantes, {
@@ -640,7 +674,7 @@ export function ContractFormPage() {
         if (reconciliation.data?.readOnly) {
           setSubmitMessage(null);
           setReconciledMessage(
-            'El formulario ya había sido recibido y se actualizó a modo de solo lectura.',
+            'El formulario ya habÃƒÂ­a sido recibido y se actualizÃƒÂ³ a modo de solo lectura.',
           );
           return;
         }
@@ -654,10 +688,10 @@ export function ContractFormPage() {
       }
       setSubmitMessage(
         error instanceof ContractRequestError && error.fieldErrors.length > 0
-          ? 'Revisá los campos marcados e intentá guardar nuevamente.'
+          ? 'RevisÃƒÂ¡ los campos marcados e intentÃƒÂ¡ guardar nuevamente.'
           : finalSubmitAttempted
-            ? 'No se pudo confirmar el guardado. Verificamos el estado y podés intentar nuevamente.'
-            : 'No se pudieron subir los archivos. Intentá guardar nuevamente.',
+            ? 'No se pudo confirmar el guardado. Verificamos el estado y podÃƒÂ©s intentar nuevamente.'
+            : 'No se pudieron subir los archivos. IntentÃƒÂ¡ guardar nuevamente.',
       );
     } finally {
       setEvidenceUploading(false);
@@ -669,7 +703,7 @@ export function ContractFormPage() {
       <header className="glass sticky top-0 z-10 border-b border-white/[0.07]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-cyan-400">Generación de contratos</p>
+            <p className="text-xs uppercase tracking-wide text-cyan-400">GeneraciÃƒÂ³n de contratos</p>
             <h1 className="mt-1 text-lg font-semibold text-slate-100">
               Formulario del {roleLabel}
             </h1>
@@ -683,14 +717,14 @@ export function ContractFormPage() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         {schemaQuery.isPending && (
           <div className="flex min-h-64 items-center justify-center text-sm text-slate-400" role="status">
-            Cargando formulario seguro…
+            Cargando formulario seguroÃ¢â‚¬Â¦
           </div>
         )}
 
         {schemaQuery.isError && (
           <div className="mx-auto max-w-xl">
             <AlertInline variant="error" title="No se pudo abrir el formulario">
-              Verificá el enlace e intentá nuevamente.
+              VerificÃƒÂ¡ el enlace e intentÃƒÂ¡ nuevamente.
             </AlertInline>
           </div>
         )}
@@ -698,12 +732,90 @@ export function ContractFormPage() {
         {schema && (
           <>
 
+            {submission.data && dismissedSubmissionId !== submission.data.submissionId && typeof document !== 'undefined' && createPortal(
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 99999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1rem',
+                  backgroundColor: 'rgba(2, 6, 23, 0.82)',
+                }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="client-save-success-title"
+              >
+                <div
+                  className="w-full max-w-lg overflow-hidden rounded-2xl border border-cyan-300/20 bg-slate-900 shadow-2xl shadow-cyan-950/40"
+                  style={{
+                    width: '100%',
+                    maxWidth: '32rem',
+                    backgroundColor: '#0f172a',
+                    borderRadius: '1rem',
+                    boxShadow: '0 25px 60px rgba(0, 0, 0, 0.55)',
+                  }}
+                >
+                  <div className="h-1 bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <div className="p-6 sm:p-8">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-bold text-emerald-300 ring-1 ring-emerald-300/30">
+                        OK
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                          Guardado correctamente
+                        </p>
+                        <h2 id="client-save-success-title" className="mt-1 text-2xl font-semibold text-white">
+                          Formulario guardado
+                        </h2>
+                      </div>
+                    </div>
+                    <p className="mt-6 text-base leading-7 text-slate-200">
+                      Se ha guardado su información correctamente.
+                    </p>
+                    <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+                      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                        Identificador del envío
+                      </p>
+                      <p className="mt-2 break-all font-mono text-sm text-cyan-200">
+                        {submission.data.submissionId}
+                      </p>
+                    </div>
+                    <p className="mt-5 text-sm leading-6 text-slate-300">
+                      Gracias por confiar en nosotros, te invitamos a seguirnos en Instagram
+                    </p>
+                    <a
+                      href="https://www.instagram.com/azaryasociados?igsh=MWVzODBtYXJ1MGVydA=="
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 block break-all text-sm font-medium leading-6 text-cyan-300 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-200"
+                    >
+                      https://www.instagram.com/azaryasociados?igsh=MWVzODBtYXJ1MGVydA==
+                    </a>
+                    <div className="mt-7 flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={() => setDismissedSubmissionId(submission.data.submissionId)}
+                      >
+                        Continuar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )}
+
             {submission.data && (
               <div className="mb-6">
                 <AlertInline variant="success" title="Formulario guardado">
-                  <p>Identificador del envío: {submission.data.submissionId}</p>
+                  <p>Identificador del envÃƒÂ­o: {submission.data.submissionId}</p>
                   <p className="mt-2 text-sm text-emerald-200">
-                    Podés revisar y corregir los datos; guardá nuevamente cuando termines.
+                    PodÃƒÂ©s revisar y corregir los datos; guardÃƒÂ¡ nuevamente cuando termines.
                   </p>
                   {!formReadOnly && (
                     <Button
@@ -740,7 +852,7 @@ export function ContractFormPage() {
                   <div className="space-y-8">
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-black/10 p-4">
                       <p className="text-sm text-slate-400">
-                        Este formulario está guardado en modo de solo lectura.
+                        Este formulario estÃƒÂ¡ guardado en modo de solo lectura.
                       </p>
                       <Button type="button" variant="secondary" onClick={editSubmittedForm}>
                         Editar
@@ -776,7 +888,7 @@ export function ContractFormPage() {
                             form={form}
                             entryId={entryId}
                             token={token}
-                            userId={agent?.agent_user_id}
+                            userId={undefined}
                             onUploadPendingChange={setUploadPending}
                           />
                         ) : (
@@ -827,7 +939,7 @@ export function ContractFormPage() {
                           pendingUploads.size > 0
                         }
                       >
-                        {formLocked ? 'Guardando…' : 'Guardar'}
+                        {formLocked ? 'GuardandoÃ¢â‚¬Â¦' : 'Guardar'}
                       </Button>
                     </div>
                   </form>
@@ -841,3 +953,4 @@ export function ContractFormPage() {
     </div>
   );
 }
+
