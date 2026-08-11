@@ -194,7 +194,7 @@ function ContractDniUploadControl({
       </label>
       <label
         htmlFor={inputId}
-        className="mt-2 inline-flex cursor-pointer rounded-lg bg-indigo-500/15 px-3 py-2 text-xs text-indigo-300 transition-colors hover:bg-indigo-500/30 hover:text-indigo-200"
+        className="mt-2 ml-2 inline-flex cursor-pointer rounded-lg bg-indigo-500/15 px-3 py-2 text-xs text-indigo-300 transition-colors hover:bg-indigo-500/30 hover:text-indigo-200"
       >
         {reference ? 'Reemplazar archivo' : 'Seleccionar archivo'}
       </label>
