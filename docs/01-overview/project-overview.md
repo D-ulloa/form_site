@@ -1,6 +1,6 @@
 # Project Overview
 
-Status: 2026-07-29.
+Status: 2026-08-06.
 
 This repository implements two internal workflows in an admin-style web application:
 
@@ -28,7 +28,7 @@ This repository implements two internal workflows in an admin-style web applicat
 - The frontend is responsible for form UI, client-side validation, media selection, and API calls. Contract definitions are fetched from the backend instead of duplicated in the browser bundle.
 - The backend is responsible for independent payload validation, Supabase contract persistence, role-token authorization, Google Drive folder creation, property Sheet appends, Make webhook dispatch, and auditability.
 - No edit workflow is implemented in v1: submissions create new property assets only.
-- Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes; administrators can authenticate with the Google OAuth allowlist, and authenticated owners may open the user form without a token.
+- Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes; main-page Supabase email/password accounts receive administrator access immediately, and authenticated owners may open the user form without a token.
 
 ## Property flow
 
@@ -53,7 +53,8 @@ This repository implements two internal workflows in an admin-style web applicat
 7. On client `Guardar`, the form locks, selected supporting files receive rate-limited client-authorized private upload URLs, and uploads finish before the role JSON is sent. The backend validates fields, DNI references, the two supporting-file arrays for every guarantor, and each evidence object's actual private Storage MIME/size metadata before calling the atomic Supabase function.
 8. Supabase stores one immutable role audit row and updates the entry.
 9. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
-10. Administrators sign in with Google, then use stable `/contracts/admin/:entryId` links to inspect immutable submissions in schema order with short-lived media links grouped under the corresponding guarantor subsection, archive entries, and regenerate role links.
+10. Administrators sign in with Supabase email/password or Google OAuth, then use stable `/contracts/admin/:entryId` links to inspect submissions in schema order, edit submitted role data, update generation status, archive entries, and regenerate role links.
+11. The configured Supabase trigger can notify Make when an administrator marks an entry for contract generation.
 
 ## Code map
 

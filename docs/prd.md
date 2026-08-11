@@ -1,8 +1,12 @@
 Perfect — with those decisions locked, the MVP can now be defined as a single-purpose internal React web app for **creating new properties only**, where every successful submission always creates the property assets in Drive and always triggers both Google Sheets and Make. Because this is an internal admin-style workflow, the product should favor compact screens, clear labels, visible submission states, and predictable navigation over a marketing-style site. [perplexity](https://www.perplexity.ai/search/cc32b125-dc4a-422b-98d2-9009e48c9d21)
 
+## Document scope
+
+This file is the original property-workflow PRD and remains canonical for the property submission slice. The current Contract Generation workflow is documented by SPEC-10 through SPEC-19 and the numbered operation/API documents; those documents reflect the implemented contract behavior.
+
 ## Locked scope
 
-The initial product is a React-based internal web application with an action-selection landing page and one enabled action: **Agregar nueva propiedad**. The interface should stay compact, label-first, and operationally clear, which matches recommended web app patterns for admin tools and data-entry flows. [perplexity](https://www.perplexity.ai/search/cc32b125-dc4a-422b-98d2-9009e48c9d21)
+The initial product is a React-based internal web application with an action-selection landing page and the original property action, **Agregar nueva propiedad**. Contract Generation is an additional implemented workflow documented separately in SPEC-10 through SPEC-19. The interface should stay compact, label-first, and operationally clear, which matches recommended web app patterns for admin tools and data-entry flows. [perplexity](https://www.perplexity.ai/search/cc32b125-dc4a-422b-98d2-9009e48c9d21)
 
 Locked product rules:
 - Sheets update: always runs.

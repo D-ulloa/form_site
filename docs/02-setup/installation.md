@@ -1,6 +1,6 @@
 # Installation
 
-Status: 2026-06-05.
+Status: 2026-08-06.
 
 ## Frontend installation
 

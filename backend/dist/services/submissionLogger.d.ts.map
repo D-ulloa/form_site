@@ -1,1 +1,1 @@
-{"version":3,"file":"submissionLogger.d.ts","sourceRoot":"","sources":["../../src/services/submissionLogger.ts"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,aAAa,CAAC;AAKjD;;;GAGG;AACH,wBAAsB,oBAAoB,CAAC,GAAG,EAAE,aAAa,GAAG,OAAO,CAAC,IAAI,CAAC,CAS5E"}
+{"version":3,"file":"submissionLogger.d.ts","sourceRoot":"","sources":["../../src/services/submissionLogger.ts"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,aAAa,CAAC;AAKjD;;;GAGG;AACH,wBAAsB,oBAAoB,CAAC,GAAG,EAAE,aAAa,GAAG,OAAO,CAAC,IAAI,CAAC,CAc5E"}

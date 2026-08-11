@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWatch, type FieldError, type FieldErrors, type UseFormReturn } from 'react-hook-form';
 import { Button } from '../../../components/ui/Button.tsx';
 import {
@@ -192,6 +192,12 @@ function ContractDniUploadControl({
       <label htmlFor={inputId} className="text-sm font-medium text-slate-300">
         {definition.label}
       </label>
+      <label
+        htmlFor={inputId}
+        className="mt-2 inline-flex cursor-pointer rounded-lg bg-indigo-500/15 px-3 py-2 text-xs text-indigo-300 transition-colors hover:bg-indigo-500/30 hover:text-indigo-200"
+      >
+        {reference ? 'Reemplazar archivo' : 'Seleccionar archivo'}
+      </label>
       <input
         id={inputId}
         type="file"
@@ -201,12 +207,12 @@ function ContractDniUploadControl({
           void selectFile(event.target.files?.[0]);
           event.currentTarget.value = '';
         }}
-        className="mt-2 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
+        className="sr-only"
       />
       <p className="mt-2 text-xs text-slate-500">
         Subir DNI — {definition.slot === 'front' ? 'Frontal' : 'Dorso'} (ej. 12.345.678) · Obligatorio · JPG, PNG o PDF · Máximo 10 MB
       </p>
-      <p className="mt-2 text-xs text-slate-500" role="status">
+      <p className="mt-2 text-xs text-slate-500" role="status" aria-live="polite">
         {pending ? 'Subiendo…' : reference ? `Cargado: ${reference.originalName}` : 'Sin imagen cargada'}
       {reference && !pending && referenceUrl && (
         <a
@@ -248,8 +254,36 @@ export function ContractRepeatableSection({
 }: ContractRepeatableSectionProps) {
   const repeatable = section.repeatable;
   const watched = useWatch({ control: form.control, name: repeatable?.name ?? '__invalid' });
+  const items = repeatable ? asItems(watched) : [];
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const pendingFocusIndex = useRef<number | null>(null);
+
+  useEffect(() => {
+    const itemIndex = pendingFocusIndex.current;
+    if (itemIndex === null) return;
+
+    const item = itemRefs.current[itemIndex];
+    if (!item) return;
+
+    const firstInput = item.querySelector<HTMLElement>(
+      '[data-contract-field] input:not([type="file"]), '
+      + '[data-contract-field] select, '
+      + '[data-contract-field] textarea, '
+      + 'input:not([type="file"]), select, textarea',
+    );
+    firstInput?.focus({ preventScroll: true });
+    const repeatableName = repeatable?.name;
+    const scrollTarget = repeatableName === 'garantes'
+      ? item.querySelector<HTMLElement>('[data-repeatable-personal-data="garantes"]') ?? item
+      : item;
+    scrollTarget.scrollIntoView?.({
+      behavior: 'smooth',
+      block: repeatableName === 'garantes' ? 'start' : 'center',
+    });
+    pendingFocusIndex.current = null;
+  }, [items.length, repeatable?.name]);
+
   if (!repeatable) return null;
-  const items = asItems(watched);
 
   const updateItems = (next: Record<string, unknown>[]) => {
     form.setValue(repeatable.name, next, { shouldDirty: true, shouldValidate: false });
@@ -263,7 +297,10 @@ export function ContractRepeatableSection({
           type="button"
           variant="secondary"
           size="sm"
-          onClick={() => updateItems([...items, buildRepeatableItem(section)])}
+          onClick={() => {
+            pendingFocusIndex.current = items.length;
+            updateItems([...items, buildRepeatableItem(section)]);
+          }}
         >
           {repeatable.addLabel}
         </Button>
@@ -273,6 +310,10 @@ export function ContractRepeatableSection({
         {items.map((item, index) => (
           <div
             key={`${repeatable.name}-${index}`}
+            ref={(element) => {
+              itemRefs.current[index] = element;
+            }}
+            data-repeatable-item={`${repeatable.name}-${index}`}
             className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4 sm:p-5"
           >
             <div className="mb-5 flex items-center justify-between gap-3">
@@ -290,7 +331,10 @@ export function ContractRepeatableSection({
                 </Button>
               )}
             </div>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div
+              data-repeatable-personal-data={repeatable.name}
+              className="grid scroll-mt-24 gap-5 sm:grid-cols-2"
+            >
               {fieldsOutsideSubsections(section).map((field) => (
                 <ContractFieldRenderer
                   key={field.name}
@@ -301,6 +345,36 @@ export function ContractRepeatableSection({
                 />
               ))}
             </div>
+            {showUploads && (
+              <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
+                {(section.uploads ?? []).map((upload) => {
+                  const fieldPath = `${repeatable.name}.${index}.${upload.name}`;
+                  return (
+                    <ContractDniUploadControl
+                      key={upload.name}
+                      definition={upload}
+                      collection={repeatable.name}
+                      itemIndex={index}
+                      value={item[upload.name]}
+                      entryId={entryId}
+                      token={token}
+                      userId={userId}
+                      error={nestedFieldError(
+                        form.formState.errors,
+                        repeatable.name,
+                        index,
+                        upload.name,
+                      )?.message?.toString()}
+                      onValue={(next) => {
+                        form.clearErrors(fieldPath);
+                        form.setValue(fieldPath, next, { shouldDirty: true });
+                      }}
+                      onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
+                    />
+                  );
+                })}
+              </div>
+            )}
             {section.subsections && (
               <fieldset className="mt-5 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-4">
                 <legend className="px-1 text-sm font-semibold text-cyan-100">Garantías</legend>
@@ -388,36 +462,6 @@ export function ContractRepeatableSection({
                 </p>
               ) : null;
             })()}
-            {showUploads && (
-              <div className="mt-5 grid gap-4 border-t border-white/[0.07] pt-5 sm:grid-cols-2">
-                {(section.uploads ?? []).map((upload) => {
-                  const fieldPath = `${repeatable.name}.${index}.${upload.name}`;
-                  return (
-                    <ContractDniUploadControl
-                      key={upload.name}
-                      definition={upload}
-                      collection={repeatable.name}
-                      itemIndex={index}
-                      value={item[upload.name]}
-                      entryId={entryId}
-                      token={token}
-                      userId={userId}
-                      error={nestedFieldError(
-                        form.formState.errors,
-                        repeatable.name,
-                        index,
-                        upload.name,
-                      )?.message?.toString()}
-                      onValue={(next) => {
-                        form.clearErrors(fieldPath);
-                        form.setValue(fieldPath, next, { shouldDirty: true });
-                      }}
-                      onPendingChange={(pending) => onUploadPendingChange(fieldPath, pending)}
-                    />
-                  );
-                })}
-              </div>
-            )}
           </div>
         ))}
       </div>

@@ -1,33 +1,84 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button.tsx';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
 import { useAgent, type AgentData } from '../app/contexts/AgentContext.tsx';
 import { ContractEntryModal } from '../features/contracts/components/ContractEntryModal.tsx';
 import {
   fetchAdminSession,
-  getGoogleLoginUrl,
   logoutAdmin,
   type AdminSession,
 } from '../features/contracts/services/adminAuthApi.ts';
+import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 
 type PendingAction = 'property' | 'contract' | null;
 
+function AuthEntry() {
+  return (
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[var(--bg-base)] px-6 py-16">
+      <div className="pointer-events-none absolute left-1/2 top-[-14rem] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-indigo-600/10 blur-3xl" />
+      <section className="surface-elevated relative w-full max-w-md rounded-2xl p-8 text-center shadow-2xl shadow-black/30">
+        <div className="accent-gradient mx-auto flex h-11 w-11 items-center justify-center rounded-xl shadow-lg shadow-indigo-700/25">
+          <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="7" y="7" width="10" height="10" rx="1.5" />
+            <path strokeLinecap="round" d="M9 3.5v3M15 3.5v3M9 17.5v3M15 17.5v3M3.5 9h3M17.5 9h3M3.5 15h3M17.5 15h3" />
+          </svg>
+        </div>
+        <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-400">
+          Acceso al sistema
+        </p>
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-100">
+          Gestioná propiedades y contratos
+        </h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
+          Creá una cuenta o iniciá sesión para acceder a las herramientas de gestión.
+        </p>
+        <div className="mt-7 grid gap-3">
+          <Link
+            to="/register"
+            className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-700/25 transition-colors hover:bg-indigo-500"
+          >
+            Registrarse
+          </Link>
+          <Link
+            to="/login"
+            className="rounded-xl border border-white/[0.11] bg-white/[0.06] px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.1]"
+          >
+            Iniciar sesión
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export function ActionSelectionPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { agent, isConfigured } = useAgent();
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractUserId, setContractUserId] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
-  const [loginMessage, setLoginMessage] = useState<string | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     void fetchAdminSession()
       .then(setAdminSession)
-      .catch(() => setAdminSession(null));
+      .catch(() => setAdminSession(null))
+      .finally(() => setSessionChecked(true));
   }, []);
+
+  if (!sessionChecked) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] text-sm text-slate-400" role="status">
+        Comprobando sesión…
+      </main>
+    );
+  }
+
+  if (!adminSession) return <AuthEntry />;
 
   const runAction = (action: Exclude<PendingAction, null>, userId?: string) => {
     if (action === 'property') {
@@ -46,12 +97,7 @@ export function ActionSelectionPage() {
       return;
     }
 
-    if (action === 'contract' && !adminSession) {
-      setLoginMessage('Iniciá sesión con Google para administrar contratos.');
-      return;
-    }
-
-    runAction(action, adminSession?.user.id);
+    runAction(action, adminSession.user.id);
   };
 
   const handleAgentSaved = (savedAgent: AgentData) => {
@@ -76,44 +122,19 @@ export function ActionSelectionPage() {
             </div>
             <span className="text-sm font-semibold text-slate-200">Gestión de Propiedades</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAgentModal(true)}
-            leftIcon={
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-            }
+          <button
+            type="button"
+            className="text-xs text-slate-400 transition-colors hover:text-white"
+            onClick={() => {
+              void logoutAdmin().then(() => {
+                clearContractAdminQueryCache(queryClient);
+                setAdminSession(null);
+              });
+            }}
           >
-            {isConfigured ? agent!.agent_name : 'Configurar agente'}
-          </Button>
-          {adminSession ? (
-            <button
-              type="button"
-              className="text-xs text-slate-400 hover:text-white"
-              onClick={() => { void logoutAdmin().then(() => setAdminSession(null)); }}
-            >
-              {adminSession.user.email} · Cerrar sesión
-            </button>
-          ) : (
-            <a
-              href={getGoogleLoginUrl()}
-              className="rounded-lg border border-cyan-400/30 px-3 py-2 text-xs font-medium text-cyan-200 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
-            >
-              Iniciar sesión con Google
-            </a>
-          )}
+            {adminSession.user.email} · Cerrar sesión
+          </button>
         </div>
-
-        {loginMessage && (
-          <div className="mt-6 rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200" role="alert">
-            {loginMessage}{' '}
-            <a href={getGoogleLoginUrl()} className="font-medium underline hover:text-white">
-              Iniciar sesión con Google
-            </a>
-          </div>
-        )}
       </header>
 
       {/* Main content */}
@@ -210,28 +231,38 @@ export function ActionSelectionPage() {
             </div>
           </button>
 
-          {/* More actions — coming soon */}
-          <div className="mt-3 surface rounded-2xl p-6 opacity-40 cursor-not-allowed select-none">
+          <button
+            type="button"
+            id="btn-admin-contracts"
+            aria-label="Administrar contratos"
+            onClick={() => navigate('/contracts/admin')}
+            className="group mt-3 w-full surface rounded-2xl p-6 text-left transition-all duration-200 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5 cursor-pointer"
+          >
             <div className="flex items-start gap-5">
-              <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 transition-transform group-hover:scale-105">
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7.5h15M6.75 4.5h10.5A2.25 2.25 0 0119.5 6.75v10.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 17.25V6.75A2.25 2.25 0 016.75 4.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 11.25h2.25m-2.25 3h4.5m2.25-3h1.5m-1.5 3h1.5" />
                 </svg>
               </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-400">Editar propiedad</h2>
-                <p className="text-sm text-slate-600 mt-0.5">Próximamente disponible en v2.</p>
+              <div className="min-w-0 flex-1">
+                <h2 className="mb-1 text-lg font-semibold text-slate-100 transition-colors group-hover:text-white">
+                  Administrar contratos
+                </h2>
+                <p className="text-sm leading-relaxed text-slate-500">
+                  Consultá y gestioná los contratos existentes.
+                </p>
               </div>
+              <svg
+                className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 transition-all group-hover:translate-x-1 group-hover:text-emerald-400"
+                fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
             </div>
-          </div>
+          </button>
         </div>
 
-        {/* Agent status */}
-        {!isConfigured && (
-          <p className="mt-8 text-xs text-amber-500/80 animate-fade-in delay-200">
-            Configurá tu perfil de agente antes de iniciar una operación.
-          </p>
-        )}
       </main>
 
       <AgentModal

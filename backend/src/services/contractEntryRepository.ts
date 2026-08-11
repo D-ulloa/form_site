@@ -14,6 +14,7 @@ interface ContractEntryRow {
   schema_id: string;
   direccion?: string | null;
   created_by: string;
+  created_by_user_id?: string | null;
   created_at: string;
   user_token_hash: string;
   client_token_hash: string;
@@ -42,6 +43,7 @@ export interface CreateContractEntryRecordInput {
   readonly schemaId: string;
   readonly direccion: string;
   readonly createdBy: string;
+  readonly createdByUserId?: string | null;
   readonly createdAt: string;
   readonly userTokenHash: string;
   readonly clientTokenHash: string;
@@ -122,6 +124,7 @@ function toEntry(row: ContractEntryRow): ContractEntryRecord {
     schemaId: row.schema_id,
     direccion: row.direccion ?? null,
     createdBy: row.created_by,
+    createdByUserId: row.created_by_user_id ?? null,
     createdAt: row.created_at,
     userTokenHash: row.user_token_hash,
     clientTokenHash: row.client_token_hash,
@@ -177,6 +180,7 @@ export function createContractEntryRepository(
         schema_id: input.schemaId,
         direccion: input.direccion,
         created_by: input.createdBy,
+        created_by_user_id: input.createdByUserId ?? null,
         created_at: input.createdAt,
         user_token_hash: input.userTokenHash,
         client_token_hash: input.clientTokenHash,
@@ -294,7 +298,6 @@ export function createContractEntryRepository(
     },
   };
 }
-
 
 
 

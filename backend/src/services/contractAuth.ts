@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import type { ContractEntryRecord } from '../contracts/types.js';
 
 export type ContractPrincipal =
   | { readonly mode: 'api_key' }
@@ -7,16 +8,21 @@ export type ContractPrincipal =
       readonly userId: string;
     }
   | {
-      readonly mode: 'oauth';
+      readonly mode: 'supabase';
       readonly userId: string;
       readonly email: string;
+      readonly isAdmin: boolean;
     };
 
 export interface ContractAuthenticationInput {
   readonly authorization: string | undefined;
   readonly authenticatedUserId: string | undefined;
   readonly developmentUserId: string | undefined;
-  readonly oauthUser?: { readonly userId: string; readonly email: string };
+  readonly passwordSession?: {
+    readonly userId: string;
+    readonly email: string;
+    readonly isAdmin: boolean;
+  };
 }
 
 export class ContractAuthenticationError extends Error {
@@ -100,11 +106,12 @@ export function authenticateContractRequest(
     return authenticateBearer(input.authorization, environment);
   }
 
-  if (input.oauthUser !== undefined) {
+  if (input.passwordSession !== undefined) {
     return {
-      mode: 'oauth',
-      userId: parseUserIdentity(input.oauthUser.userId, 'Google user id'),
-      email: parseUserIdentity(input.oauthUser.email, 'Google email').toLowerCase(),
+      mode: 'supabase',
+      userId: parseUserIdentity(input.passwordSession.userId, 'Supabase user id'),
+      email: parseUserIdentity(input.passwordSession.email, 'Supabase email').toLowerCase(),
+      isAdmin: input.passwordSession.isAdmin,
     };
   }
 
@@ -142,6 +149,34 @@ export function authorizeContractUserScope(
   }
 }
 
+/**
+ * Rows without createdByUserId predate SPEC-22 and remain available to every
+ * authenticated administrator. New rows carry the authenticated database ID.
+ * API-key callers are trusted internal clients and intentionally remain
+ * unscoped, matching the existing API-key contract boundary.
+ */
+export function canAccessContractEntry(
+  principal: ContractPrincipal,
+  entry: Pick<ContractEntryRecord, 'createdByUserId'>,
+): boolean {
+  if (principal.mode === 'api_key') return true;
+  if (entry.createdByUserId === null || entry.createdByUserId === undefined) {
+    return true;
+  }
+  const ownerId = entry.createdByUserId.trim();
+  return ownerId.length > 0 && ownerId === principal.userId;
+}
+
+export function authorizeContractEntryAccess(
+  principal: ContractPrincipal,
+  entry: Pick<ContractEntryRecord, 'createdByUserId'>,
+): void {
+  if (canAccessContractEntry(principal, entry)) return;
+  throw new ContractAuthorizationError(
+    'The authenticated user does not have access to this contract.',
+  );
+}
+
 export function getContractPrincipalUserId(
   principal: ContractPrincipal,
   attributedUserId?: string,
@@ -162,13 +197,12 @@ export function authorizeContractAdmin(
   environment: NodeJS.ProcessEnv = process.env,
 ): void {
   if (principal.mode === 'api_key') return;
+  if (principal.mode === 'supabase') {
+    if (principal.isAdmin) return;
+    throw new ContractAuthorizationError('Contract administrator access is required.');
+  }
   const admins = new Set((environment.CONTRACT_ADMIN_USER_IDS ?? '')
     .split(',').map((value) => value.trim()).filter(Boolean));
-  if (principal.mode === 'oauth') {
-    const googleAdmins = new Set((environment.CONTRACT_ADMIN_GOOGLE_EMAILS ?? '')
-      .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean));
-    if (googleAdmins.has(principal.email) || admins.has(principal.userId)) return;
-  }
   if (!admins.has(principal.userId)) {
     throw new ContractAuthorizationError('Contract administrator access is required.');
   }

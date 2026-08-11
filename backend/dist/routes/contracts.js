@@ -8,6 +8,7 @@ import { ContractAuditPersistenceError, createContractSubmission, } from '../ser
 import { ContractSheetMappingConfigurationError } from '../services/contractSheetHeaderValidation.js';
 import { ContractSheetsAppendError } from '../services/contractSheetsErrors.js';
 import { normalizeContractRequestIp, resolveContractRequestId, } from '../services/contractRequestContext.js';
+import { getContractPasswordSession } from '../services/contractPasswordAuth.js';
 import { validateContractSubmission } from '../services/validateContractSubmission.js';
 import { GoogleServiceAccountConfigurationError } from '../utils/googleServiceAccountAuth.js';
 function defaultLog(entry) {
@@ -26,10 +27,18 @@ function resolveDependencies(overrides) {
     };
 }
 function authenticate(req, environment) {
+    const session = getContractPasswordSession(req, environment);
     return authenticateContractRequest({
         authorization: req.get('Authorization'),
         authenticatedUserId: req.get('X-Authenticated-User-Id'),
         developmentUserId: req.get('X-User-Id'),
+        ...(session ? {
+            passwordSession: {
+                userId: session.userId,
+                email: session.email,
+                isAdmin: session.isAdmin,
+            },
+        } : {}),
     }, environment);
 }
 function setProtectedHeaders(res, requestId, audit = false) {

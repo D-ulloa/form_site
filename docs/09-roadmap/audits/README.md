@@ -1,5 +1,5 @@
 # Audits
 
-Status: 2026-06-05.
+Status: 2026-08-06.
 
 Use this folder for release readiness, security, or architecture audits.

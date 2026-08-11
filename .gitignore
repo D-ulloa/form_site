@@ -4,5 +4,11 @@ node_modules/
 # Local backend configuration
 backend/.env
 
+# Local frontend configuration
+frontend/.env.local
+
 # Generated submission and contract audit records
 backend/logs/*.json
+
+# Supabase CLI machine-local linked project metadata
+supabase/.temp/

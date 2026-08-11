@@ -103,6 +103,7 @@ export async function createContractEntry(
   input: {
     readonly schemaId: string;
     readonly createdBy: string;
+    readonly createdByUserId?: string | null;
     readonly publicBaseUrl: string;
     readonly direccion?: string;
   },
@@ -129,6 +130,7 @@ export async function createContractEntry(
     schemaId: input.schemaId,
     direccion,
     createdBy: input.createdBy,
+    createdByUserId: input.createdByUserId ?? null,
     createdAt,
     userTokenHash: hashContractAccessToken(userToken, environment),
     clientTokenHash: hashContractAccessToken(clientToken, environment),

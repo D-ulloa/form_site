@@ -1,13 +1,13 @@
 # Runtime Files
 
-Status: 2026-07-29.
+Status: 2026-08-06.
 
 ## Persisted runtime artifacts
 
 - Supabase `contract_entries` — current contract lifecycle, role payloads, and combined payload.
 - Supabase `contract_submissions` — immutable one-per-role submission audits.
 - Supabase `contract_events` — creation, role submission, completion, archive, and token-regeneration events.
-- Supabase Storage `contract-dni` — default private SPEC-11 bucket for front/back DNI images.
+- Supabase Storage `contract-dni` — default private SPEC-11 bucket for front/back DNI files.
 - Supabase Storage `contract-evidence` — default private SPEC-14 bucket for guarantor salary-receipt and property-guarantee evidence.
 
 - `backend/logs/` — default local JSON location for property submissions and successful contract appends.
@@ -28,7 +28,7 @@ For gateway, development, and explicitly enabled insecure-agent authentication, 
 - `backend/.env.example` — template environment values.
 - `scheme.json` and `scheme_reworked.json` — canonical property schema references used by validation and integration logic.
 - The backend contract registry — canonical contract fields, constraints, sensitivity markers, and private Sheet mapping.
-- `backend/supabase/migrations/20260729000000_contract_spec14.sql` — provisions the default private evidence bucket, 10 MB object limit, and exact PDF/image MIME allowlist.
+- `supabase/migrations/20260729000000_contract_spec14.sql` — provisions the default private evidence bucket, 10 MB object limit, and exact PDF/image MIME allowlist.
 
 ## Temporary or generated files
 

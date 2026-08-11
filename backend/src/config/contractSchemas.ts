@@ -28,7 +28,7 @@ const sections = [
       { name: 'tenant_phone', label: 'Número de Contacto del inquilino', placeholder: '+54 9 11 1234-5678', type: 'string', required: true, sensitive: true },
       { name: 'tenant_nationality', label: 'Nacionalidad', placeholder: 'Argentina', type: 'string', required: true, sensitive: true },
       { name: 'tenant_email', label: 'Correo', placeholder: 'juan.perez@ejemplo.com', type: 'email', required: true, sensitive: true },
-      { name: 'tenant_age', label: 'Edad', placeholder: '35', type: 'number', required: true, min: 0, sensitive: true },
+      { name: 'tenant_is_adult', label: 'Soy mayor de edad', type: 'boolean', required: true, sensitive: true },
     ],
   },
   {
@@ -87,10 +87,10 @@ const sections = [
       {
         name: 'contract_selection',
         label: 'Ajuste',
-        placeholder: 'Seleccioná IPC o IPL',
+        placeholder: 'Seleccioná IPC o ICL',
         type: 'select',
         required: false,
-        options: ['IPC', 'IPL'],
+        options: ['IPC', 'ICL'],
       },
       { name: 'submission_date', label: 'Fecha de contrato', placeholder: '31/12/2026', type: 'date', required: true },
     ],

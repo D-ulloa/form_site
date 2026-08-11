@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const AUTH_API_PATH = `${API_PREFIX}/api/auth`;
@@ -12,20 +13,171 @@ export interface AdminSession {
   };
 }
 
-export async function fetchAdminSession(): Promise<AdminSession | null> {
-  const response = await axios.get<{
-    authenticated: boolean;
-    user?: AdminSession['user'];
-  }>(`${AUTH_API_PATH}/session`, { withCredentials: true });
-  if (!response.data.authenticated || !response.data.user) return null;
-  return { authenticated: true, user: response.data.user };
+export interface PasswordAuthInput {
+  readonly email: string;
+  readonly password: string;
+  readonly rememberMe?: boolean;
 }
 
-export function getGoogleLoginUrl(): string {
-  return `${AUTH_API_PATH}/google`;
+export interface RegistrationInput extends PasswordAuthInput {
+  readonly name: string;
+  readonly company?: string;
+  readonly role?: string;
+}
+
+export interface GoogleAuthInput {
+  readonly accessToken: string;
+  readonly rememberMe?: boolean;
+}
+
+export class AdminAuthError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'AdminAuthError';
+    this.status = status;
+  }
+}
+
+function authError(error: unknown, fallback: string): AdminAuthError {
+  if (axios.isAxiosError(error)) {
+    const message = typeof error.response?.data?.message === 'string'
+      ? error.response.data.message
+      : fallback;
+    return new AdminAuthError(message, error.response?.status);
+  }
+  return error instanceof AdminAuthError
+    ? error
+    : new AdminAuthError(fallback);
+}
+
+let supabaseAuthClient: SupabaseClient | null = null;
+
+function getSupabaseAuthClient(): SupabaseClient {
+  if (supabaseAuthClient) return supabaseAuthClient;
+
+  const url = import.meta.env.VITE_SUPABASE_URL?.trim();
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anonKey) {
+    throw new AdminAuthError(
+      'El acceso con Google no está configurado en este entorno.',
+    );
+  }
+
+  supabaseAuthClient = createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+      flowType: 'pkce',
+    },
+  });
+  return supabaseAuthClient;
+}
+
+export async function startGoogleLogin(): Promise<void> {
+  try {
+    const { error } = await getSupabaseAuthClient().auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: new URL('/auth/callback', window.location.origin).toString(),
+      },
+    });
+    if (error) throw new AdminAuthError(error.message);
+  } catch (error) {
+    throw authError(error, 'No se pudo iniciar el acceso con Google.');
+  }
+}
+
+export async function completeGoogleLogin(
+  rememberMe = true,
+): Promise<AdminSession> {
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (!code) {
+    const message = new URLSearchParams(window.location.search)
+      .get('error_description');
+    throw new AdminAuthError(
+      message ?? 'Google no devolvió un código de acceso.',
+    );
+  }
+
+  try {
+    const { data, error } = await getSupabaseAuthClient().auth.exchangeCodeForSession(code);
+    if (error || !data.session?.access_token) {
+      throw new AdminAuthError(error?.message ?? 'No se pudo validar la cuenta de Google.');
+    }
+    const session = await establishGoogleSession({
+      accessToken: data.session.access_token,
+      rememberMe,
+    });
+    return session;
+  } catch (error) {
+    try {
+      await getSupabaseAuthClient().auth.signOut();
+    } catch {
+      // The application cookie is not established when the exchange fails.
+    }
+    throw authError(error, 'No se pudo completar el acceso con Google.');
+  }
+}
+
+export async function fetchAdminSession(): Promise<AdminSession | null> {
+  try {
+    const response = await axios.get<{
+      authenticated: boolean;
+      user?: AdminSession['user'];
+    }>(`${AUTH_API_PATH}/session`, { withCredentials: true });
+    if (!response.data.authenticated || !response.data.user) return null;
+    return { authenticated: true, user: response.data.user };
+  } catch (error) {
+    throw authError(error, 'No se pudo comprobar la sesión.');
+  }
+}
+
+export async function loginAdmin(input: PasswordAuthInput): Promise<AdminSession> {
+  try {
+    const response = await axios.post<AdminSession>(
+      `${AUTH_API_PATH}/login`,
+      input,
+      { withCredentials: true },
+    );
+    return response.data;
+  } catch (error) {
+    throw authError(error, 'No se pudo iniciar sesión.');
+  }
+}
+
+export async function registerAdmin(input: RegistrationInput): Promise<AdminSession> {
+  try {
+    const response = await axios.post<AdminSession>(
+      `${AUTH_API_PATH}/register`,
+      input,
+      { withCredentials: true },
+    );
+    return response.data;
+  } catch (error) {
+    throw authError(error, 'No se pudo crear la cuenta.');
+  }
+}
+
+export async function establishGoogleSession(input: GoogleAuthInput): Promise<AdminSession> {
+  try {
+    const response = await axios.post<AdminSession>(
+      `${AUTH_API_PATH}/google/session`,
+      input,
+      { withCredentials: true },
+    );
+    return response.data;
+  } catch (error) {
+    throw authError(error, 'No se pudo completar el acceso con Google.');
+  }
 }
 
 export async function logoutAdmin(): Promise<void> {
-  await axios.post(`${AUTH_API_PATH}/logout`, {}, { withCredentials: true });
+  try {
+    await axios.post(`${AUTH_API_PATH}/logout`, {}, { withCredentials: true });
+  } catch (error) {
+    throw authError(error, 'No se pudo cerrar la sesión.');
+  }
 }
-

@@ -1,4 +1,4 @@
-import type { ContractSchemaConfig, ContractSchemaDefinition, PublicContractSchema } from '../contracts/types.js';
+import type { ContractRole, ContractRoleSchema, ContractSchemaConfig, ContractSchemaDefinition, PublicContractSchema } from '../contracts/types.js';
 export declare const RENT_CONTRACT_SCHEMA_ID = "rent-contract-v1";
 export declare class ContractSchemaNotFoundError extends Error {
     readonly schemaId: string;
@@ -9,6 +9,7 @@ export declare class ContractConfigurationError extends Error {
     constructor(missingVariables: readonly string[]);
 }
 export declare function getContractSchemaDefinition(schemaId: string): ContractSchemaDefinition;
+export declare function getContractRoleSchema(schemaId: string, role: ContractRole, environment?: NodeJS.ProcessEnv): ContractRoleSchema;
 export declare function getPublicContractSchema(schemaId: string, environment?: NodeJS.ProcessEnv): PublicContractSchema;
 export declare function getContractSchemaConfig(schemaId: string, environment?: NodeJS.ProcessEnv): ContractSchemaConfig;
 //# sourceMappingURL=contractSchemas.d.ts.map

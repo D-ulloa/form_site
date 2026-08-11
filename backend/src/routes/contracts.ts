@@ -37,6 +37,7 @@ import {
   normalizeContractRequestIp,
   resolveContractRequestId,
 } from '../services/contractRequestContext.js';
+import { getContractPasswordSession } from '../services/contractPasswordAuth.js';
 import { validateContractSubmission } from '../services/validateContractSubmission.js';
 import { GoogleServiceAccountConfigurationError } from '../utils/googleServiceAccountAuth.js';
 
@@ -87,11 +88,19 @@ function resolveDependencies(
 }
 
 function authenticate(req: Request, environment: NodeJS.ProcessEnv) {
+  const session = getContractPasswordSession(req, environment);
   return authenticateContractRequest(
     {
       authorization: req.get('Authorization'),
       authenticatedUserId: req.get('X-Authenticated-User-Id'),
       developmentUserId: req.get('X-User-Id'),
+      ...(session ? {
+        passwordSession: {
+          userId: session.userId,
+          email: session.email,
+          isAdmin: session.isAdmin,
+        },
+      } : {}),
     },
     environment,
   );

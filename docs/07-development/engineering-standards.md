@@ -1,6 +1,6 @@
 # Engineering Standards
 
-Status: 2026-07-29.
+Status: 2026-08-06.
 
 ## Project conventions
 
@@ -39,7 +39,7 @@ Status: 2026-07-29.
 - Sign administrator media views only after validating the stored reference, return short-lived URLs, and omit storage bucket/path details from the normalized inspection response.
 - Generate 32-byte role tokens, store only HMAC hashes, compare them in constant time, and return regenerated raw URLs once.
 - Enforce HTTPS in production, `no-store`/`no-referrer` response headers, and per-IP/entry submission rate limits.
-- Restrict contract administration to the server API key or configured `CONTRACT_ADMIN_USER_IDS`.
+- Restrict contract administration to the server API key, the Supabase administrator-grant table, or configured `CONTRACT_ADMIN_USER_IDS`.
 - For retained SPEC-09 routes, sanitize formula-leading strings, map fields deterministically, and use `RAW` for Sheet appends.
 - Use the dedicated service-account helper for contract Sheet reads and writes. Do not let contract integration fall through to property user OAuth.
 - Read and validate the complete ordered Sheet header row before append; preserve duplicate labels by position and fail before writing on any mismatch.
@@ -50,6 +50,6 @@ Status: 2026-07-29.
 
 ## Documentation expectations
 
-- Keep `docs/prd.md` as the source of product scope decisions.
+- Keep `docs/prd.md` as the source of property-workflow scope decisions; use SPEC-10 through SPEC-19 and the numbered canonical docs for Contract Generation behavior.
 - Use the numbered `docs/` structure for new canonical docs.
 - Add implementation notes to the appropriate numbered folder rather than to root-level `docs/` files.
