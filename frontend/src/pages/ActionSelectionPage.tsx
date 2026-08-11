@@ -223,20 +223,36 @@ export function ActionSelectionPage() {
             </div>
           </button>
 
-          {/* More actions — coming soon */}
-          <div className="mt-3 surface rounded-2xl p-6 opacity-40 cursor-not-allowed select-none">
+          <button
+            type="button"
+            id="btn-admin-contracts"
+            aria-label="Administrar contratos"
+            onClick={() => navigate('/contracts/admin')}
+            className="group mt-3 w-full surface rounded-2xl p-6 text-left transition-all duration-200 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5 cursor-pointer"
+          >
             <div className="flex items-start gap-5">
-              <div className="w-12 h-12 rounded-xl bg-white/[0.05] flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 transition-transform group-hover:scale-105">
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 7.5h15M6.75 4.5h10.5A2.25 2.25 0 0119.5 6.75v10.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 17.25V6.75A2.25 2.25 0 016.75 4.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 11.25h2.25m-2.25 3h4.5m2.25-3h1.5m-1.5 3h1.5" />
                 </svg>
               </div>
-              <div>
-                <h2 className="text-base font-semibold text-slate-400">Editar propiedad</h2>
-                <p className="text-sm text-slate-600 mt-0.5">Próximamente disponible en v2.</p>
+              <div className="min-w-0 flex-1">
+                <h2 className="mb-1 text-lg font-semibold text-slate-100 transition-colors group-hover:text-white">
+                  Administrar contratos
+                </h2>
+                <p className="text-sm leading-relaxed text-slate-500">
+                  Consultá y gestioná los contratos existentes.
+                </p>
               </div>
+              <svg
+                className="mt-0.5 h-5 w-5 shrink-0 text-slate-600 transition-all group-hover:translate-x-1 group-hover:text-emerald-400"
+                fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
             </div>
-          </div>
+          </button>
         </div>
 
       </main>

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentProvider } from '../../src/app/contexts/AgentContext.tsx';
@@ -143,5 +144,32 @@ describe('SPEC-19 main entry', () => {
     expect(screen.queryByText(/Google/iu)).toBeNull();
     expect(screen.queryByText(/Configurar agente/iu)).toBeNull();
     expect(screen.queryByText(/OPEV-H/iu)).toBeNull();
+  });
+
+  it('offers contract administration as the third action and navigates to its canonical route', async () => {
+    vi.mocked(fetchAdminSession).mockResolvedValue({
+      authenticated: true,
+      user: { id: 'admin-id', email: 'admin@example.test', name: 'Admin' },
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AgentProvider>
+          <MemoryRouter initialEntries={['/']}>
+            <Routes>
+              <Route path="/" element={<ActionSelectionPage />} />
+              <Route path="/contracts/admin" element={<p>Administración de contratos</p>} />
+            </Routes>
+          </MemoryRouter>
+        </AgentProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Administrar contratos' })).toBeTruthy();
+    expect(screen.queryByText('Editar propiedad')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Administrar contratos' }));
+
+    expect(await screen.findByText('Administración de contratos')).toBeTruthy();
   });
 });

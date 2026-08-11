@@ -180,6 +180,8 @@ describe('SPEC-12 hosted contract forms', () => {
 
     expect(await screen.findByText('Propietario')).toBeTruthy();
     expect(screen.getByText('Generación de contratos')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Inicio' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'Contratos' }).getAttribute('href')).toBe('/contracts/admin');
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeTruthy();
     expect(screen.queryByText('Enviar formulario')).toBeNull();
     expect(screen.queryByText('Esquema JSON')).toBeNull();

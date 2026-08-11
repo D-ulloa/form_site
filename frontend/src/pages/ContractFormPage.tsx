@@ -673,7 +673,10 @@ export function ContractFormPage() {
             </h1>
           </div>
           {role !== "client" && (
-            <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+            <nav aria-label="Navegación del formulario" className="flex items-center gap-4">
+              <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+              <Link to="/contracts/admin" className="text-sm text-slate-400 hover:text-white">Contratos</Link>
+            </nav>
           )}
         </div>
       </header>
