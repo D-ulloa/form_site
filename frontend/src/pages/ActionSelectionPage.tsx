@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { AgentModal } from '../components/ui/AgentModal.tsx';
 import { useAgent, type AgentData } from '../app/contexts/AgentContext.tsx';
@@ -8,6 +9,7 @@ import {
   logoutAdmin,
   type AdminSession,
 } from '../features/contracts/services/adminAuthApi.ts';
+import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 
 type PendingAction = 'property' | 'contract' | null;
 
@@ -52,6 +54,7 @@ function AuthEntry() {
 
 export function ActionSelectionPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { agent, isConfigured } = useAgent();
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
@@ -122,7 +125,12 @@ export function ActionSelectionPage() {
           <button
             type="button"
             className="text-xs text-slate-400 transition-colors hover:text-white"
-            onClick={() => { void logoutAdmin().then(() => setAdminSession(null)); }}
+            onClick={() => {
+              void logoutAdmin().then(() => {
+                clearContractAdminQueryCache(queryClient);
+                setAdminSession(null);
+              });
+            }}
           >
             {adminSession.user.email} · Cerrar sesión
           </button>

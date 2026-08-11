@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
@@ -10,6 +11,7 @@ import {
   startGoogleLogin,
   type AdminAuthError,
 } from '../features/contracts/services/adminAuthApi.ts';
+import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 
 type AuthMode = 'login' | 'register';
 
@@ -53,6 +55,7 @@ function GoogleMark() {
 
 export function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isRegister = mode === 'register';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -96,6 +99,7 @@ export function AuthPage({ mode }: AuthPageProps) {
       } else {
         await loginAdmin({ email, password, rememberMe });
       }
+      clearContractAdminQueryCache(queryClient);
       navigate('/', { replace: true });
     } catch (caughtError) {
       const authError = caughtError as AdminAuthError;

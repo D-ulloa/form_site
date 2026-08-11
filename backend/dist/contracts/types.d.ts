@@ -136,6 +136,8 @@ export interface ContractEntryRecord {
     readonly schemaId: string;
     readonly direccion?: string | null;
     readonly createdBy: string;
+    /** Null/undefined identifies rows created before SPEC-22 ownership tracking. */
+    readonly createdByUserId?: string | null;
     readonly createdAt: string;
     readonly userTokenHash: string;
     readonly clientTokenHash: string;

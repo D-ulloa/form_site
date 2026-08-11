@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-10  
 **Priority:** medium  
-**Status:** pending
+**Status:** implemented
 
 ---
 

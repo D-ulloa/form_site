@@ -27,6 +27,7 @@ export declare function toContractEntrySummary(entry: ContractEntryRecord): Cont
 export declare function createContractEntry(input: {
     readonly schemaId: string;
     readonly createdBy: string;
+    readonly createdByUserId?: string | null;
     readonly publicBaseUrl: string;
     readonly direccion?: string;
 }, repository: ContractEntryRepository, environment?: NodeJS.ProcessEnv, dependencies?: {

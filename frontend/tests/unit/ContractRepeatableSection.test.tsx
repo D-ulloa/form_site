@@ -229,7 +229,10 @@ describe('SPEC-11 repeatable contract sections', () => {
   });
 
   it('SPEC-20 focuses and scrolls each newly added repeated block', () => {
-    const scrollIntoView = vi.fn();
+    const scrollTargets: HTMLElement[] = [];
+    const scrollIntoView = vi.fn(function (this: HTMLElement) {
+      scrollTargets.push(this);
+    });
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: scrollIntoView,
@@ -251,6 +254,15 @@ describe('SPEC-11 repeatable contract sections', () => {
       within(guarantorBlock as HTMLElement).getByLabelText(/^Nombre completo/u),
     );
     expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(scrollTargets[1]).toBe(
+      within(guarantorBlock as HTMLElement)
+        .getByRole('textbox', { name: /^Nombre completo/u })
+        .closest('[data-repeatable-personal-data="garantes"]'),
+    );
+    expect(scrollIntoView).toHaveBeenLastCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    });
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: undefined,

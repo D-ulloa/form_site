@@ -266,9 +266,16 @@ export function ContractRepeatableSection({
       + 'input:not([type="file"]), select, textarea',
     );
     firstInput?.focus({ preventScroll: true });
-    item.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    const repeatableName = repeatable?.name;
+    const scrollTarget = repeatableName === 'garantes'
+      ? item.querySelector<HTMLElement>('[data-repeatable-personal-data="garantes"]') ?? item
+      : item;
+    scrollTarget.scrollIntoView?.({
+      behavior: 'smooth',
+      block: repeatableName === 'garantes' ? 'start' : 'center',
+    });
     pendingFocusIndex.current = null;
-  }, [items.length]);
+  }, [items.length, repeatable?.name]);
 
   if (!repeatable) return null;
 
@@ -318,7 +325,10 @@ export function ContractRepeatableSection({
                 </Button>
               )}
             </div>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div
+              data-repeatable-personal-data={repeatable.name}
+              className="grid scroll-mt-24 gap-5 sm:grid-cols-2"
+            >
               {fieldsOutsideSubsections(section).map((field) => (
                 <ContractFieldRenderer
                   key={field.name}

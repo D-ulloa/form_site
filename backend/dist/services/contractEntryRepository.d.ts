@@ -5,6 +5,7 @@ export interface CreateContractEntryRecordInput {
     readonly schemaId: string;
     readonly direccion: string;
     readonly createdBy: string;
+    readonly createdByUserId?: string | null;
     readonly createdAt: string;
     readonly userTokenHash: string;
     readonly clientTokenHash: string;

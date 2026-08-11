@@ -69,6 +69,7 @@ export async function createContractEntry(input, repository, environment = proce
         schemaId: input.schemaId,
         direccion,
         createdBy: input.createdBy,
+        createdByUserId: input.createdByUserId ?? null,
         createdAt,
         userTokenHash: hashContractAccessToken(userToken, environment),
         clientTokenHash: hashContractAccessToken(clientToken, environment),

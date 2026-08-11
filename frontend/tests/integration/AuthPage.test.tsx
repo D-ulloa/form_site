@@ -25,13 +25,15 @@ vi.mock('../../src/features/contracts/services/adminAuthApi.ts', () => ({
 
 function renderAuth(path: '/login' | '/register') {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/login" element={<AuthPage mode="login" />} />
-        <Route path="/register" element={<AuthPage mode="register" />} />
-        <Route path="/" element={<p>Sesión iniciada</p>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/login" element={<AuthPage mode="login" />} />
+          <Route path="/register" element={<AuthPage mode="register" />} />
+          <Route path="/" element={<p>Sesión iniciada</p>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -132,11 +134,13 @@ describe('SPEC-19 authentication screens', () => {
 describe('SPEC-19 main entry', () => {
   it('offers registration and login without Google or agent setup', async () => {
     render(
-      <AgentProvider>
-        <MemoryRouter>
-          <ActionSelectionPage />
-        </MemoryRouter>
-      </AgentProvider>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AgentProvider>
+          <MemoryRouter>
+            <ActionSelectionPage />
+          </MemoryRouter>
+        </AgentProvider>
+      </QueryClientProvider>,
     );
 
     expect(await screen.findByRole('link', { name: 'Registrarse' })).toBeTruthy();
