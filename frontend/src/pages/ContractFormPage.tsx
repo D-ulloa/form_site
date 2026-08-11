@@ -717,9 +717,9 @@ export function ContractFormPage() {
         {schema && (
           <>
 
-            {submission.data && dismissedSubmissionId !== submission.data.submissionId && typeof document !== 'undefined' && createPortal(
+            {role === 'client' && submission.data && dismissedSubmissionId !== submission.data.submissionId && typeof document !== 'undefined' && createPortal(
               <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 p-2 backdrop-blur-sm sm:p-4"
                 style={{
                   position: 'fixed',
                   inset: 0,
@@ -727,7 +727,7 @@ export function ContractFormPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '1rem',
+                  padding: '0.5rem',
                   backgroundColor: 'rgba(2, 6, 23, 0.82)',
                 }}
                 role="dialog"
@@ -735,53 +735,54 @@ export function ContractFormPage() {
                 aria-labelledby="client-save-success-title"
               >
                 <div
-                  className="w-full max-w-lg overflow-hidden rounded-2xl border border-cyan-300/20 bg-slate-900 shadow-2xl shadow-cyan-950/40"
+                  className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-xl border border-cyan-300/20 bg-slate-900 shadow-2xl shadow-cyan-950/40 sm:max-h-[calc(100dvh-2rem)]"
                   style={{
                     width: '100%',
-                    maxWidth: '32rem',
+                    maxWidth: '26rem',
+                    maxHeight: 'calc(100dvh - 2rem)',
                     backgroundColor: '#0f172a',
-                    borderRadius: '1rem',
+                    borderRadius: '0.75rem',
                     boxShadow: '0 25px 60px rgba(0, 0, 0, 0.55)',
                   }}
                 >
                   <div className="h-1 bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
-                  <div className="p-6 sm:p-8">
+                  <div className="p-4 sm:p-6">
                     <div className="text-center">
                       <img
                         src={azarLogo}
                         alt="Azar & Asociados"
-                        className="mx-auto mb-5 h-auto w-full max-w-xs object-contain"
+                        className="mx-auto mb-3 h-auto max-h-20 w-auto max-w-[12rem] object-contain"
                       />
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
                         Guardado correctamente
                       </p>
-                      <h2 id="client-save-success-title" className="mt-1 text-2xl font-semibold text-white">
+                      <h2 id="client-save-success-title" className="mt-1 text-xl font-semibold text-white">
                         Formulario guardado
                       </h2>
                     </div>
-                    <p className="mt-6 text-base leading-7 text-slate-200">
+                    <p className="mt-4 text-sm leading-6 text-slate-200">
                       Se ha guardado su información correctamente.
                     </p>
-                    <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+                    <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-3">
                       <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                         Identificador del envío
                       </p>
-                      <p className="mt-2 break-all font-mono text-sm text-cyan-200">
+                      <p className="mt-1 break-all font-mono text-xs text-cyan-200">
                         {submission.data.submissionId}
                       </p>
                     </div>
-                    <p className="mt-5 text-sm leading-6 text-slate-300">
+                    <p className="mt-4 text-xs leading-5 text-slate-300">
                       Gracias por confiar en nosotros, te invitamos a seguirnos en Instagram
                     </p>
                     <a
-                      href="https://www.instagram.com/azaryasociados?igsh=MWVzODBtYXJ1MGVydA=="
+                      href="https://www.instagram.com/azaryasociados"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 block break-all text-sm font-medium leading-6 text-cyan-300 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-200"
+                      className="mt-1 block break-all text-xs font-medium leading-5 text-cyan-300 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-200"
                     >
                       @azaryasociados
                     </a>
-                    <div className="mt-7 flex justify-end">
+                    <div className="mt-5 flex justify-end">
                       <Button
                         type="button"
                         onClick={() => setDismissedSubmissionId(submission.data.submissionId)}
