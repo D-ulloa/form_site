@@ -3,6 +3,9 @@ import type {
   ContractEvidenceFileValue,
   ContractFileReceiverDefinition,
 } from '../types.ts';
+import {
+  downloadAttachment,
+} from '../utils/downloadAttachment.ts';
 
 interface ContractFileReceiverProps {
   definition: ContractFileReceiverDefinition;
@@ -155,7 +158,12 @@ export function ContractFileReceiver({
 
       {files.length > 0 && (
         <ul className="mt-3 space-y-2" aria-label={`Archivos de ${definition.label}`}>
-          {files.map((file, index) => (
+          {files.map((file, index) => {
+            const existingUrl = !isBrowserFile(file)
+              ? file.downloadUrl ?? file.viewUrl
+              : undefined;
+            const existingFilename = !isBrowserFile(file) ? file.filename : undefined;
+            return (
             <li
               key={filenameKey(file, index)}
               className="flex min-w-0 items-center gap-3 rounded-lg border border-white/[0.07] bg-white/[0.02] p-2"
@@ -166,12 +174,14 @@ export function ContractFileReceiver({
                   {fileName(file)}
                 </p>
                 <p className="text-xs text-slate-500">{formatBytes(file.size)}</p>
-                {!isBrowserFile(file) && (file.downloadUrl ?? file.viewUrl) && (
+                {existingUrl && existingFilename && (
                   <a
-                    href={file.downloadUrl ?? file.viewUrl}
-                    download={file.filename}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={existingUrl}
+                    download={existingFilename}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void downloadAttachment(existingUrl, existingFilename);
+                    }}
                     className="mt-1 inline-flex text-xs text-cyan-400 hover:text-cyan-300"
                   >
                     Descargar archivo
@@ -190,7 +200,8 @@ export function ContractFileReceiver({
                 Eliminar
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

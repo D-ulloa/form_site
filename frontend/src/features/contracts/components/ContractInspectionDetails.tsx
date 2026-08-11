@@ -4,6 +4,9 @@ import type {
   ContractInspectionMedia,
   ContractInspectionSubsection,
 } from '../types.ts';
+import {
+  downloadAttachment,
+} from '../utils/downloadAttachment.ts';
 
 interface ContractInspectionDetailsProps {
   inspection: ContractEntryInspection;
@@ -129,12 +132,15 @@ function MediaList({ media }: { media: ContractInspectionMedia[] }) {
               </p>
               <a
                 href={file.viewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                download={filename}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void downloadAttachment(file.viewUrl, filename);
+                }}
                 aria-label={`Ver ${file.label}: ${filename}`}
                 className="mt-2 inline-flex text-xs font-medium text-cyan-400 hover:text-cyan-300"
               >
-                Ver archivo original
+                Descargar archivo
               </a>
             </div>
           </article>

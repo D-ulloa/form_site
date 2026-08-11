@@ -15,6 +15,9 @@ import type {
 import { isContractEvidenceFileReference } from '../types.ts';
 import { ContractFieldRenderer } from './ContractFieldRenderer.tsx';
 import { ContractFileReceiver } from './ContractFileReceiver.tsx';
+import {
+  downloadAttachment,
+} from '../utils/downloadAttachment.ts';
 
 const ACCEPTED_DNI_TYPES = [
   'application/pdf',
@@ -139,6 +142,7 @@ function ContractDniUploadControl({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reference = isDniReference(value) ? value : undefined;
+  const referenceUrl = reference?.downloadUrl ?? reference?.viewUrl;
   const inputId = `dni-${collection}-${itemIndex}-${definition.slot}`;
 
   const selectFile = async (file: File | undefined) => {
@@ -204,12 +208,14 @@ function ContractDniUploadControl({
       </p>
       <p className="mt-2 text-xs text-slate-500" role="status">
         {pending ? 'Subiendo…' : reference ? `Cargado: ${reference.originalName}` : 'Sin imagen cargada'}
-      {reference && !pending && (reference.downloadUrl ?? reference.viewUrl) && (
+      {reference && !pending && referenceUrl && (
         <a
-          href={reference.downloadUrl ?? reference.viewUrl}
+          href={referenceUrl}
           download={reference.originalName}
-          target="_blank"
-          rel="noopener noreferrer"
+          onClick={(event) => {
+            event.preventDefault();
+            void downloadAttachment(referenceUrl, reference.originalName);
+          }}
           className="mt-1 inline-flex text-xs text-cyan-400 hover:text-cyan-300"
         >
           Descargar archivo

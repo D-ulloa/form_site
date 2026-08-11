@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useForm, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
 import { createPortal } from 'react-dom';
+import azarLogo from '../assets/azar-logo.png';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractFieldRenderer } from '../features/contracts/components/ContractFieldRenderer.tsx';
@@ -32,6 +33,9 @@ import {
   computeFormattedStart,
   computeFormattedUpdate,
 } from '../features/contracts/utils/contractComputedDates.ts';
+import {
+  downloadAttachment,
+} from '../features/contracts/utils/downloadAttachment.ts';
 
 function roleFromRoute(value: string | undefined): ContractRole | null {
   const normalized = value?.trim().toLowerCase();
@@ -41,12 +45,13 @@ function roleFromRoute(value: string | undefined): ContractRole | null {
   if (normalized === 'client') return 'client';
   return null;
 }
+
 function displayValue(value: unknown): string {
-  if (typeof value === 'boolean') return value ? 'SÃƒÂ­' : 'No';
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
   if (typeof value === 'object' && value !== null && 'originalName' in value) {
     return `Imagen: ${String((value as Record<string, unknown>).originalName)}`;
   }
-  return value === undefined || value === '' ? 'Ã¢â‚¬â€' : String(value);
+  return value === undefined || value === '' ? '—' : String(value);
 }
 
 function formatFileSize(size: number): string {
@@ -56,31 +61,6 @@ function formatFileSize(size: number): string {
 }
 function attachmentUrl(value: { viewUrl?: string; downloadUrl?: string }): string | undefined {
   return value.downloadUrl ?? value.viewUrl;
-}
-
-async function downloadAttachment(url: string, filename: string) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  } catch {
-    const fallback = document.createElement('a');
-    fallback.href = url;
-    fallback.download = filename;
-    fallback.target = '_blank';
-    fallback.rel = 'noopener noreferrer';
-    document.body.appendChild(fallback);
-    fallback.click();
-    fallback.remove();
-  }
 }
 
 function ReadOnlyEvidenceFiles({
@@ -158,7 +138,7 @@ function ReadOnlyDniFiles({
             <li key={definition.name} className="rounded-lg bg-black/15 p-3 text-xs text-slate-300">
               <p className="break-all">{definition.label}: {originalName}</p>
               {typeof reference.mimeType === "string" && typeof reference.sizeBytes === "number" && (
-                <p className="mt-1 text-slate-500">{reference.mimeType} Ã‚Â· {formatFileSize(reference.sizeBytes)}</p>
+                <p className="mt-1 text-slate-500">{reference.mimeType} · {formatFileSize(reference.sizeBytes)}</p>
               )}
               {href && (
                 <a
@@ -255,7 +235,7 @@ async function replaceFilesWithEvidenceReferences(
     userId,
   );
   if (presigned.length !== pending.length) {
-    throw new Error('El servidor no devolviÃƒÂ³ todas las referencias de carga.');
+    throw new Error('El servidor no devolvió todas las referencias de carga.');
   }
 
   await Promise.all(pending.map((upload, index) => {
@@ -310,6 +290,8 @@ function ReadOnlyFieldList({
     </dl>
   );
 }
+
+
 function ReadOnlyContractSection({
   section,
   values,
@@ -375,7 +357,7 @@ function ReadOnlyContractSection({
               />
               {section.subsections && (
                 <fieldset className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-500/[0.03] p-3">
-                  <legend className="px-1 text-xs font-semibold text-cyan-100">GarantÃƒÂ­as</legend>
+                  <legend className="px-1 text-xs font-semibold text-cyan-100">Garantías</legend>
                   <div className="mt-1">
                     {section.subsections.map((subsection) => (
                 <section
@@ -511,7 +493,7 @@ export function ContractFormPage() {
   if (!role) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-xl items-center px-6">
-        <AlertInline variant="error" title="Ruta de contrato invÃƒÂ¡lida">
+        <AlertInline variant="error" title="Ruta de contrato inválida">
           El enlace debe corresponder al formulario del usuario o del cliente.
         </AlertInline>
       </main>
@@ -533,14 +515,14 @@ export function ContractFormPage() {
   const invalidSubmit = (fieldErrors: FieldErrors<ContractFormValues>) => {
     const first = Object.keys(fieldErrors)[0];
     if (first) document.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
-    setSubmitMessage('RevisÃƒÂ¡ los campos marcados antes de guardar.');
+    setSubmitMessage('Revisá los campos marcados antes de guardar.');
   };
 
   const validSubmit = async (values: ContractFormValues) => {
     if (!schema || submission.isPending || evidenceUploading) return;
     clearErrors();
     if (pendingUploads.size > 0) {
-      setSubmitMessage('EsperÃƒÂ¡ a que terminen de subir las imÃƒÂ¡genes del DNI.');
+      setSubmitMessage('Esperá a que terminen de subir las imágenes del DNI.');
       return;
     }
     const missingDniUploads: Array<{
@@ -584,7 +566,7 @@ export function ContractFormPage() {
           `dni-${firstMissing.collection}-${firstMissing.itemIndex}-${firstMissing.uploadName.includes('back') ? 'back' : 'front'}`,
         )?.focus();
       }
-      setSubmitMessage('CompletÃƒÂ¡ las imÃƒÂ¡genes Frontal y Dorso del DNI antes de guardar.');
+      setSubmitMessage('Completá las imágenes Frontal y Dorso del DNI antes de guardar.');
       return;
     }
     const hasIncompleteDniPair = schema.sections.some((section) => {
@@ -608,7 +590,7 @@ export function ContractFormPage() {
       missingSubsections.forEach(({ collection, itemIndex }) => {
         setError(`${collection}.${itemIndex}._subsections`, {
           type: 'required',
-          message: 'CompletÃƒÂ¡ al menos Recibo de sueldo o GarantÃƒÂ­a propietaria.',
+          message: 'Completá al menos Recibo de sueldo o Garantía propietaria.',
         });
       });
       const firstMissing = missingSubsections[0];
@@ -622,7 +604,7 @@ export function ContractFormPage() {
         )?.focus();
       }
       setSubmitMessage(
-        'Cada garante debe completar Recibo de sueldo o GarantÃƒÂ­a propietaria.',
+        'Cada garante debe completar Recibo de sueldo o Garantía propietaria.',
       );
       return;
     }
@@ -632,7 +614,7 @@ export function ContractFormPage() {
         setError(`${collection}.${itemIndex}._files`, {
           type: 'required',
           message:
-            'AdjuntÃƒÂ¡ al menos un archivo en Recibo de sueldo o GarantÃƒÂ­a propietaria.',
+            'Adjuntá al menos un archivo en Recibo de sueldo o Garantía propietaria.',
         });
       });
       const firstMissing = missingEvidence[0];
@@ -642,7 +624,7 @@ export function ContractFormPage() {
         )?.focus();
       }
       setSubmitMessage(
-        'Cada garante debe adjuntar al menos un archivo en Recibo de sueldo o GarantÃƒÂ­a propietaria.',
+        'Cada garante debe adjuntar al menos un archivo en Recibo de sueldo o Garantía propietaria.',
       );
       return;
     }
@@ -674,7 +656,7 @@ export function ContractFormPage() {
         if (reconciliation.data?.readOnly) {
           setSubmitMessage(null);
           setReconciledMessage(
-            'El formulario ya habÃƒÂ­a sido recibido y se actualizÃƒÂ³ a modo de solo lectura.',
+            'El formulario ya había sido recibido y se actualizó a modo de solo lectura.',
           );
           return;
         }
@@ -688,10 +670,10 @@ export function ContractFormPage() {
       }
       setSubmitMessage(
         error instanceof ContractRequestError && error.fieldErrors.length > 0
-          ? 'RevisÃƒÂ¡ los campos marcados e intentÃƒÂ¡ guardar nuevamente.'
+          ? 'Revisá los campos marcados e intentá guardar nuevamente.'
           : finalSubmitAttempted
-            ? 'No se pudo confirmar el guardado. Verificamos el estado y podÃƒÂ©s intentar nuevamente.'
-            : 'No se pudieron subir los archivos. IntentÃƒÂ¡ guardar nuevamente.',
+            ? 'No se pudo confirmar el guardado. Verificamos el estado y podés intentar nuevamente.'
+            : 'No se pudieron subir los archivos. Intentá guardar nuevamente.',
       );
     } finally {
       setEvidenceUploading(false);
@@ -703,7 +685,7 @@ export function ContractFormPage() {
       <header className="glass sticky top-0 z-10 border-b border-white/[0.07]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-cyan-400">GeneraciÃƒÂ³n de contratos</p>
+            <p className="text-xs uppercase tracking-wide text-cyan-400">Generación de contratos</p>
             <h1 className="mt-1 text-lg font-semibold text-slate-100">
               Formulario del {roleLabel}
             </h1>
@@ -717,14 +699,14 @@ export function ContractFormPage() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         {schemaQuery.isPending && (
           <div className="flex min-h-64 items-center justify-center text-sm text-slate-400" role="status">
-            Cargando formulario seguroÃ¢â‚¬Â¦
+            Cargando formulario seguro…
           </div>
         )}
 
         {schemaQuery.isError && (
           <div className="mx-auto max-w-xl">
             <AlertInline variant="error" title="No se pudo abrir el formulario">
-              VerificÃƒÂ¡ el enlace e intentÃƒÂ¡ nuevamente.
+              Verificá el enlace e intentá nuevamente.
             </AlertInline>
           </div>
         )}
@@ -761,18 +743,18 @@ export function ContractFormPage() {
                 >
                   <div className="h-1 bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
                   <div className="p-6 sm:p-8">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-bold text-emerald-300 ring-1 ring-emerald-300/30">
-                        OK
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-                          Guardado correctamente
-                        </p>
-                        <h2 id="client-save-success-title" className="mt-1 text-2xl font-semibold text-white">
-                          Formulario guardado
-                        </h2>
-                      </div>
+                    <div className="text-center">
+                      <img
+                        src={azarLogo}
+                        alt="Azar & Asociados"
+                        className="mx-auto mb-5 h-auto w-full max-w-xs object-contain"
+                      />
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                        Guardado correctamente
+                      </p>
+                      <h2 id="client-save-success-title" className="mt-1 text-2xl font-semibold text-white">
+                        Formulario guardado
+                      </h2>
                     </div>
                     <p className="mt-6 text-base leading-7 text-slate-200">
                       Se ha guardado su información correctamente.
@@ -794,7 +776,7 @@ export function ContractFormPage() {
                       rel="noopener noreferrer"
                       className="mt-2 block break-all text-sm font-medium leading-6 text-cyan-300 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-200"
                     >
-                      https://www.instagram.com/azaryasociados?igsh=MWVzODBtYXJ1MGVydA==
+                      @azaryasociados
                     </a>
                     <div className="mt-7 flex justify-end">
                       <Button
@@ -813,9 +795,9 @@ export function ContractFormPage() {
             {submission.data && (
               <div className="mb-6">
                 <AlertInline variant="success" title="Formulario guardado">
-                  <p>Identificador del envÃƒÂ­o: {submission.data.submissionId}</p>
+                  <p>Identificador del envío: {submission.data.submissionId}</p>
                   <p className="mt-2 text-sm text-emerald-200">
-                    PodÃƒÂ©s revisar y corregir los datos; guardÃƒÂ¡ nuevamente cuando termines.
+                    Podés revisar y corregir los datos; guardá nuevamente cuando termines.
                   </p>
                   {!formReadOnly && (
                     <Button
@@ -852,7 +834,7 @@ export function ContractFormPage() {
                   <div className="space-y-8">
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-black/10 p-4">
                       <p className="text-sm text-slate-400">
-                        Este formulario estÃƒÂ¡ guardado en modo de solo lectura.
+                        Este formulario está guardado en modo de solo lectura.
                       </p>
                       <Button type="button" variant="secondary" onClick={editSubmittedForm}>
                         Editar
@@ -939,7 +921,7 @@ export function ContractFormPage() {
                           pendingUploads.size > 0
                         }
                       >
-                        {formLocked ? 'GuardandoÃ¢â‚¬Â¦' : 'Guardar'}
+                        {formLocked ? 'Guardando…' : 'Guardar'}
                       </Button>
                     </div>
                   </form>
