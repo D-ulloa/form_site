@@ -764,11 +764,8 @@ export function ContractFormPage() {
                       Se ha guardado su información correctamente.
                     </p>
                     <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-                        Identificador del envío
-                      </p>
-                      <p className="mt-1 break-all font-mono text-xs text-cyan-200">
-                        {submission.data.submissionId}
+                      <p className="text-sm text-slate-200">
+                        El envío se realizó correctamente.
                       </p>
                     </div>
                     <p className="mt-4 text-xs leading-5 text-slate-300">
