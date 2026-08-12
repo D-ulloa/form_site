@@ -5,7 +5,9 @@ import {
   ContractAuthorizationError,
   authenticateContractRequest,
   authorizeContractAdmin,
+  authorizeContractEntryAccess,
   authorizeContractUserScope,
+  canAccessContractEntry,
   type ContractAuthenticationInput,
 } from '../../src/services/contractAuth.js';
 
@@ -110,6 +112,49 @@ test('Supabase password sessions are user-scoped and carry the administrator gra
     }),
   );
   assert.throws(() => authorizeContractAdmin(nonAdmin), ContractAuthorizationError);
+});
+
+test('SPEC-22 scopes new contract entries by database user while preserving legacy access', () => {
+  const owner = authenticateContractRequest(
+    headers({
+      passwordSession: {
+        userId: 'supabase-owner',
+        email: 'owner@example.test',
+        isAdmin: true,
+      },
+    }),
+    { NODE_ENV: 'production' },
+  );
+  const otherUser = authenticateContractRequest(
+    headers({
+      passwordSession: {
+        userId: 'supabase-other',
+        email: 'other@example.test',
+        isAdmin: true,
+      },
+    }),
+    { NODE_ENV: 'production' },
+  );
+  const ownedEntry = { createdByUserId: 'supabase-owner' };
+  const foreignEntry = { createdByUserId: 'supabase-other' };
+  const legacyEntry = { createdByUserId: null };
+  const malformedEntry = { createdByUserId: '   ' };
+
+  assert.equal(canAccessContractEntry(owner, ownedEntry), true);
+  assert.equal(canAccessContractEntry(otherUser, ownedEntry), false);
+  assert.equal(canAccessContractEntry(owner, legacyEntry), true);
+  assert.equal(canAccessContractEntry(owner, malformedEntry), false);
+  assert.doesNotThrow(() => authorizeContractEntryAccess(owner, legacyEntry));
+  assert.throws(
+    () => authorizeContractEntryAccess(owner, foreignEntry),
+    ContractAuthorizationError,
+  );
+
+  const apiKey = authenticateContractRequest(
+    headers({ authorization: 'Bearer test-contract-key' }),
+    { CONTRACTS_API_KEY: 'test-contract-key', NODE_ENV: 'production' },
+  );
+  assert.equal(canAccessContractEntry(apiKey, foreignEntry), true);
 });
 
 test('development identity works only in development and production fails closed', () => {

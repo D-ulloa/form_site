@@ -3,6 +3,9 @@ import type {
   ContractEvidenceFileValue,
   ContractFileReceiverDefinition,
 } from '../types.ts';
+import {
+  downloadAttachment,
+} from '../utils/downloadAttachment.ts';
 
 interface ContractFileReceiverProps {
   definition: ContractFileReceiverDefinition;
@@ -129,6 +132,17 @@ export function ContractFileReceiver({
       <p id={helpId} className="mt-1 text-xs text-slate-500">
         Hasta 2 archivos — PDF, JPG, PNG
       </p>
+      <p className="mt-2 text-xs text-slate-400" role="status" aria-live="polite">
+        {files.length > 0
+          ? `${files.length} archivo${files.length === 1 ? '' : 's'} seleccionado${files.length === 1 ? '' : 's'}`
+          : 'Sin archivos seleccionados'}
+      </p>
+      <label
+        htmlFor={inputId}
+        className="mt-2 inline-flex cursor-pointer rounded-lg bg-indigo-500/15 px-3 py-2 text-xs text-indigo-300 transition-colors hover:bg-indigo-500/30 hover:text-indigo-200"
+      >
+        Seleccionar archivos
+      </label>
       <input
         id={inputId}
         name={inputId}
@@ -144,7 +158,7 @@ export function ContractFileReceiver({
           addFiles(Array.from(event.target.files ?? []));
           event.currentTarget.value = '';
         }}
-        className="mt-3 block w-full rounded-lg text-xs text-slate-400 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/15 file:px-3 file:py-2 file:text-xs file:text-indigo-300 file:cursor-pointer file:transition-colors file:hover:bg-indigo-500/30 file:hover:text-indigo-200"
+        className="sr-only"
       />
 
       {visibleErrors.length > 0 && (
@@ -155,7 +169,12 @@ export function ContractFileReceiver({
 
       {files.length > 0 && (
         <ul className="mt-3 space-y-2" aria-label={`Archivos de ${definition.label}`}>
-          {files.map((file, index) => (
+          {files.map((file, index) => {
+            const existingUrl = !isBrowserFile(file)
+              ? file.downloadUrl ?? file.viewUrl
+              : undefined;
+            const existingFilename = !isBrowserFile(file) ? file.filename : undefined;
+            return (
             <li
               key={filenameKey(file, index)}
               className="flex min-w-0 items-center gap-3 rounded-lg border border-white/[0.07] bg-white/[0.02] p-2"
@@ -166,12 +185,14 @@ export function ContractFileReceiver({
                   {fileName(file)}
                 </p>
                 <p className="text-xs text-slate-500">{formatBytes(file.size)}</p>
-                {!isBrowserFile(file) && (file.downloadUrl ?? file.viewUrl) && (
+                {existingUrl && existingFilename && (
                   <a
-                    href={file.downloadUrl ?? file.viewUrl}
-                    download={file.filename}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={existingUrl}
+                    download={existingFilename}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void downloadAttachment(existingUrl, existingFilename);
+                    }}
                     className="mt-1 inline-flex text-xs text-cyan-400 hover:text-cyan-300"
                   >
                     Descargar archivo
@@ -190,7 +211,8 @@ export function ContractFileReceiver({
                 Eliminar
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

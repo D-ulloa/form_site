@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
@@ -31,12 +32,15 @@ export function ContractAdminPage() {
     queryKey: ['contract-admin-session'],
     queryFn: fetchAdminSession,
     retry: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   const userId = sessionQuery.data?.user.id ?? '';
   const hasAdminIdentity = Boolean(sessionQuery.data);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const selectedId = routeEntryId ?? null;
+  const detailsPanelRef = useRef<HTMLElement | null>(null);
 
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateStatusMessage, setGenerateStatusMessage] = useState<string | null>(null);
@@ -50,6 +54,8 @@ export function ContractAdminPage() {
     queryFn: () => listContractEntries(userId),
     enabled: hasAdminIdentity,
     retry: false,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   const detailQuery = useQuery({
     queryKey: ['contract-admin-entry', selectedId, userId],
@@ -57,6 +63,11 @@ export function ContractAdminPage() {
     enabled: Boolean(selectedId && hasAdminIdentity),
     retry: false,
   });
+
+  useEffect(() => {
+    if (!selectedId) return;
+    detailsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [entriesQuery.data, selectedId]);
 
   const archiveMutation = useMutation({
     mutationFn: (entryId: string) => archiveContractEntry(entryId, userId),
@@ -109,7 +120,7 @@ export function ContractAdminPage() {
     (entry) => statusFilter === 'all' || entry.status === statusFilter,
   ) ?? [];
 
-  if (sessionQuery.isPending) {
+  if (sessionQuery.isPending || sessionQuery.isFetching) {
     return (
       <main className="flex min-h-dvh items-center justify-center px-6 text-sm text-slate-400" role="status">
         Comprobando sesión…
@@ -222,7 +233,6 @@ export function ContractAdminPage() {
                         <span className="mt-1 block min-w-0 truncate text-sm text-slate-300">
                           {getContractEntryWaitingStatus(entry)}
                         </span>
-                        <span className="mt-1 block max-w-full truncate text-xs text-slate-600">{entry.createdBy}</span>
                         <time className="mt-1 block text-xs text-slate-500" dateTime={entry.createdAt}>
                           {formatDate(entry.createdAt)}
                         </time>
@@ -252,7 +262,11 @@ export function ContractAdminPage() {
               )}
             </section>
 
-            <aside className="rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 lg:sticky lg:top-24 lg:self-start">
+            <aside
+              ref={detailsPanelRef}
+              data-contract-details-panel
+              className="scroll-mt-24 rounded-xl border border-white/[0.08] bg-[var(--bg-surface)] p-5 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain"
+            >
               {!selectedId && <p className="text-sm text-slate-500">Seleccioná una entrada para inspeccionarla.</p>}
               {detailQuery.isPending && selectedId && <p className="text-sm text-slate-400">Cargando detalle…</p>}
               {detailQuery.isError && (

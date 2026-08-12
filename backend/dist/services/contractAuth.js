@@ -80,6 +80,26 @@ export function authorizeContractUserScope(principal, attributedUserId) {
         throw new ContractAuthorizationError('The authenticated user does not match the contract owner.');
     }
 }
+/**
+ * Rows without createdByUserId predate SPEC-22 and remain available to every
+ * authenticated administrator. New rows carry the authenticated database ID.
+ * API-key callers are trusted internal clients and intentionally remain
+ * unscoped, matching the existing API-key contract boundary.
+ */
+export function canAccessContractEntry(principal, entry) {
+    if (principal.mode === 'api_key')
+        return true;
+    if (entry.createdByUserId === null || entry.createdByUserId === undefined) {
+        return true;
+    }
+    const ownerId = entry.createdByUserId.trim();
+    return ownerId.length > 0 && ownerId === principal.userId;
+}
+export function authorizeContractEntryAccess(principal, entry) {
+    if (canAccessContractEntry(principal, entry))
+        return;
+    throw new ContractAuthorizationError('The authenticated user does not have access to this contract.');
+}
 export function getContractPrincipalUserId(principal, attributedUserId) {
     if (principal.mode !== 'api_key')
         return principal.userId;

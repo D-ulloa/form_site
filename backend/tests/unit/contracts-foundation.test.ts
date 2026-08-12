@@ -112,7 +112,7 @@ test('strict validation rejects coercion, impossible dates, limits, and type mis
     contractType: 'different-contract',
     fields: {
       ...request.fields,
-      tenant_age: '21',
+      tenant_is_adult: 'true',
       contract_months: 0,
       contract_start_date: '2026-02-30',
       tenant_email: 'not-an-email',

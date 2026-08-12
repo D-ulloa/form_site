@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import type { ContractEntryRecord } from '../contracts/types.js';
 
 export type ContractPrincipal =
   | { readonly mode: 'api_key' }
@@ -146,6 +147,34 @@ export function authorizeContractUserScope(
       'The authenticated user does not match the contract owner.',
     );
   }
+}
+
+/**
+ * Rows without createdByUserId predate SPEC-22 and remain available to every
+ * authenticated administrator. New rows carry the authenticated database ID.
+ * API-key callers are trusted internal clients and intentionally remain
+ * unscoped, matching the existing API-key contract boundary.
+ */
+export function canAccessContractEntry(
+  principal: ContractPrincipal,
+  entry: Pick<ContractEntryRecord, 'createdByUserId'>,
+): boolean {
+  if (principal.mode === 'api_key') return true;
+  if (entry.createdByUserId === null || entry.createdByUserId === undefined) {
+    return true;
+  }
+  const ownerId = entry.createdByUserId.trim();
+  return ownerId.length > 0 && ownerId === principal.userId;
+}
+
+export function authorizeContractEntryAccess(
+  principal: ContractPrincipal,
+  entry: Pick<ContractEntryRecord, 'createdByUserId'>,
+): void {
+  if (canAccessContractEntry(principal, entry)) return;
+  throw new ContractAuthorizationError(
+    'The authenticated user does not have access to this contract.',
+  );
 }
 
 export function getContractPrincipalUserId(

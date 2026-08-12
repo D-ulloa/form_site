@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentProvider } from '../../src/app/contexts/AgentContext.tsx';
@@ -24,13 +25,15 @@ vi.mock('../../src/features/contracts/services/adminAuthApi.ts', () => ({
 
 function renderAuth(path: '/login' | '/register') {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/login" element={<AuthPage mode="login" />} />
-        <Route path="/register" element={<AuthPage mode="register" />} />
-        <Route path="/" element={<p>Sesión iniciada</p>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/login" element={<AuthPage mode="login" />} />
+          <Route path="/register" element={<AuthPage mode="register" />} />
+          <Route path="/" element={<p>Sesión iniciada</p>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -131,11 +134,13 @@ describe('SPEC-19 authentication screens', () => {
 describe('SPEC-19 main entry', () => {
   it('offers registration and login without Google or agent setup', async () => {
     render(
-      <AgentProvider>
-        <MemoryRouter>
-          <ActionSelectionPage />
-        </MemoryRouter>
-      </AgentProvider>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AgentProvider>
+          <MemoryRouter>
+            <ActionSelectionPage />
+          </MemoryRouter>
+        </AgentProvider>
+      </QueryClientProvider>,
     );
 
     expect(await screen.findByRole('link', { name: 'Registrarse' })).toBeTruthy();
@@ -143,5 +148,32 @@ describe('SPEC-19 main entry', () => {
     expect(screen.queryByText(/Google/iu)).toBeNull();
     expect(screen.queryByText(/Configurar agente/iu)).toBeNull();
     expect(screen.queryByText(/OPEV-H/iu)).toBeNull();
+  });
+
+  it('offers contract administration as the third action and navigates to its canonical route', async () => {
+    vi.mocked(fetchAdminSession).mockResolvedValue({
+      authenticated: true,
+      user: { id: 'admin-id', email: 'admin@example.test', name: 'Admin' },
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <AgentProvider>
+          <MemoryRouter initialEntries={['/']}>
+            <Routes>
+              <Route path="/" element={<ActionSelectionPage />} />
+              <Route path="/contracts/admin" element={<p>Administración de contratos</p>} />
+            </Routes>
+          </MemoryRouter>
+        </AgentProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Administrar contratos' })).toBeTruthy();
+    expect(screen.queryByText('Editar propiedad')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Administrar contratos' }));
+
+    expect(await screen.findByText('Administración de contratos')).toBeTruthy();
   });
 });

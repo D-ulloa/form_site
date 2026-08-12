@@ -180,6 +180,8 @@ describe('SPEC-12 hosted contract forms', () => {
 
     expect(await screen.findByText('Propietario')).toBeTruthy();
     expect(screen.getByText('Generación de contratos')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Inicio' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'Contratos' }).getAttribute('href')).toBe('/contracts/admin');
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeTruthy();
     expect(screen.queryByText('Enviar formulario')).toBeNull();
     expect(screen.queryByText('Esquema JSON')).toBeNull();
@@ -359,6 +361,68 @@ describe('SPEC-12 hosted contract forms', () => {
     });
   });
 });
+
+it('SPEC-20 replaces the tenant age input with the majority checkbox and submits its boolean value', async () => {
+    const tenantSection: ContractRoleSchemaResponse['sections'][number] = {
+      title: 'Inquilino',
+      fields: [
+        {
+          name: 'tenant_full_name',
+          label: 'Nombre completo',
+          type: 'string',
+          required: true,
+        },
+        {
+          name: 'tenant_is_adult',
+          label: 'Soy mayor de edad',
+          type: 'boolean',
+          required: true,
+        },
+      ],
+      repeatable: {
+        name: 'inquilinos',
+        itemLabel: 'Inquilino',
+        addLabel: 'Agregar Inquilino',
+        minItems: 1,
+      },
+    };
+    vi.mocked(fetchContractRoleSchema).mockResolvedValue({
+      schemaId: 'rent-contract-v1',
+      contractType: 'rent-contract-v1',
+      role: 'client',
+      sections: [tenantSection],
+      entry,
+      readOnly: false,
+      values: {},
+    });
+
+    renderPage('/contracts/' + entry.entryId + '/client?token=client-token');
+
+    const majorityCheckbox = await screen.findByRole('checkbox', { name: 'Soy mayor de edad' });
+    expect(majorityCheckbox).toHaveProperty('checked', false);
+    expect(screen.queryByLabelText('Edad')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText(/^Nombre completo/u), {
+      target: { value: 'Inquilino, Ignacio' },
+    });
+    fireEvent.click(majorityCheckbox);
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => {
+      expect(submitContractRole).toHaveBeenCalledWith(
+        entry.entryId,
+        'client',
+        'client-token',
+        {
+          inquilinos: [{
+            tenant_full_name: 'Inquilino, Ignacio',
+            tenant_is_adult: true,
+          }],
+        },
+        undefined,
+      );
+    });
+  });
 
 describe('SPEC-14 guarantor evidence uploads', () => {
   const evidenceSection: ContractRoleSchemaResponse['sections'][number] = {

@@ -141,11 +141,61 @@ test('SPEC-11 role schema exposes repeatable client sections and revised contrac
   assert.equal(contractFields.find((field) => field.name === 'contract_formatted_update')?.readOnly, true);
 });
 
+test('SPEC-20 replaces tenant age with a required adult confirmation field', () => {
+  const schema = getContractRoleSchema('rent-contract-v1', 'client');
+  const tenant = schema.sections.find((section) => section.repeatable?.name === 'inquilinos');
+  assert.ok(tenant);
+
+  const majorityField = tenant.fields.find((field) => field.name === 'tenant_is_adult');
+  assert.deepEqual(majorityField, {
+    name: 'tenant_is_adult',
+    label: 'Soy mayor de edad',
+    type: 'boolean',
+    required: true,
+    sensitive: true,
+  });
+  assert.equal(tenant.fields.some((field) => field.name === 'tenant_age'), false);
+
+  const validFields = validClientFields();
+  const validation = validateContractRoleSubmissionFields({
+    entry: entry(),
+    role: 'client',
+    roleSchema: schema,
+    fields: validFields,
+  }, ENVIRONMENT);
+  assert.equal(validation.success, true);
+  if (validation.success) {
+    const tenantValues = validation.fields.inquilinos as Record<string, unknown>[];
+    assert.equal(tenantValues[0]?.tenant_is_adult, false);
+  }
+
+  const legacyFields = {
+    ...validFields,
+    inquilinos: [{
+      ...(validFields.inquilinos as Record<string, unknown>[])[0],
+      tenant_age: 30,
+    }],
+  };
+  const legacyValidation = validateContractRoleSubmissionFields({
+    entry: entry(),
+    role: 'client',
+    roleSchema: schema,
+    fields: legacyFields,
+  }, ENVIRONMENT);
+  assert.equal(legacyValidation.success, false);
+  if (!legacyValidation.success) {
+    assert.ok(legacyValidation.errors.some((issue) =>
+      issue.path === 'fields.inquilinos.0.tenant_age' && issue.code === 'unknown_field'));
+  }
+});
+
 test('computed contract dates handle month ends, leap years, zero, and absent updates', () => {
   assert.equal(computeContractFormattedStart('2026-08-15'), '2026-07-31');
   assert.equal(computeContractFormattedStart('2028-03-01'), '2028-02-29');
   assert.equal(computeContractFormattedStart('2027-03-01'), '2027-02-28');
+  assert.equal(computeContractFormattedStart('2031-03-01'), '2031-02-28');
   assert.equal(computeContractFormattedUpdate('2026-07-31', 6), '2027-01-31');
+  assert.equal(computeContractFormattedUpdate('2029-12-31', 1), '2030-01-31');
   assert.equal(computeContractFormattedUpdate('2026-07-31', 0), '2026-07-31');
   assert.equal(computeContractFormattedUpdate('2026-07-31', null), null);
 });

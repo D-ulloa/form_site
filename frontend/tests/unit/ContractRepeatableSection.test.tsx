@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import * as axe from 'axe-core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useForm } from 'react-hook-form';
 import type { ContractFormValues, ContractSection } from '../../src/features/contracts/types.ts';
 import {
@@ -84,6 +84,20 @@ const guarantorSection: ContractSection = {
       name: 'property_type',
       label: 'Tipo de propiedad',
       type: 'string',
+      required: false,
+    },
+  ],
+  uploads: [
+    {
+      name: 'guarantor_dni_front_image',
+      label: 'Frente DNI',
+      slot: 'front',
+      required: false,
+    },
+    {
+      name: 'guarantor_dni_back_image',
+      label: 'Dorso DNI',
+      slot: 'back',
       required: false,
     },
   ],
@@ -196,6 +210,7 @@ describe('SPEC-11 repeatable contract sections', () => {
     expect(screen.getAllByRole('heading', { name: /Inquilino 1/ })).toHaveLength(1);
     expect(screen.getAllByLabelText('Frente DNI')).toHaveLength(1);
     expect(screen.getAllByLabelText('Dorso DNI')).toHaveLength(1);
+    expect(screen.getAllByText('Seleccionar archivo')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Inquilino' }));
@@ -211,6 +226,60 @@ describe('SPEC-11 repeatable contract sections', () => {
       rules: { 'color-contrast': { enabled: false } },
     });
     expect(results.violations).toEqual([]);
+  });
+
+  it('SPEC-20 focuses and scrolls each newly added repeated block', () => {
+    const scrollTargets: HTMLElement[] = [];
+    const scrollIntoView = vi.fn(function (this: HTMLElement) {
+      scrollTargets.push(this);
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    render(<RepeatableHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Inquilino' }));
+    const tenantBlock = screen.getByRole('heading', { name: /Inquilino 2/u }).closest('[data-repeatable-item]');
+    expect(tenantBlock).toBeTruthy();
+    const tenantInput = within(tenantBlock as HTMLElement).getByLabelText(/^Nombre completo/u);
+    expect(document.activeElement).toBe(tenantInput);
+
+    cleanup();
+    render(<GuarantorHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Garante' }));
+    const guarantorBlock = screen.getByRole('heading', { name: /Garante 2/u }).closest('[data-repeatable-item]');
+    expect(guarantorBlock).toBeTruthy();
+    expect(document.activeElement).toBe(
+      within(guarantorBlock as HTMLElement).getByLabelText(/^Nombre completo/u),
+    );
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(scrollTargets[1]).toBe(
+      within(guarantorBlock as HTMLElement)
+        .getByRole('textbox', { name: /^Nombre completo/u })
+        .closest('[data-repeatable-personal-data="garantes"]'),
+    );
+    expect(scrollIntoView).toHaveBeenLastCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+
+  it('SPEC-20 places guarantor DNI controls before guarantee subsections', () => {
+    render(<GuarantorHarness />);
+    const guarantorBlock = screen.getByRole('heading', { name: /Garante 1/u }).closest('[data-repeatable-item]');
+    expect(guarantorBlock).toBeTruthy();
+    const block = guarantorBlock as HTMLElement;
+    const personalField = within(block).getByLabelText(/^Nombre completo/u);
+    const dniField = within(block).getByLabelText('Frente DNI');
+    const guarantee = within(block).getByRole('region', { name: 'Recibo de sueldo' });
+
+    expect(personalField.compareDocumentPosition(dniField) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(dniField.compareDocumentPosition(guarantee) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
   it('normalizes repeated items as arrays and retains only the two configured image slots', () => {
@@ -247,7 +316,9 @@ describe('SPEC-11 repeatable contract sections', () => {
   it('computes read-only contract dates with calendar-safe month ends', () => {
     expect(computeFormattedStart('2028-03-01')).toBe('2028-02-29');
     expect(computeFormattedStart('2027-03-01')).toBe('2027-02-28');
+    expect(computeFormattedStart('2031-03-01')).toBe('2031-02-28');
     expect(computeFormattedUpdate('2026-07-31', 6)).toBe('2027-01-31');
+    expect(computeFormattedUpdate('2029-12-31', 1)).toBe('2030-01-31');
     expect(computeFormattedUpdate('2026-07-31', 0)).toBe('2026-07-31');
     expect(computeFormattedUpdate('2026-07-31', '')).toBe('');
   });

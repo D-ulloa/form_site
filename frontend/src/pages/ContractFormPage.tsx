@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useForm, useWatch, type FieldError, type FieldErrors } from 'react-hook-form';
+import { createPortal } from 'react-dom';
+import azarLogo from '../assets/azar-logo.png';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { ContractFieldRenderer } from '../features/contracts/components/ContractFieldRenderer.tsx';
@@ -31,9 +33,17 @@ import {
   computeFormattedStart,
   computeFormattedUpdate,
 } from '../features/contracts/utils/contractComputedDates.ts';
+import {
+  downloadAttachment,
+} from '../features/contracts/utils/downloadAttachment.ts';
 
 function roleFromRoute(value: string | undefined): ContractRole | null {
-  return value === 'user' || value === 'client' ? value : null;
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'cliente') return 'client';
+  if (normalized === 'usuario') return 'user';
+  if (normalized === 'user') return 'user';
+  if (normalized === 'client') return 'client';
+  return null;
 }
 
 function displayValue(value: unknown): string {
@@ -84,8 +94,10 @@ function ReadOnlyEvidenceFiles({
                 <a
                   href={href}
                   download={file.filename}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void downloadAttachment(href, file.filename);
+                  }}
                   className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
                 >
                   Descargar archivo
@@ -110,8 +122,9 @@ function ReadOnlyDniFiles({
     const raw = values[definition.name];
     if (typeof raw !== "object" || raw === null) return [];
     const reference = raw as Partial<ContractDniImageReference>;
-    if (typeof reference.originalName !== "string") return [];
-    return [{ definition, reference }];
+    const originalName = reference.originalName;
+    if (typeof originalName !== "string") return [];
+    return [{ definition, reference, originalName }];
   });
   if (files.length === 0) return null;
 
@@ -119,20 +132,22 @@ function ReadOnlyDniFiles({
     <div className="mt-5 border-t border-white/[0.07] pt-4">
       <p className="text-xs font-medium text-slate-400">Documentos adjuntos</p>
       <ul className="mt-2 space-y-2">
-        {files.map(({ definition, reference }) => {
+        {files.map(({ definition, reference, originalName }) => {
           const href = attachmentUrl(reference);
           return (
             <li key={definition.name} className="rounded-lg bg-black/15 p-3 text-xs text-slate-300">
-              <p className="break-all">{definition.label}: {reference.originalName}</p>
+              <p className="break-all">{definition.label}: {originalName}</p>
               {typeof reference.mimeType === "string" && typeof reference.sizeBytes === "number" && (
                 <p className="mt-1 text-slate-500">{reference.mimeType} · {formatFileSize(reference.sizeBytes)}</p>
               )}
               {href && (
                 <a
                   href={href}
-                  download={reference.originalName}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download={originalName}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void downloadAttachment(href, originalName);
+                  }}
                   className="mt-2 inline-flex text-cyan-400 hover:text-cyan-300"
                 >
                   Descargar archivo
@@ -386,6 +401,7 @@ function ReadOnlyContractSection({
     </div>
   );
 }
+
 export function ContractFormPage() {
   const params = useParams<{ entryId: string; role: string }>();
   const location = useLocation();
@@ -404,6 +420,7 @@ export function ContractFormPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<Set<string>>(() => new Set());
   const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const [dismissedSubmissionId, setDismissedSubmissionId] = useState<string | null>(null);
   const initializedFormKey = useRef<string | null>(null);
   const form = useForm<ContractFormValues>({ defaultValues: {} });
   const {
@@ -492,6 +509,7 @@ export function ContractFormPage() {
     setIsEditing(true);
     setSubmitMessage(null);
     setReconciledMessage(null);
+    setDismissedSubmissionId(null);
   };
 
   const invalidSubmit = (fieldErrors: FieldErrors<ContractFormValues>) => {
@@ -673,7 +691,10 @@ export function ContractFormPage() {
             </h1>
           </div>
           {role !== "client" && (
-            <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+            <nav aria-label="Navegación del formulario" className="flex items-center gap-4">
+              <Link to="/" className="text-sm text-slate-400 hover:text-white">Inicio</Link>
+              <Link to="/contracts/admin" className="text-sm text-slate-400 hover:text-white">Contratos</Link>
+            </nav>
           )}
         </div>
       </header>
@@ -695,6 +716,82 @@ export function ContractFormPage() {
 
         {schema && (
           <>
+
+            {role === 'client' && submission.data && dismissedSubmissionId !== submission.data.submissionId && typeof document !== 'undefined' && createPortal(
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 p-2 backdrop-blur-sm sm:p-4"
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 99999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0.5rem',
+                  backgroundColor: 'rgba(2, 6, 23, 0.82)',
+                }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="client-save-success-title"
+              >
+                <div
+                  className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-xl border border-cyan-300/20 bg-slate-900 shadow-2xl shadow-cyan-950/40 sm:max-h-[calc(100dvh-2rem)]"
+                  style={{
+                    width: '100%',
+                    maxWidth: '26rem',
+                    maxHeight: 'calc(100dvh - 2rem)',
+                    backgroundColor: '#0f172a',
+                    borderRadius: '0.75rem',
+                    boxShadow: '0 25px 60px rgba(0, 0, 0, 0.55)',
+                  }}
+                >
+                  <div className="h-1 bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400" />
+                  <div className="p-4 sm:p-6">
+                    <div className="text-center">
+                      <img
+                        src={azarLogo}
+                        alt="Azar & Asociados"
+                        className="mx-auto mb-3 h-auto max-h-20 w-auto max-w-[12rem] object-contain"
+                      />
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                        Guardado correctamente
+                      </p>
+                      <h2 id="client-save-success-title" className="mt-1 text-xl font-semibold text-white">
+                        Formulario guardado
+                      </h2>
+                    </div>
+                    <p className="mt-4 text-sm leading-6 text-slate-200">
+                      Se ha guardado su información correctamente.
+                    </p>
+                    <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                      <p className="text-sm text-slate-200">
+                        El envío se realizó correctamente.
+                      </p>
+                    </div>
+                    <p className="mt-4 text-xs leading-5 text-slate-300">
+                      Gracias por confiar en nosotros, te invitamos a seguirnos en Instagram
+                    </p>
+                    <a
+                      href="https://www.instagram.com/azaryasociados"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block break-all text-xs font-medium leading-5 text-cyan-300 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-200"
+                    >
+                      @azaryasociados
+                    </a>
+                    <div className="mt-5 flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={() => setDismissedSubmissionId(submission.data.submissionId)}
+                      >
+                        Continuar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )}
 
             {submission.data && (
               <div className="mb-6">
@@ -839,3 +936,4 @@ export function ContractFormPage() {
     </div>
   );
 }
+

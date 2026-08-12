@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { ContractSchemaNotFoundError, RENT_CONTRACT_SCHEMA_ID, getContractRoleSchema, } from '../config/contractSchemas.js';
-import { ContractAuthenticationError, ContractAuthorizationError, authenticateContractRequest, authorizeContractAdmin, authorizeContractUserScope, getContractPrincipalUserId, } from '../services/contractAuth.js';
+import { ContractAuthenticationError, ContractAuthorizationError, authenticateContractRequest, authorizeContractAdmin, authorizeContractEntryAccess, canAccessContractEntry, authorizeContractUserScope, getContractPrincipalUserId, } from '../services/contractAuth.js';
 import { createContractEntryRepository, ContractDatabaseConfigurationError, ContractEntryNotFoundError, ContractEntryStateError, } from '../services/contractEntryRepository.js';
 import { ContractPublicBaseUrlConfigurationError, ContractRoleValidationError, createContractEntry, regenerateContractRoleToken, submitContractEntryRole, toContractEntrySummary, } from '../services/contractEntryService.js';
 import { CONTRACT_DNI_IMAGE_MIME_TYPES, ContractDniUploadConfigurationError, ContractDniUploadValidationError, getContractDniMaxImageBytes, issueContractDniViewUrl, issueContractDniUploadUrls, } from '../services/contractDniUploadService.js';
@@ -124,6 +124,16 @@ function getAccessToken(req) {
     return getBearerToken(req);
 }
 function getPublicBaseUrl(req, environment) {
+    // Vercel creates a unique hostname for every preview deployment. A fixed
+    // CONTRACT_PUBLIC_BASE_URL would make links from every preview point at the
+    // production application, so prefer the deployment URL in Preview.
+    if (environment.VERCEL_ENV?.trim().toLowerCase() === "preview") {
+        const vercelUrl = environment.VERCEL_URL?.trim();
+        if (vercelUrl) {
+            return /^https?:\/\//iu.test(vercelUrl) ? vercelUrl : "https://" + vercelUrl;
+        }
+        return req.protocol + "://" + (req.get("host") ?? "localhost");
+    }
     const configured = environment.CONTRACT_PUBLIC_BASE_URL?.trim();
     if (configured)
         return configured;
@@ -150,7 +160,7 @@ function authorizeRoleAccess(req, entry, role, environment) {
         throw new ContractAuthorizationError('The contract access token is invalid.');
     }
     const principal = authenticate(req, environment);
-    authorizeContractUserScope(principal, entry.createdBy);
+    authorizeContractUserScope(principal, entry.createdByUserId ?? entry.createdBy);
     return null;
 }
 async function loadEntry(entryIdValue, repository) {
@@ -285,6 +295,10 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
                 schemaId: body.schemaId,
                 direccion: body.direccion,
                 createdBy,
+                // API-key requests are trusted internal calls, not logged-in users.
+                // Keep those records unowned so user-scoped administrators still see
+                // them through the legacy/no-owner visibility rule.
+                createdByUserId: principal.mode === 'api_key' ? null : principal.userId,
                 publicBaseUrl: getPublicBaseUrl(req, dependencies.environment),
             }, dependencies.repository, dependencies.environment);
             res.status(201).json(entry);
@@ -299,7 +313,11 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             const principal = authenticate(req, dependencies.environment);
             authorizeContractAdmin(principal, dependencies.environment);
             const entries = await dependencies.repository.listEntries();
-            res.status(200).json({ entries: entries.map(toContractEntrySummary) });
+            res.status(200).json({
+                entries: entries
+                    .filter((entry) => canAccessContractEntry(principal, entry))
+                    .map(toContractEntrySummary),
+            });
         }
         catch (error) {
             sendError(res, error);
@@ -311,6 +329,7 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             const principal = authenticate(req, dependencies.environment);
             authorizeContractAdmin(principal, dependencies.environment);
             const entry = await loadEntry(req.params.entryId, dependencies.repository);
+            authorizeContractEntryAccess(principal, entry);
             const submissions = await dependencies.repository.listSubmissions(entry.id);
             const submissionsByRole = getContractSubmissionRecordsByRole(entry.id, submissions);
             const inspection = await buildContractAdminInspection(entry, submissions, dependencies.environment, {
@@ -342,6 +361,7 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             const role = RoleSchema.parse(req.params.role);
             const body = SubmitRoleBodySchema.parse(req.body);
             const entry = await loadEntry(entryId, dependencies.repository);
+            authorizeContractEntryAccess(principal, entry);
             if (entry.status === 'archived')
                 throw new ContractEntryStateError('archived');
             const roleFilled = role === 'user' ? entry.userFilled : entry.clientFilled;
@@ -382,6 +402,8 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             authorizeContractAdmin(principal, dependencies.environment);
             const entryId = EntryIdSchema.parse(req.params.entryId);
             const body = z.object({ status: EntryStatusSchema }).parse(req.body);
+            const loadedEntry = await loadEntry(entryId, dependencies.repository);
+            authorizeContractEntryAccess(principal, loadedEntry);
             const entry = body.status === 'generar_contrato'
                 ? await dependencies.repository.updateGenerationTrigger(entryId)
                 : await dependencies.repository.updateStatus(entryId, body.status);
@@ -397,6 +419,8 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             const principal = authenticate(req, dependencies.environment);
             authorizeContractAdmin(principal, dependencies.environment);
             const entryId = EntryIdSchema.parse(req.params.entryId);
+            const loadedEntry = await loadEntry(entryId, dependencies.repository);
+            authorizeContractEntryAccess(principal, loadedEntry);
             const entry = await dependencies.repository.archiveEntry(entryId, dependencies.now().toISOString());
             res.status(200).json({ entry: toContractEntrySummary(entry) });
         }
@@ -411,6 +435,8 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             authorizeContractAdmin(principal, dependencies.environment);
             const entryId = EntryIdSchema.parse(req.params.entryId);
             const role = RoleSchema.parse(req.params.role);
+            const loadedEntry = await loadEntry(entryId, dependencies.repository);
+            authorizeContractEntryAccess(principal, loadedEntry);
             const result = await regenerateContractRoleToken({
                 entryId,
                 role,

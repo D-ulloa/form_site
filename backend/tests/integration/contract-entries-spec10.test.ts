@@ -38,6 +38,7 @@ class MemoryContractRepository implements ContractEntryRepository {
       id: input.id,
       schemaId: input.schemaId,
       createdBy: input.createdBy,
+      createdByUserId: input.createdByUserId ?? null,
       createdAt: input.createdAt,
       userTokenHash: input.userTokenHash,
       clientTokenHash: input.clientTokenHash,
@@ -250,6 +251,126 @@ test('hosted create accepts the agent ID with the explicit insecure opt-in', asy
 
   assert.equal(created.status, 201);
   assert.equal(repository.entry?.createdBy, 'hosted-agent');
+  assert.equal(repository.entry?.createdByUserId, 'hosted-agent');
+});
+
+test('SPEC-22 stores the authenticated session user ID as the contract owner', async () => {
+  const repository = new MemoryContractRepository();
+  const userId = '77777777-7777-4777-8777-777777777777';
+  const cookie = serializeContractPasswordSessionCookie({
+    userId,
+    email: 'owner@example.test',
+    name: 'Owner Example',
+    isAdmin: true,
+  }, ENVIRONMENT).split(';', 1)[0];
+
+  const created = await request(createApp(repository))
+    .post('/api/contracts/create')
+    .set('Cookie', cookie ?? '')
+    .send({});
+
+  assert.equal(created.status, 201);
+  assert.equal(repository.entry?.createdByUserId, userId);
+});
+
+test('API-key contract creation remains unowned', async () => {
+  const repository = new MemoryContractRepository();
+  const created = await request(createApp(repository, {
+    ...ENVIRONMENT,
+    CONTRACTS_API_KEY: 'route-test-api-key',
+  }))
+    .post('/api/contracts/create')
+    .set('Authorization', 'Bearer route-test-api-key')
+    .send({ createdBy: 'internal-system' });
+
+  assert.equal(created.status, 201);
+  assert.equal(repository.entry?.createdBy, 'internal-system');
+  assert.equal(repository.entry?.createdByUserId, null);
+});
+
+test('SPEC-22 admin listing returns owned entries only to their owner and keeps NULL owners visible', async () => {
+  const ownerOneRepository = new MemoryContractRepository();
+  const ownerTwoRepository = new MemoryContractRepository();
+  const ownerOne = '88888888-8888-4888-8888-888888888888';
+  const ownerTwo = '99999999-9999-4999-8999-999999999999';
+  const ownerOneCookie = serializeContractPasswordSessionCookie({
+    userId: ownerOne,
+    email: 'owner-one@example.test',
+    name: 'Owner One',
+    isAdmin: true,
+  }, ENVIRONMENT).split(';', 1)[0];
+  const ownerTwoCookie = serializeContractPasswordSessionCookie({
+    userId: ownerTwo,
+    email: 'owner-two@example.test',
+    name: 'Owner Two',
+    isAdmin: true,
+  }, ENVIRONMENT).split(';', 1)[0];
+
+  await request(createApp(ownerOneRepository))
+    .post('/api/contracts/create')
+    .set('Cookie', ownerOneCookie ?? '')
+    .send({});
+  await request(createApp(ownerTwoRepository))
+    .post('/api/contracts/create')
+    .set('Cookie', ownerTwoCookie ?? '')
+    .send({});
+
+  const legacyEntry = {
+    ...(ownerOneRepository.entry as ContractEntryRecord),
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    createdBy: 'legacy-entry',
+    createdByUserId: null,
+  };
+  const listRepository = {
+    listEntries: async () => [
+      ownerOneRepository.entry as ContractEntryRecord,
+      ownerTwoRepository.entry as ContractEntryRecord,
+      legacyEntry,
+    ],
+  } as unknown as ContractEntryRepository;
+
+  const ownerOneList = await request(createApp(listRepository))
+    .get('/api/contracts/admin/entries')
+    .set('Cookie', ownerOneCookie ?? '');
+  assert.equal(ownerOneList.status, 200);
+  assert.deepEqual(
+    ownerOneList.body.entries.map((entry: { entryId: string }) => entry.entryId),
+    [ownerOneRepository.entry?.id, legacyEntry.id],
+  );
+
+  const ownerTwoList = await request(createApp(listRepository))
+    .get('/api/contracts/admin/entries')
+    .set('Cookie', ownerTwoCookie ?? '');
+  assert.equal(ownerTwoList.status, 200);
+  assert.deepEqual(
+    ownerTwoList.body.entries.map((entry: { entryId: string }) => entry.entryId),
+    [ownerTwoRepository.entry?.id, legacyEntry.id],
+  );
+});
+
+test("preview create links use the current Vercel deployment URL", async () => {
+  const repository = new MemoryContractRepository();
+  const app = createApp(repository, {
+    ...ENVIRONMENT,
+    NODE_ENV: "production",
+    CONTRACT_PUBLIC_BASE_URL: "https://production.example.test",
+    CONTRACT_ALLOW_INSECURE_AGENT_ID: "true",
+    VERCEL_ENV: "preview",
+    VERCEL_URL: "form-site-preview.example.vercel.app",
+  });
+  app.set("trust proxy", 1);
+
+  const created = await request(app)
+    .post("/api/contracts/create")
+    .set("X-Forwarded-Proto", "https")
+    .set("X-User-Id", "preview-agent")
+    .send({});
+
+  assert.equal(created.status, 201);
+  assert.equal(new URL(created.body.userUrl as string).origin,
+    "https://form-site-preview.example.vercel.app");
+  assert.equal(new URL(created.body.clientUrl as string).origin,
+    "https://form-site-preview.example.vercel.app");
 });
 
 test('create, both role submissions, admin inspection, token regeneration, and archive', async () => {

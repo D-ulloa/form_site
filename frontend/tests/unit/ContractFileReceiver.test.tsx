@@ -62,8 +62,21 @@ describe('SPEC-14 contract evidence file receiver', () => {
     const input = screen.getByLabelText('Subir recibo de sueldo') as HTMLInputElement;
     expect(input.multiple).toBe(true);
     expect(input.accept).toBe(definition.acceptedMimeTypes.join(','));
+    expect(input.className).toContain('sr-only');
+    expect(screen.getByText('Seleccionar archivos')).toBeTruthy();
     expect(screen.getByText('Hasta 2 archivos — PDF, JPG, PNG')).toBeTruthy();
     expect(screen.queryByText('También se aceptan archivos BMP y TIFF.')).toBeNull();
+  });
+
+  it('SPEC-20 reports selected and empty upload status accurately', () => {
+    render(<Harness />);
+    expect(screen.getByRole('status').textContent).toBe('Sin archivos seleccionados');
+
+    const file = new File(['evidence'], 'archivo.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByLabelText('Subir recibo de sueldo'), {
+      target: { files: [file] },
+    });
+    expect(screen.getByRole('status').textContent).toBe('1 archivo seleccionado');
   });
 
   it.each([

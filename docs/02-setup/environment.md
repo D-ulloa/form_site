@@ -24,7 +24,7 @@ Required / recommended values:
 Contract Generation values:
 
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — server-only Supabase credentials used for contract rows and property media.
-- `CONTRACT_PUBLIC_BASE_URL` — frontend origin used in generated user and client links, for example `https://app.example.com`.
+- `CONTRACT_PUBLIC_BASE_URL` — frontend origin used in generated user and client links. Keep this set to the production origin (for example `https://app.example.com`) in Production; Vercel Preview deployments use the automatic `VERCEL_URL` for the current deployment, and local development can use `http://localhost:5173`.
 - `CONTRACT_TOKEN_SECRET` — at least 32 random characters used to HMAC role tokens and signed password-session cookies. Rotate only with a deliberate token/session invalidation plan.
 - `CONTRACTS_API_KEY` — optional server-to-server bearer credential; never expose it through `VITE_*`.
 - `CONTRACT_ALLOW_INSECURE_AGENT_ID` — dangerous opt-in for hosted previews that accepts the browser-controlled `X-User-Id` header when set to exactly `true`. Leave unset or `false` for secure deployments.
@@ -74,6 +74,8 @@ Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `A
 Clients may send `X-Request-Id` for correlation. The backend generates one when omitted or invalid and returns the selected value as a response header. In production, the reverse proxy must strip inbound `X-Authenticated-User-Id` and add a value derived from its authenticated session.
 
 The hosted agent-ID opt-in does not authenticate a person: any caller can spoof any agent ID, including an ID listed in `CONTRACT_ADMIN_USER_IDS`. Use it only with disposable preview data, and remove both insecure flags before handling real contracts.
+
+For Vercel, scope `CONTRACT_PUBLIC_BASE_URL` to Production only. `VERCEL_ENV=preview` and `VERCEL_URL` are supplied automatically by Vercel; the backend uses them to generate links back to the same preview deployment. Do not copy the production URL into the Preview scope.
 
 Set `TRUST_PROXY_HOPS` to the exact number of known reverse-proxy hops between the client and Express. Leaving it at `0` ignores forwarded addresses for `req.ip`; setting it too high can let an untrusted caller influence the IP stored in contract audits.
 
