@@ -22,6 +22,10 @@ import {
   MAX_UPLOAD_SIZE_BYTES,
 } from '../utils/sizeLimits.js';
 import type { MediaUploadMetadata } from '../types.js';
+import {
+  getContractPasswordSession,
+  type ContractPasswordSession,
+} from '../services/contractPasswordAuth.js';
 
 const MAX_VERCEL_SAFE_PAYLOAD_BYTES = 3_800_000;
 
@@ -67,7 +71,6 @@ const MediaUploadDescriptorSchema = z.object({
 });
 
 const PresignRequestSchema = z.object({
-  agent_user_id: z.string().min(1, 'agent_user_id is required'),
   files: z.array(
     z.object({
       originalName: z.string().min(1, 'originalName is required'),
@@ -79,6 +82,29 @@ const PresignRequestSchema = z.object({
     }),
   ),
 });
+
+function requirePropertySession(req: Request, res: Response): ContractPasswordSession | null {
+  try {
+    const session = getContractPasswordSession(req);
+    if (session?.isAdmin) return session;
+  } catch {
+    // Configuration and malformed-cookie failures are deliberately non-enumerating.
+  }
+  res.status(401).json({
+    error: 'AUTHENTICATION_REQUIRED',
+    details: 'Iniciá sesión con una cuenta autorizada para gestionar propiedades.',
+  });
+  return null;
+}
+
+export function applyVerifiedPropertyActor(
+  body: Record<string, unknown>,
+  session: ContractPasswordSession,
+): void {
+  body.agent_user_id = session.userId;
+  body.agent_name = session.name;
+  body.agent_email = session.email;
+}
 
 function parseMediaUploadSessionId(raw: unknown): string | undefined {
   if (typeof raw !== 'string') {
@@ -164,6 +190,9 @@ function getUploadMode(args: {
 // 2) Server returns a per-file signed uploadUrl + internal storagePath.
 // 3) Client uploads directly to the returned URL.
 router.post('/media/presign', async (req, res) => {
+  const session = requirePropertySession(req, res);
+  if (!session) return;
+
   if (isSupabaseUploadProvider() === 'drive') {
     res.status(409).json({
       error: 'Presign not enabled',
@@ -219,7 +248,7 @@ router.post('/media/presign', async (req, res) => {
     return;
   }
 
-  const sessionId = createUploadSession(parseResult.data.agent_user_id);
+  const sessionId = createUploadSession(session.userId);
 
   try {
     const presigned = await issueSignedUploadUrls(
@@ -265,6 +294,9 @@ router.get('/submit', (_req, res) => {
 });
 
 router.post('/submit', async (req, res) => {
+  const session = requirePropertySession(req, res);
+  if (!session) return;
+
   let files: Express.Multer.File[] = [];
 
   try {
@@ -292,6 +324,7 @@ router.post('/submit', async (req, res) => {
 
   const hasLegacyFiles = files.length > 0;
   const provider = isSupabaseUploadProvider();
+  applyVerifiedPropertyActor(req.body as Record<string, unknown>, session);
 
   let media_uploads: MediaUploadMetadata[];
   let media_upload_session_id: string | undefined;

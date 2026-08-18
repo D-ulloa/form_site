@@ -517,12 +517,11 @@ export interface ContractEntryInspection {
 }
 
 export function getContractEntryWaitingStatus(entry: ContractEntrySummary): string {
-  if (entry.status === 'generar_contrato') return 'Generando contrato';
+  if (entry.status === 'generar_contrato') return 'Integración pendiente';
   if (entry.status === 'archived') return 'Archivado';
   if (entry.status === 'complete') return 'Completado';
   if (entry.userFilled) return 'Esperando al cliente';
   if (entry.clientFilled) return 'Esperando la información del contrato';
   return 'Esperando ambos formularios';
 }
-
 

@@ -68,35 +68,10 @@ describe('SPEC-19 authentication screens', () => {
     expect(container.querySelector('main')?.className).toContain('bg-[var(--bg-base)]');
   });
 
-  it('switches to a dedicated registration section with the reference fields', () => {
-    renderAuth('/login');
-    fireEvent.click(screen.getByRole('link', { name: 'Crear cuenta' }));
-
-    expect(screen.getByRole('heading', { name: 'Creá tu cuenta' })).toBeTruthy();
-    expect(screen.getByLabelText(/Nombre completo/u)).toBeTruthy();
-    expect(screen.getByLabelText(/Empresa/u)).toBeTruthy();
-    expect(screen.getByLabelText(/Cargo o rol/u)).toBeTruthy();
-    expect(screen.getByLabelText(/Confirmar contraseña/u)).toBeTruthy();
-    expect(screen.queryByLabelText('Recordarme en este navegador')).toBeNull();
-  });
-
-  it('rejects mismatched registration passwords before calling the API', () => {
+  it('closes direct registration without calling the account API', () => {
     renderAuth('/register');
-    fireEvent.change(screen.getByLabelText(/Nombre completo/u), {
-      target: { value: 'Admin Example' },
-    });
-    fireEvent.change(screen.getByLabelText(/Correo electrónico/u), {
-      target: { value: 'admin@example.test' },
-    });
-    fireEvent.change(screen.getByLabelText(/^Contraseña/u), {
-      target: { value: 'first-password' },
-    });
-    fireEvent.change(screen.getByLabelText(/Confirmar contraseña/u), {
-      target: { value: 'second-password' },
-    });
-    fireEvent.submit(screen.getByRole('button', { name: 'Registrarse' }).closest('form')!);
-
-    expect(screen.getByText('Las contraseñas no coinciden.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'El registro está cerrado' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Ir a iniciar sesión' })).toBeTruthy();
     expect(registerAdmin).not.toHaveBeenCalled();
   });
 
@@ -132,7 +107,7 @@ describe('SPEC-19 authentication screens', () => {
 });
 
 describe('SPEC-19 main entry', () => {
-  it('offers registration and login without Google or agent setup', async () => {
+  it('offers only reviewed-account login without agent setup', async () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AgentProvider>
@@ -143,8 +118,8 @@ describe('SPEC-19 main entry', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('link', { name: 'Registrarse' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Registrarse' })).toBeNull();
     expect(screen.queryByText(/Google/iu)).toBeNull();
     expect(screen.queryByText(/Configurar agente/iu)).toBeNull();
     expect(screen.queryByText(/OPEV-H/iu)).toBeNull();

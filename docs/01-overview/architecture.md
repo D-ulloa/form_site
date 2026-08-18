@@ -1,6 +1,17 @@
 # Architecture
 
-Status: 2026-08-06.
+Status: 2026-08-18.
+
+## SPEC-25 containment boundary
+
+The deployment remains `azar_legacy_single_organization`; it is not a
+multi-tenant system and real Solar data is release-blocked. Property presign and
+submit require the reviewed Azar session and overwrite caller actor fields with
+the signed identity before validation or side effects. Browser agent state is
+not authorization or attribution. Open registration and automatic administrator
+grants are disabled. Application cookies have an independent secret/version,
+new Drive folders remain under verified private ACLs, and a forward migration
+removes the historical database-to-Make trigger.
 
 ## Stack
 
@@ -60,7 +71,7 @@ Property Google operations may use configured user OAuth with a service-account 
 
 ## Current contract authorization boundary
 
-The active main-page authentication flow supports Supabase email/password registration and login plus Google OAuth through Supabase. The backend converts either successful method into a signed, HttpOnly application session cookie; main-page registrations and Google OAuth sessions receive administrator access in `public.contract_admin_users`. Contract creation and administrator routes do not use the property agent ID. The legacy `X-User-Id` development path remains only for compatibility with the property and retained SPEC-09 flows.
+The active main-page authentication flow supports login for pre-reviewed Supabase email/password and Google accounts. Registration is closed in real-data environments and neither login path creates an administrator grant. The backend converts successful login into a signed, HttpOnly, versioned application session cookie. Contract and property routes do not use the editable property agent ID. The legacy `X-User-Id` path exists only in exact local development with synthetic data.
 
 Hosted client forms and both client upload-preflight routes require the client role token. Hosted user forms accept the user role token or authenticated owner. Administrator routes accept a SPEC-19 administrator session, the server API key, or a compatibility identity listed in `CONTRACT_ADMIN_USER_IDS`. Raw role tokens are never stored.
 
@@ -69,12 +80,12 @@ Hosted client forms and both client upload-preflight routes require the client r
 `GET /api/contracts/schemas/:schemaId` is public because it contains only form labels, constraints, and the Google Form link. Submission and audit routes require one of these identities:
 
 - `Authorization: Bearer <CONTRACTS_API_KEY>` for a configured shared internal client.
-- `X-Authenticated-User-Id` inserted by a trusted authentication gateway.
-- `X-User-Id` when `NODE_ENV` is exactly the lowercase value `development`, or when the dangerous hosted-preview opt-in `CONTRACT_ALLOW_INSECURE_AGENT_ID=true` is set.
+- `X-Authenticated-User-Id` inserted by a reviewed gateway when `CONTRACT_TRUSTED_GATEWAY_ENABLED=true`.
+- `X-User-Id` only when `NODE_ENV` is exactly the lowercase value `development`.
 
 The trusted gateway header takes precedence over a forwarded `Authorization` header and the browser-supplied identity header. Gateway, development, and insecure-agent principals replace the request body's `meta.userId` before the audit is created. An API-key principal is unscoped and preserves the explicit `meta.userId` as audit attribution.
 
-The production proxy must remove client-supplied `X-Authenticated-User-Id` values before inserting its verified value. By default, `X-User-Id` is rejected when `NODE_ENV` is absent, `test`, `production`, differently cased, or any value other than `development`. The explicit insecure preview flag overrides that rejection and permits caller spoofing, so it must not be used with sensitive data. The API key must stay server-side and must not be compiled into a Vite `VITE_*` variable.
+The production proxy must remove client-supplied `X-Authenticated-User-Id` values before inserting its verified value. `X-User-Id` is rejected when `NODE_ENV` is absent, `test`, `production`, differently cased, or any value other than `development`; deprecated flags cannot override this. The API key must stay server-side and must not be compiled into a Vite `VITE_*` variable.
 
 ## Deployment shape
 
@@ -94,3 +105,25 @@ The production proxy must remove client-supplied `X-Authenticated-User-Id` value
 - Legacy local audit files are only durable on a persistent filesystem. Changing the directory does not make an ephemeral filesystem durable; Vercel deployments must export audits to durable external storage rather than treating the deployment filesystem as a record store.
 - Contract submission and legacy audit IPs come from Express `req.ip`; forwarded addresses affect that value only when `TRUST_PROXY_HOPS` enables the corresponding trusted proxy chain.
 - Legacy Google Sheets `values.append` is not idempotent. A timeout or lost response can leave the server unable to prove whether a row was written, so transient retry guidance does not guarantee that retrying cannot duplicate a row.
+
+## Staged organization-governance boundary
+
+SPEC-26 adds empty, additive governance tables for profiles, organizations,
+settings, memberships, invitations, append-only events, exports, deletion
+requests, and legal holds. Organization UUIDs—not slugs, email domains,
+profiles, legacy administrator grants, or record creators—are the customer
+security boundary. One Auth user may retain different memberships and roles in
+multiple organizations.
+
+The versioned canonical capability registry and organization services live in
+`backend/src/organizations/`; staged UI contracts live in
+`frontend/src/features/organizations/`. Effective authority requires an active
+membership and an allowed organization state. Unknown roles and capabilities
+fail closed. Browser database roles have no governance-table access; RLS is
+enabled without browser policies.
+
+These tables do not alter current contract/property ownership. No Azar or Solar
+row is created by SPEC-26. Protected organization endpoints remain unmounted
+until SPEC-27 supplies revocable sessions and a server-validated organization
+context. The `/t/:organizationSlug/settings/*` pages therefore render a staged
+closed state; the slug is never treated as authorization.

@@ -2,7 +2,7 @@ import type { ContractEntryRecord } from '../contracts/types.js';
 export type ContractPrincipal = {
     readonly mode: 'api_key';
 } | {
-    readonly mode: 'gateway' | 'development' | 'insecure_agent';
+    readonly mode: 'gateway' | 'development';
     readonly userId: string;
 } | {
     readonly mode: 'supabase';

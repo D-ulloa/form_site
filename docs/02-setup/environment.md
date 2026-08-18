@@ -1,6 +1,6 @@
 # Environment
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 ## Backend environment variables
 
@@ -25,9 +25,12 @@ Contract Generation values:
 
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — server-only Supabase credentials used for contract rows and property media.
 - `CONTRACT_PUBLIC_BASE_URL` — frontend origin used in generated user and client links. Keep this set to the production origin (for example `https://app.example.com`) in Production; Vercel Preview deployments use the automatic `VERCEL_URL` for the current deployment, and local development can use `http://localhost:5173`.
-- `CONTRACT_TOKEN_SECRET` — at least 32 random characters used to HMAC role tokens and signed password-session cookies. Rotate only with a deliberate token/session invalidation plan.
+- `CONTRACT_TOKEN_SECRET` — at least 32 random characters used to HMAC external contract role tokens.
+- `CONTRACT_SESSION_SECRET` — at least 32 random characters used only for application-session cookies. A rollout fallback to `CONTRACT_TOKEN_SECRET` exists; configure the independent value before sign-off.
+- `CONTRACT_SESSION_VERSION` — application-session invalidation marker (default `spec25-containment-v1`). Increment after grant removal to reject old admin cookies without breaking role links.
+- `CONTRACT_ALLOW_SYNTHETIC_REGISTRATION` — local fixture only; accepted only with exact `NODE_ENV=development` and does not grant admin.
 - `CONTRACTS_API_KEY` — optional server-to-server bearer credential; never expose it through `VITE_*`.
-- `CONTRACT_ALLOW_INSECURE_AGENT_ID` — dangerous opt-in for hosted previews that accepts the browser-controlled `X-User-Id` header when set to exactly `true`. Leave unset or `false` for secure deployments.
+- `CONTRACT_TRUSTED_GATEWAY_ENABLED` — enable only behind a reviewed gateway that strips inbound identity headers and inserts verified identity.
 - `CONTRACT_ADMIN_USER_IDS` — comma-separated user IDs allowed to use the admin API and UI.
 - `CONTRACT_SUBMISSION_RATE_LIMIT` — allowed attempts per IP/entry and limiter namespace (default `10`). Role submits and SPEC-14 evidence preflights use independent counters.
 - `CONTRACT_SUBMISSION_RATE_WINDOW_MS` — window shared by those independent counters (default `900000`).
@@ -52,6 +55,8 @@ The currently linked Supabase project has already received these migrations manu
 8. `supabase/migrations/20260804010000_contract_spec19_admin_repair.sql`
 9. `supabase/migrations/20260805000000_contract_add_generation_trigger.sql`
 10. `supabase/migrations/20260806000000_contract_generate_trigger_webhook.sql`
+11. `supabase/migrations/20260811000000_contract_spec22_access_control.sql`
+12. `supabase/migrations/20260818000000_spec25_containment.sql`
 
 The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket; the third provisions the default private evidence bucket with the SPEC-14 MIME allowlist; the fourth adds the durable `Direccion` identifier and update RPC; the fifth enables PDF DNI objects while preserving the private bucket policy; the sixth provisions the SPEC-19 administrator-grant table and signup trigger; the eighth repairs missing administrator grants for existing main-page accounts and reasserts the signup trigger. The seventh adds the `generar_contrato` status, the ninth adds its durable trigger flag, and the tenth installs the configured Supabase-to-Make webhook trigger. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
 
@@ -65,15 +70,14 @@ Entry creation and administrator routes accept these authentication modes:
 
 - `Authorization: Bearer <CONTRACTS_API_KEY>` when `CONTRACTS_API_KEY` is configured.
 - `X-Authenticated-User-Id: <verified-user-id>` from a trusted upstream gateway.
-- The signed Supabase email/password administrator session cookie from `/api/auth/login` or `/api/auth/register`.
+- The signed, versioned administrator session cookie from `/api/auth/login` or the reviewed Google handoff.
 - `X-User-Id: <local-user-id>` when `NODE_ENV=development` exactly.
-- `X-User-Id: <agent-id>` outside development only when the backend has the explicit insecure opt-in `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`.
 
 Authentication precedence is trusted `X-Authenticated-User-Id`, then explicit `Authorization`, then the signed Supabase application session (email/password or Google OAuth), then `X-User-Id`. Hosted client forms and their DNI/evidence upload-preflight endpoints require the client token. Hosted user forms accept their user token or the authenticated owner. API-key callers and accounts recorded in `contract_admin_users` are administrators; other user-scoped compatibility principals must be listed in `CONTRACT_ADMIN_USER_IDS`.
 
 Clients may send `X-Request-Id` for correlation. The backend generates one when omitted or invalid and returns the selected value as a response header. In production, the reverse proxy must strip inbound `X-Authenticated-User-Id` and add a value derived from its authenticated session.
 
-The hosted agent-ID opt-in does not authenticate a person: any caller can spoof any agent ID, including an ID listed in `CONTRACT_ADMIN_USER_IDS`. Use it only with disposable preview data, and remove both insecure flags before handling real contracts.
+No hosted opt-in exists for the agent-ID header. Deprecated insecure flags cause non-development startup validation to fail when set to `true`.
 
 For Vercel, scope `CONTRACT_PUBLIC_BASE_URL` to Production only. `VERCEL_ENV=preview` and `VERCEL_URL` are supplied automatically by Vercel; the backend uses them to generate links back to the same preview deployment. Do not copy the production URL into the Preview scope.
 
@@ -86,7 +90,7 @@ The frontend uses Vite and sets the API prefix in `frontend/src/features/propert
 - development: no prefix.
 - production: `/_/backend`.
 
-No contract secret is configured in the frontend. The frontend sends same-origin credentials to the application authentication API; email/password and Google OAuth both resolve to the same HttpOnly session cookie. The property flow may still send its configured agent ID during local development; contract creation and administration use the Supabase session instead.
+No contract secret is configured in the frontend. The frontend sends same-origin credentials to the application authentication API; email/password and Google OAuth both resolve to the same HttpOnly session cookie. Property, contract creation, and administration use that session; property requests omit browser agent identity.
 
 Google OAuth, which remains an alternate administrator login, requires these public Vite variables in
 `frontend/.env.local` (or the frontend deployment environment):
@@ -97,8 +101,8 @@ Google OAuth, which remains an alternate administrator login, requires these pub
 
 The Google button uses Supabase Auth's PKCE flow and returns to
 `/auth/callback`; the callback exchanges the Supabase session for the existing
-HttpOnly application cookie. Password registration and login use the backend
-Supabase service client directly. Configure Google in Supabase Auth before using
+HttpOnly application cookie. Reviewed password login uses the backend Supabase
+service client directly; real-data password registration is closed. Configure Google in Supabase Auth before using
 it:
 
 1. Enable Google under Authentication → Providers and enter the Google OAuth
@@ -110,7 +114,7 @@ it:
    example `http://localhost:5173/auth/callback` and
    `https://<production-host>/auth/callback`.
 
-For an intentionally insecure hosted preview, set `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` on the frontend and `CONTRACT_ALLOW_INSECURE_AGENT_ID=true` on the backend. Both values are case-sensitive. The Vite variable is embedded at build time, so redeploy after changing it.
+`VITE_ALLOW_SYNTHETIC_REGISTRATION=true` may expose the registration fixture only in a local Vite development build paired with an isolated synthetic backend. It must never be present in a real-data build.
 
 ## Example
 

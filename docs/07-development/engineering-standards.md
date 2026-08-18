@@ -1,6 +1,6 @@
 # Engineering Standards
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 ## Project conventions
 
@@ -17,21 +17,22 @@ Status: 2026-08-06.
 - Use React Hook Form for form state and Zod for schema validation.
 - Use `useCreatePropertySubmission` for submission side effects.
 - Maintain explicit route structure: `/`, `/properties/new`, `/properties/success/:submissionId`.
-- Persist agent metadata in localStorage via `AgentContext`.
+- Legacy agent metadata may remain in local storage for presentation only; it must never authorize or attribute a property/contract request.
 - Render contract controls from the public schema and normalize values before transport. Client validation must never replace backend validation.
 - Keep SPEC-14 evidence receivers passive during file selection. Begin the signed upload preflight only from the explicit form submission action, lock the editable form during the save sequence, promote successful uploads to stable form-state references for retry, and remove `uploadUrl` before constructing the role payload.
 - Do not add `CONTRACTS_API_KEY` or any other server secret to `VITE_*` configuration.
 
 ## Backend standards
 
-- Validate all incoming payloads before side effects.
+- Authenticate property and contract requests before parsing uploads, validation that can touch providers/files, or other side effects; then validate all payloads.
 - Use explicit step results for Drive, upload, Sheets, and Make.
 - Return clear outcomes: `success`, `partial_failure`, or `failure`.
 - Persist property logs and legacy SPEC-09 audits under `backend/logs/`; persist SPEC-10 contract entries, immutable role audits, and events in Supabase.
 - Use environment variables only for secrets and external service configuration.
 - Authenticate contract submit/audit routes before validation or filesystem access. Never trust a request-body user ID as the authenticated principal.
-- Keep `X-Authenticated-User-Id` behind a proxy that strips caller-supplied values. Accept `X-User-Id` only when `NODE_ENV` is exactly `development`, except for a deliberately insecure preview with `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`; never make that flag the default.
-- Gateway, development, and explicitly enabled insecure-agent principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped; do not conflate attribution with authentication.
+- Keep `X-Authenticated-User-Id` behind a reviewed proxy and require the explicit gateway adapter flag. Accept `X-User-Id` only when `NODE_ENV` is exactly `development`; no preview override may enable it.
+- Gateway and development principals override body attribution and remain owner-scoped. API-key principals preserve explicit body attribution and are intentionally unscoped Azar-only compatibility; do not conflate attribution with authentication.
+- Never edit an applied migration to remove a compromised value. Revoke it externally, preserve historical evidence, and add a forward migration.
 - Configure `TRUST_PROXY_HOPS` to the exact known proxy count before relying on `req.ip` in audits. Keep it `0` for direct connections.
 - Validate SPEC-10 fields against role-specific schema projections and write them only through the server-side atomic Supabase function.
 - Independently validate contract media references before persistence: exact field and MIME allowlists, positive configured sizes, per-receiver counts, uniqueness, private bucket, entry/role/repeatable-item/filename path ownership, and live private-object MIME/size metadata.

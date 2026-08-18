@@ -407,7 +407,15 @@ export function createContractEntriesRouter(dependencyOverrides = {}) {
             const entry = body.status === 'generar_contrato'
                 ? await dependencies.repository.updateGenerationTrigger(entryId)
                 : await dependencies.repository.updateStatus(entryId, body.status);
-            res.status(200).json({ entry: toContractEntrySummary(entry) });
+            res.status(200).json({
+                entry: toContractEntrySummary(entry),
+                ...(body.status === 'generar_contrato' ? {
+                    integration: {
+                        delivery: 'deferred',
+                        reason: 'SPEC25_CONTAINMENT',
+                    },
+                } : {}),
+            });
         }
         catch (error) {
             sendError(res, error);

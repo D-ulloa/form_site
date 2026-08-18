@@ -3,19 +3,21 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createContractPasswordAuthRouter } from '../../src/routes/contractPasswordAuth.js';
 import {
   CONTRACT_PASSWORD_SESSION_COOKIE,
   ContractPasswordAuthError,
-  ensureContractAdminUser,
+  getContractPasswordSession,
+  loginContractGoogleUser,
   loginContractUser,
+  serializeContractPasswordSessionCookie,
   type ContractPasswordCredentials,
   type ContractPasswordSessionData,
 } from '../../src/services/contractPasswordAuth.js';
 
 const ENVIRONMENT: NodeJS.ProcessEnv = {
   NODE_ENV: 'development',
+  CONTRACT_ALLOW_SYNTHETIC_REGISTRATION: 'true',
   CONTRACT_TOKEN_SECRET: 'spec-19-test-secret-that-is-at-least-32-characters',
 };
 
@@ -89,6 +91,28 @@ test('SPEC-19 registration creates an immediate signed administrator session', a
   const session = await agent.get('/api/auth/session').expect(200);
   assert.equal(session.body.authenticated, true);
   assert.deepEqual(session.body.user, registration.body.user);
+});
+
+test('SPEC-25 closes registration before validation or account creation in real-data modes', async () => {
+  let calls = 0;
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', createContractPasswordAuthRouter({
+    environment: { NODE_ENV: 'production' },
+    register: async () => {
+      calls += 1;
+      return SESSION;
+    },
+  }));
+  await request(app)
+    .post('/api/auth/register')
+    .send({ email: 'invalid', password: 'short' })
+    .expect(403, {
+      error: 'REGISTRATION_CLOSED',
+      message: 'El registro está cerrado. Solicitá una invitación al administrador.',
+      retriable: false,
+    });
+  assert.equal(calls, 0);
 });
 
 test('SPEC-19 remembered login persists the cookie and logout invalidates it', async () => {
@@ -187,6 +211,58 @@ test('Google OAuth sessions use the same signed administrator cookie', async () 
   });
 });
 
+test('SPEC-25 Google handoff reads the reviewed grant without writing one', async () => {
+  const client = {
+    auth: {
+      getUser: async () => ({
+        data: {
+          user: {
+            id: SESSION.userId,
+            email: SESSION.email,
+            user_metadata: { full_name: SESSION.name },
+            app_metadata: { provider: 'google' },
+          },
+        },
+        error: null,
+      }),
+    },
+    from(table: string) {
+      assert.equal(table, 'contract_admin_users');
+      return {
+        upsert: () => { throw new Error('grant writes are forbidden'); },
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { user_id: SESSION.userId },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    },
+  };
+  const session = await loginContractGoogleUser(
+    { accessToken: 'verified-google-token' },
+    ENVIRONMENT,
+    () => client as never,
+  );
+  assert.deepEqual(session, SESSION);
+});
+
+test('SPEC-25 session version invalidates admin cookies independently', () => {
+  const oldEnvironment = { ...ENVIRONMENT, CONTRACT_SESSION_VERSION: 'before-review' };
+  const cookie = serializeContractPasswordSessionCookie(SESSION, oldEnvironment)
+    .split(';', 1)[0] ?? '';
+  const req = { get: (name: string) => name === 'Cookie' ? cookie : undefined };
+  assert.equal(
+    getContractPasswordSession(req as never, {
+      ...ENVIRONMENT,
+      CONTRACT_SESSION_VERSION: 'after-review',
+    }),
+    null,
+  );
+});
+
 test('Google OAuth sessions reject missing access tokens before calling Supabase', async () => {
   let calls = 0;
   const app = createApp({
@@ -280,28 +356,4 @@ test('SPEC-19 migration grants only marked main-page signups', async () => {
   );
   assert.match(repairMigration, /insert into public\.contract_admin_users \(user_id, role\)/iu);
   assert.match(repairMigration, /select id,\s*'admin'\s+from auth\.users/iu);
-});
-
-test('SPEC-19 registration explicitly preserves the durable administrator grant', async () => {
-  let tableName: string | undefined;
-  let upserted: unknown;
-  let options: unknown;
-  const client = {
-    from(table: string) {
-      tableName = table;
-      return {
-        upsert: async (values: unknown, upsertOptions: unknown) => {
-          upserted = values;
-          options = upsertOptions;
-          return { error: null };
-        },
-      };
-    },
-  };
-
-  await ensureContractAdminUser(client as unknown as SupabaseClient, SESSION.userId);
-
-  assert.equal(tableName, 'contract_admin_users');
-  assert.deepEqual(upserted, { user_id: SESSION.userId, role: 'admin' });
-  assert.deepEqual(options, { onConflict: 'user_id' });
 });

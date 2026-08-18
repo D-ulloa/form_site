@@ -9,7 +9,12 @@ const LOGS_DIR = join(__dirname, '..', '..', 'logs');
  */
 export async function persistSubmissionLog(log) {
     if (process.env.VERCEL) {
-        console.log(`[logger] Submission log ${JSON.stringify(log)}`);
+        console.log(JSON.stringify({
+            event: 'property_submission_log_not_persisted',
+            organization: 'azar_legacy',
+            submission_id: log.submission_id,
+            outcome: log.outcome,
+        }));
         return;
     }
     try {

@@ -43,6 +43,9 @@ function parseUserIdentity(value, headerName) {
 }
 export function authenticateContractRequest(input, environment = process.env) {
     if (input.authenticatedUserId !== undefined) {
+        if (environment.CONTRACT_TRUSTED_GATEWAY_ENABLED !== 'true') {
+            throw new ContractAuthenticationError('X-Authenticated-User-Id requires the reviewed trusted gateway adapter.');
+        }
         return {
             mode: 'gateway',
             userId: parseUserIdentity(input.authenticatedUserId, 'X-Authenticated-User-Id'),
@@ -61,13 +64,11 @@ export function authenticateContractRequest(input, environment = process.env) {
     }
     if (input.developmentUserId !== undefined) {
         const isDevelopment = environment.NODE_ENV === 'development';
-        const allowInsecureAgentId = environment.CONTRACT_ALLOW_INSECURE_AGENT_ID === 'true';
-        if (!isDevelopment && !allowInsecureAgentId) {
-            throw new ContractAuthenticationError('X-User-Id authentication is enabled only in development unless '
-                + 'CONTRACT_ALLOW_INSECURE_AGENT_ID=true.');
+        if (!isDevelopment) {
+            throw new ContractAuthenticationError('X-User-Id authentication is enabled only in exact local development.');
         }
         return {
-            mode: isDevelopment ? 'development' : 'insecure_agent',
+            mode: 'development',
             userId: parseUserIdentity(input.developmentUserId, 'X-User-Id'),
         };
     }

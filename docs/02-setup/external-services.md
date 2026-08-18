@@ -1,6 +1,6 @@
 # External Services
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 ## Supabase contract persistence
 
@@ -23,6 +23,7 @@ Saved contract JSON contains bucket/path metadata, not a public URL or an expiri
 The backend creates a property folder and uploads files to Google Drive.
 
 - The parent folder ID is configured by `GOOGLE_DRIVE_PARENT_FOLDER_ID`.
+- Before creation, the backend rejects a parent ACL containing `anyone` or domain permissions and requires private user/group access. New folders receive no public permission.
 - The backend supports User OAuth2 auth and a Service Account fallback.
 - Drive uploads are subject to platform payload limits and Drive storage quotas.
 
@@ -58,6 +59,13 @@ Contract header reads and row appends authenticate only with `GOOGLE_SERVICE_ACC
 
 The backend sends a JSON webhook payload to the Make webhook URL configured in `MAKE_WEBHOOK_URL`.
 
+The historical contract webhook literal is compromised evidence. Revoke it and
+disable its scenario externally before applying the SPEC-25 forward migration,
+which removes the database trigger/function. Contract status changes must not be
+presented as delivered while that path is unavailable. The process-global
+property hook is temporary Azar-only configuration and must be disabled unless
+its ownership and secrecy are proven.
+
 - Payload mapping is implemented in `backend/src/mappers/makePayloadMapper.ts`.
 - The webhook receives full submission metadata, folder information, agent data, and media details.
 
@@ -80,4 +88,4 @@ For Contract Generation, the service account is required rather than a fallback.
 
 ## Supabase administrator authentication
 
-SPEC-19 uses Supabase Auth for email/password registration and login, with Google OAuth retained as an alternate login through the browser's public Supabase client. The backend uses the server-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to create confirmed password accounts and validate Google access tokens. Registration and the Google session handoff record the account in `public.contract_admin_users` with administrator access. The browser receives the application's signed HttpOnly session cookie; the service-role key is never sent to the browser.
+Supabase Auth provides password and Google login for pre-reviewed Azar accounts. Open real-data registration is closed, and neither password registration nor Google handoff writes `contract_admin_users`. The browser receives a signed, versioned HttpOnly application cookie; the service-role key is never sent to the browser.

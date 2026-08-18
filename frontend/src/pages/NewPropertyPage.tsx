@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FieldErrors } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useAgent } from '../app/contexts/AgentContext.tsx';
 import { usePropertyForm } from '../features/properties/hooks/usePropertyForm.ts';
 import { useMediaValidation } from '../features/properties/hooks/useMediaValidation.ts';
 import { useCreatePropertySubmission } from '../features/properties/hooks/useCreatePropertySubmission.ts';
@@ -24,14 +23,17 @@ import { AdditionalDetailsSection } from '../features/properties/components/Addi
 import { MediaUploadSection } from '../features/properties/components/MediaUploadSection.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
-import { AgentModal } from '../components/ui/AgentModal.tsx';
+import {
+  fetchAdminSession,
+  type AdminSession,
+} from '../features/contracts/services/adminAuthApi.ts';
 import type { PropertyFormInput, PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
 import type { SubmissionResult } from '../features/properties/services/propertyApi.ts';
 
 export function NewPropertyPage() {
   const navigate = useNavigate();
-  const { agent, isConfigured } = useAgent();
-  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -41,12 +43,23 @@ export function NewPropertyPage() {
   const { setValue } = form;
 
   useEffect(() => {
-    if (!agent) return;
-
-    setValue('agent_user_id', agent.agent_user_id, { shouldValidate: true, shouldDirty: false });
-    setValue('agent_name', agent.agent_name, { shouldValidate: true, shouldDirty: false });
-    setValue('agent_email', agent.agent_email, { shouldValidate: true, shouldDirty: false });
-  }, [agent, setValue]);
+    let active = true;
+    void fetchAdminSession()
+      .then((session) => {
+        if (!active) return;
+        if (!session) {
+          navigate('/login', { replace: true });
+          return;
+        }
+        setAdminSession(session);
+        setValue('agent_user_id', session.user.id, { shouldValidate: true, shouldDirty: false });
+        setValue('agent_name', session.user.name, { shouldValidate: true, shouldDirty: false });
+        setValue('agent_email', session.user.email, { shouldValidate: true, shouldDirty: false });
+      })
+      .catch(() => navigate('/login', { replace: true }))
+      .finally(() => { if (active) setSessionChecked(true); });
+    return () => { active = false; };
+  }, [navigate, setValue]);
 
   const {
     handleSubmit,
@@ -82,8 +95,8 @@ export function NewPropertyPage() {
   };
 
   const onValidSubmit = async (values: PropertyFormValues) => {
-    if (!isConfigured || !agent) {
-      setShowAgentModal(true);
+    if (!adminSession) {
+      navigate('/login', { replace: true });
       return;
     }
     if (!media.isValid) {
@@ -94,7 +107,7 @@ export function NewPropertyPage() {
     setValidationError(null);
 
     if (provider === 'drive') {
-      const fd = buildFormData(values, media.files, media.coverFileName, agent);
+      const fd = buildFormData(values, media.files, media.coverFileName);
       mutate(
         { mode: 'legacy', formData: fd },
         {
@@ -117,7 +130,6 @@ export function NewPropertyPage() {
         [],
         undefined,
         media.coverFileName,
-        agent,
       );
 
       mutate(
@@ -144,7 +156,6 @@ export function NewPropertyPage() {
       }));
 
       const presignResponse = await requestMediaUploadUrls(
-        agent.agent_user_id,
         presignRequestFiles,
       );
 
@@ -172,7 +183,6 @@ export function NewPropertyPage() {
         uploadedMedia,
         presignResponse.upload_session_id,
         media.coverFileName,
-        agent,
       );
 
       mutate(
@@ -196,6 +206,14 @@ export function NewPropertyPage() {
     }
   };
 
+  if (!sessionChecked || !adminSession) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] text-sm text-slate-400" role="status">
+        Comprobando sesión…
+      </main>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
@@ -215,15 +233,7 @@ export function NewPropertyPage() {
             <h1 className="text-sm font-semibold text-slate-100">Nueva propiedad</h1>
             <p className="text-xs text-slate-500">Completá todos los campos requeridos (*)</p>
           </div>
-          {isConfigured && agent && (
-            <button
-              type="button"
-              onClick={() => setShowAgentModal(true)}
-              className="text-xs text-slate-500 hover:text-indigo-400 transition-colors"
-            >
-              {agent.agent_name}
-            </button>
-          )}
+          <span className="text-xs text-slate-500">{adminSession.user.name}</span>
         </div>
       </header>
 
@@ -285,7 +295,6 @@ export function NewPropertyPage() {
         </form>
       </main>
 
-      <AgentModal open={showAgentModal} onClose={() => setShowAgentModal(false)} />
     </div>
   );
 }

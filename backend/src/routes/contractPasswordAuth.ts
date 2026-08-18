@@ -89,13 +89,17 @@ function publicUser(session: ContractPasswordSessionData) {
 
 function sendAuthError(res: Response, error: unknown): void {
   if (error instanceof ContractPasswordAuthError) {
-    const status = error.code === 'email_in_use'
+    const status = error.code === 'registration_closed'
+      ? 403
+      : error.code === 'email_in_use'
       ? 409
       : error.code === 'not_admin'
         ? 403
         : 401;
     res.status(status).json({
-      error: error.code === 'email_in_use'
+      error: error.code === 'registration_closed'
+        ? 'REGISTRATION_CLOSED'
+        : error.code === 'email_in_use'
         ? 'EMAIL_IN_USE'
         : error.code === 'not_admin'
           ? 'NOT_ADMIN'
@@ -170,6 +174,17 @@ export function createContractPasswordAuthRouter(
 
   router.post('/register', async (req, res) => {
     setPrivateHeaders(res);
+    if (
+      dependencies.environment.NODE_ENV !== 'development'
+      || dependencies.environment.CONTRACT_ALLOW_SYNTHETIC_REGISTRATION !== 'true'
+    ) {
+      res.status(403).json({
+        error: 'REGISTRATION_CLOSED',
+        message: 'El registro está cerrado. Solicitá una invitación al administrador.',
+        retriable: false,
+      });
+      return;
+    }
     const credentials = authBody(req.body);
     const validationError = validateCredentials(credentials, true);
     if (validationError) {

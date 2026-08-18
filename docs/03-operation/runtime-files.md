@@ -1,6 +1,6 @@
 # Runtime Files
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 ## Persisted runtime artifacts
 
@@ -15,7 +15,7 @@ Status: 2026-08-06.
 
 Legacy SPEC-09 contract audit names use `SUB-YYYY-MM-DD-<hex>.json`. A contract audit contains the schema and contract identifiers, redacted fields, a redacted mapped row, spreadsheet/tab metadata, appended range, submission/user/request identifiers, source IP, and timestamp. Fields marked `sensitive` are redacted by default in every audit representation, including the mapped row.
 
-For gateway, development, and explicitly enabled insecure-agent authentication, the stored `userId` is the header identity even when the submitted `meta.userId` differs. For API-key authentication, the submitted `meta.userId` is preserved as attribution. User-scoped audit reads require that same identity; the shared API key can read any valid contract audit.
+For an explicitly enabled reviewed gateway or exact-development authentication, the stored `userId` is the verified/header identity even when submitted `meta.userId` differs. No hosted insecure-agent mode exists. For API-key authentication, submitted `meta.userId` is preserved as attribution. User-scoped audit reads require that same identity; the Azar-only shared API key can read any valid contract audit.
 
 ## Build output
 
@@ -47,4 +47,4 @@ For gateway, development, and explicitly enabled insecure-agent authentication, 
 - `CONTRACT_AUDIT_LOGS_DIR` does not make Vercel's ephemeral filesystem durable. A Vercel path may disappear between instances or deployments even when the variable is stable; use an external durable store there.
 - An ambiguous Google append failure may also leave a row without an audit file because the backend persists the audit only after Google returns an appended range. Check the Sheet before retrying; this append path has no idempotency or deduplication store.
 - Audit `ip` is the normalized Express `req.ip`. Configure `TRUST_PROXY_HOPS` only for known proxies; otherwise keep it at `0`.
-- The frontend persists agent metadata in localStorage via `AgentContext`.
+- Legacy frontend agent metadata may remain in localStorage via `AgentContext`, but no property/contract authorization or attribution reads it.

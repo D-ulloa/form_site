@@ -63,19 +63,18 @@ export function getMediaUploadProvider(): UploadClient {
 }
 
 export async function requestMediaUploadUrls(
-  agentUserId: string,
   files: MediaUploadRequestFile[],
 ): Promise<PresignResponse> {
   const response = await axios.post<PresignResponse>(
     `${API_PREFIX}/properties/media/presign`,
     {
-      agent_user_id: agentUserId,
       files,
     },
     {
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true,
     },
   );
 
@@ -118,12 +117,15 @@ export async function submitProperty(payload: PropertySubmissionPayload): Promis
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true,
     },
   );
   return response.data;
 }
 
 export async function submitPropertyFormData(formData: FormData): Promise<SubmissionResult> {
-  const response = await axios.post<SubmissionResult>(`${API_PREFIX}/properties/submit`, formData);
+  const response = await axios.post<SubmissionResult>(`${API_PREFIX}/properties/submit`, formData, {
+    withCredentials: true,
+  });
   return response.data;
 }

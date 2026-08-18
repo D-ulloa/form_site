@@ -66,7 +66,11 @@ test('audit route enforces owner scope while API key may read any audit', async 
 
   await t.test('different gateway owner', async () => {
     const response = await request(createContractRouteTestApp({
-      environment: { ...ROUTE_ENVIRONMENT, NODE_ENV: 'production' },
+      environment: {
+        ...ROUTE_ENVIRONMENT,
+        NODE_ENV: 'production',
+        CONTRACT_TRUSTED_GATEWAY_ENABLED: 'true',
+      },
     }))
       .get(`/api/contracts/audits/${ROUTE_AUDIT.submissionId}`)
       .set('X-Authenticated-User-Id', 'different-user');

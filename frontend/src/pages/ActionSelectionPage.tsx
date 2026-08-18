@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { AgentModal } from '../components/ui/AgentModal.tsx';
-import { useAgent, type AgentData } from '../app/contexts/AgentContext.tsx';
 import { ContractEntryModal } from '../features/contracts/components/ContractEntryModal.tsx';
 import {
   fetchAdminSession,
@@ -11,7 +9,7 @@ import {
 } from '../features/contracts/services/adminAuthApi.ts';
 import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 
-type PendingAction = 'property' | 'contract' | null;
+type Action = 'property' | 'contract';
 
 function AuthEntry() {
   return (
@@ -31,18 +29,12 @@ function AuthEntry() {
           Gestioná propiedades y contratos
         </h1>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
-          Creá una cuenta o iniciá sesión para acceder a las herramientas de gestión.
+          Iniciá sesión con una cuenta autorizada para acceder a las herramientas de gestión.
         </p>
         <div className="mt-7 grid gap-3">
           <Link
-            to="/register"
-            className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-700/25 transition-colors hover:bg-indigo-500"
-          >
-            Registrarse
-          </Link>
-          <Link
             to="/login"
-            className="rounded-xl border border-white/[0.11] bg-white/[0.06] px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/[0.1]"
+            className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-700/25 transition-colors hover:bg-indigo-500"
           >
             Iniciar sesión
           </Link>
@@ -55,11 +47,8 @@ function AuthEntry() {
 export function ActionSelectionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { agent, isConfigured } = useAgent();
-  const [showAgentModal, setShowAgentModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractUserId, setContractUserId] = useState<string | undefined>();
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
 
@@ -80,7 +69,7 @@ export function ActionSelectionPage() {
 
   if (!adminSession) return <AuthEntry />;
 
-  const runAction = (action: Exclude<PendingAction, null>, userId?: string) => {
+  const runAction = (action: Action, userId?: string) => {
     if (action === 'property') {
       navigate('/properties/new');
       return;
@@ -90,23 +79,8 @@ export function ActionSelectionPage() {
     setShowContractModal(true);
   };
 
-  const handleAction = (action: Exclude<PendingAction, null>) => {
-    if (action === 'property' && (!isConfigured || !agent)) {
-      setPendingAction(action);
-      setShowAgentModal(true);
-      return;
-    }
-
+  const handleAction = (action: Action) => {
     runAction(action, adminSession.user.id);
-  };
-
-  const handleAgentSaved = (savedAgent: AgentData) => {
-    if (pendingAction) runAction(pendingAction, savedAgent.agent_user_id);
-  };
-
-  const handleAgentModalClose = () => {
-    setShowAgentModal(false);
-    setPendingAction(null);
   };
 
   return (
@@ -265,11 +239,6 @@ export function ActionSelectionPage() {
 
       </main>
 
-      <AgentModal
-        open={showAgentModal}
-        onClose={handleAgentModalClose}
-        onSaved={handleAgentSaved}
-      />
       <ContractEntryModal
         open={showContractModal}
         userId={contractUserId}

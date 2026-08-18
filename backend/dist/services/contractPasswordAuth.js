@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 export const CONTRACT_PASSWORD_SESSION_COOKIE = 'contract_password_session';
+export const CONTRACT_PASSWORD_SESSION_VERSION = 'spec25-containment-v1';
 const STANDARD_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const REMEMBERED_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 export class ContractPasswordAuthConfigurationError extends Error {
@@ -28,7 +29,8 @@ function getServiceClient(environment) {
     });
 }
 function sessionSecret(environment) {
-    const secret = environment.CONTRACT_TOKEN_SECRET?.trim();
+    const secret = environment.CONTRACT_SESSION_SECRET?.trim()
+        || environment.CONTRACT_TOKEN_SECRET?.trim();
     if (!secret || secret.length < 32) {
         throw new ContractPasswordAuthConfigurationError();
     }
@@ -117,6 +119,8 @@ export function getContractPasswordSession(req, environment = process.env) {
         || typeof session.email !== 'string'
         || typeof session.name !== 'string'
         || typeof session.isAdmin !== 'boolean'
+        || session.sessionVersion !== (environment.CONTRACT_SESSION_VERSION?.trim()
+            || CONTRACT_PASSWORD_SESSION_VERSION)
         || typeof session.expiresAt !== 'number'
         || !Number.isSafeInteger(session.expiresAt)
         || session.expiresAt <= Math.floor(Date.now() / 1000))
@@ -128,7 +132,9 @@ export function serializeContractPasswordSessionCookie(session, environment = pr
         ? REMEMBERED_SESSION_TTL_SECONDS
         : STANDARD_SESSION_TTL_SECONDS;
     const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
-    return serializeCookie(signedValue(encode({ ...session, expiresAt }), environment), environment, rememberMe ? ttlSeconds : undefined);
+    const sessionVersion = environment.CONTRACT_SESSION_VERSION?.trim()
+        || CONTRACT_PASSWORD_SESSION_VERSION;
+    return serializeCookie(signedValue(encode({ ...session, sessionVersion, expiresAt }), environment), environment, rememberMe ? ttlSeconds : undefined);
 }
 function normalizeEmail(value) {
     return value.trim().toLowerCase();
@@ -155,19 +161,6 @@ async function isAdminUser(client, userId) {
         throw new Error(`Supabase admin role lookup failed: ${error.message}`);
     return Boolean(data);
 }
-/**
- * Keep the durable administrator grant in sync with a successful main-page
- * registration. The database trigger remains the first line of defense, but
- * this explicit upsert makes the registration flow self-healing when a
- * deployment has the table but the trigger was not applied correctly.
- */
-export async function ensureContractAdminUser(client, userId) {
-    const { error } = await client
-        .from('contract_admin_users')
-        .upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' });
-    if (error)
-        throw new Error(`Supabase admin role grant failed: ${error.message}`);
-}
 async function makeSession(client, user) {
     const email = normalizeEmail(user.email ?? '');
     if (!user.id || !email) {
@@ -184,6 +177,10 @@ async function makeSession(client, user) {
     };
 }
 export async function registerContractUser(credentials, environment = process.env) {
+    if (environment.NODE_ENV !== 'development'
+        || environment.CONTRACT_ALLOW_SYNTHETIC_REGISTRATION !== 'true') {
+        throw new ContractPasswordAuthError('registration_closed', 'El registro está cerrado. Solicitá una invitación al administrador.');
+    }
     const client = getServiceClient(environment);
     const email = normalizeEmail(credentials.email);
     const { data, error } = await client.auth.admin.createUser({
@@ -203,7 +200,6 @@ export async function registerContractUser(credentials, environment = process.en
         }
         throw new Error(error?.message ?? 'Supabase no devolvió el usuario creado.');
     }
-    await ensureContractAdminUser(client, data.user.id);
     return makeSession(client, data.user);
 }
 export async function loginContractUser(credentials, environment = process.env, clientFactory = getServiceClient) {
@@ -225,19 +221,16 @@ export async function loginContractUser(credentials, environment = process.env, 
  * session used by password authentication. The access token is verified by
  * Supabase Auth; it is never stored in the application cookie.
  */
-export async function loginContractGoogleUser(credentials, environment = process.env) {
+export async function loginContractGoogleUser(credentials, environment = process.env, clientFactory = getServiceClient) {
     const accessToken = credentials.accessToken.trim();
     if (!accessToken || accessToken.length > 16384) {
         throw new ContractPasswordAuthError('invalid_credentials', 'No se pudo validar la cuenta de Google.');
     }
-    const client = getServiceClient(environment);
+    const client = clientFactory(environment);
     const { data, error } = await client.auth.getUser(accessToken);
     if (error || !data.user || !isGoogleUser(data.user)) {
         throw new ContractPasswordAuthError('invalid_credentials', 'No se pudo validar la cuenta de Google.');
     }
-    // OAuth-created users do not pass through the password registration route,
-    // so grant the same durable administrator access explicitly.
-    await ensureContractAdminUser(client, data.user.id);
     return makeSession(client, data.user);
 }
 //# sourceMappingURL=contractPasswordAuth.js.map

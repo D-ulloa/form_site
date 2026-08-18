@@ -1,6 +1,10 @@
 # Project Overview
 
-Status: 2026-08-06.
+Status: 2026-08-18.
+
+SPEC-25 places both workflows in a contained Azar-only mode. The application is
+not multi-tenant, and no real Solar/second-organization data may enter its data
+plane, providers, logs, exports, or backups before the later isolation SPECs.
 
 This repository implements two internal workflows in an admin-style web application:
 
@@ -28,7 +32,7 @@ This repository implements two internal workflows in an admin-style web applicat
 - The frontend is responsible for form UI, client-side validation, media selection, and API calls. Contract definitions are fetched from the backend instead of duplicated in the browser bundle.
 - The backend is responsible for independent payload validation, Supabase contract persistence, role-token authorization, Google Drive folder creation, property Sheet appends, Make webhook dispatch, and auditability.
 - No edit workflow is implemented in v1: submissions create new property assets only.
-- Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes; main-page Supabase email/password accounts receive administrator access immediately, and authenticated owners may open the user form without a token.
+- Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes. Main-page access requires a pre-reviewed Azar grant; registration and login no longer create grants.
 
 ## Property flow
 
@@ -54,7 +58,7 @@ This repository implements two internal workflows in an admin-style web applicat
 8. Supabase stores one immutable role audit row and updates the entry.
 9. When both roles have submitted, the entry becomes `complete` and receives a combined payload.
 10. Administrators sign in with Supabase email/password or Google OAuth, then use stable `/contracts/admin/:entryId` links to inspect submissions in schema order, edit submitted role data, update generation status, archive entries, and regenerate role links.
-11. The configured Supabase trigger can notify Make when an administrator marks an entry for contract generation.
+11. Marking an entry for contract generation records the status, but the historical fixed Supabase-to-Make trigger is disabled until the organization-scoped outbox work.
 
 ## Code map
 

@@ -1,6 +1,6 @@
 # Usage
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 ## Frontend user flow
 
@@ -11,7 +11,7 @@ Status: 2026-08-06.
 
 The main workflow is:
 
-1. Configure agent metadata if needed.
+1. Sign in with a reviewed Azar administrator account.
 2. Open `Agregar nueva propiedad`.
 3. Complete the property fields and upload media files.
 4. Submit the form.
@@ -19,7 +19,7 @@ The main workflow is:
 
 The Contract Generation workflow is:
 
-1. Register or sign in with email/password from `/`, or use the alternate Google OAuth action; a new main-page account receives administrator access immediately.
+1. Sign in with a pre-reviewed email/password or Google account. Open registration and automatic administrator grants are disabled.
 2. Select `Generar contrato` on `/`; opening the section does not create a database entry.
 3. From that passive section, `Administrar contratos` can open `/contracts/admin` without creating an entry.
 4. To start a new contract, click `Generar nueva entrada para contrato` to make the authenticated create call.
@@ -33,7 +33,7 @@ The Contract Generation workflow is:
 ## Backend endpoints
 
 - `GET /health` — health check.
-- `POST /properties/submit` — accepts multipart/form-data submissions.
+- `POST /properties/media/presign` and `POST /properties/submit` — require the reviewed application session and derive the actor from it.
 - `POST /api/contracts/create` — authenticated entry creation; returns one-time user and client URLs.
 - `GET /api/contracts/:entryId/schema?role=user|client` — token- or owner-authorized role schema and status.
 - `POST /api/contracts/:entryId/dni-uploads/presign?token=...` — client-token-authorized private signed URLs for front/back DNI image uploads.
@@ -43,8 +43,9 @@ The Contract Generation workflow is:
 - `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
 - `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
 - `PATCH` or `PUT /api/contracts/admin/entries/:entryId/submissions/:role` — administrator correction of submitted role data while retaining history.
-- `POST /api/contracts/admin/entries/:entryId/status` — administrator lifecycle update, including `generar_contrato` for the configured Supabase-to-Make trigger.
-- `POST /api/auth/register` and `POST /api/auth/login` — Supabase email/password account creation and login; the backend stores only a signed, HTTP-only session cookie.
+- `POST /api/contracts/admin/entries/:entryId/status` — records lifecycle intent; `generar_contrato` returns deferred integration status and sends no fixed database webhook under SPEC-25.
+- `POST /api/auth/register` — returns `403 REGISTRATION_CLOSED` outside the explicit local synthetic fixture.
+- `POST /api/auth/login` — reviewed allowlist login using a signed, versioned, HTTP-only session cookie.
 - `POST /api/auth/google/session` — exchange a verified Supabase Google session for the same administrator cookie.
 - `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the application session.
 
@@ -56,9 +57,9 @@ Legacy SPEC-09 compatibility endpoints:
 
 Property endpoints are implemented in `backend/src/routes/properties.ts`; current Contract Generation endpoints are in `backend/src/routes/contractEntries.ts`; legacy SPEC-09 endpoints remain in `backend/src/routes/contracts.ts`.
 
-Legacy SPEC-09 submit and audit calls require a valid bearer API key, a trusted gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. An insecure preview can accept the last header outside development by setting `CONTRACT_ALLOW_INSECURE_AGENT_ID=true`. `X-Request-Id` is optional and supports correlation. The public schema route does not require authentication.
+Legacy SPEC-09 submit and audit calls require a valid bearer API key, an explicitly enabled reviewed gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. No hosted override can enable the latter. `X-Request-Id` is optional and supports correlation.
 
-The current contract UI sends the same-origin SPEC-19 session cookie and does not depend on the configured property agent. Property requests and retained SPEC-09 compatibility calls may still use their agent identity in development. In production, the contract UI sends no API key. Setting `VITE_CONTRACT_ALLOW_INSECURE_AGENT_ID=true` remains a compatibility-only preview option; the trusted gateway and explicit API-key modes keep precedence over browser-controlled identity.
+The current contract and property UI sends the same-origin application session cookie and does not depend on the configured property agent. Retained SPEC-09 compatibility calls may use a synthetic agent identity only in exact development. Production sends neither browser identity headers nor an API key.
 
 For legacy SPEC-09, every user-scoped identity replaces the submitted `meta.userId` before audit creation and may read only audits with that resulting owner. A valid API key preserves the submitted `meta.userId` for audit attribution and is not owner-scoped when reading audits. The audit control retains its real `href`, but JavaScript intercepts normal activation to fetch and render the JSON inside the receipt view.
 
@@ -79,8 +80,8 @@ For legacy SPEC-09 on a deployment with a persistent filesystem mount, set `CONT
 
 ## Submission flow
 
-1. The frontend builds `FormData` with property fields, agent metadata, `cover_file_name`, and `files`.
-2. The backend parses uploaded files with Multer.
+1. The frontend builds the property request without an actor identity.
+2. The backend validates the application session before parsing files or issuing uploads, then supplies the verified actor identity.
 3. The backend validates request fields using `validatePropertyPayload`.
 4. The backend validates MIME types and total upload size.
 5. The backend creates a Drive folder.
@@ -118,3 +119,11 @@ The append operation is non-idempotent. Automatic transient retries and later UI
 - Contract DNI files default to 10 MB each through `CONTRACT_DNI_MAX_IMAGE_BYTES`.
 - Contract evidence files default to 10 MB each through `CONTRACT_EVIDENCE_MAX_FILE_BYTES`; each evidence receiver accepts at most two files.
 - Contract media uploads go directly to private Supabase Storage through signed URLs and are not part of the property multipart payload.
+
+## SPEC-26 staged operation
+
+Organization API paths are reserved but not mounted. Do not use the legacy
+administrator cookie, `contract_admin_users`, a route slug, Auth metadata, or an
+email domain to simulate organization access. Platform provisioning waits for
+the SPEC-27 operator boundary; production Azar/Solar creation and backfill
+remain owned by SPEC-34.

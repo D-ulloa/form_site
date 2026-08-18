@@ -72,7 +72,7 @@ test('a wrong configured Bearer key returns 403 without identity fallback', () =
 test('trusted gateway identity is accepted in production and is user-scoped', () => {
   const principal = authenticateContractRequest(
     headers({ authenticatedUserId: '  gateway-user  ' }),
-    { NODE_ENV: 'production' },
+    { NODE_ENV: 'production', CONTRACT_TRUSTED_GATEWAY_ENABLED: 'true' },
   );
   assert.deepEqual(principal, { mode: 'gateway', userId: 'gateway-user' });
   assert.doesNotThrow(() => authorizeContractUserScope(principal, 'gateway-user'));
@@ -174,26 +174,8 @@ test('development identity works only in development and production fails closed
   );
 });
 
-test('hosted agent identity requires the exact insecure opt-in flag', () => {
-  const principal = authenticateContractRequest(
-    headers({ developmentUserId: '  hosted-agent  ' }),
-    {
-      NODE_ENV: 'production',
-      CONTRACT_ALLOW_INSECURE_AGENT_ID: 'true',
-    },
-  );
-  assert.deepEqual(principal, {
-    mode: 'insecure_agent',
-    userId: 'hosted-agent',
-  });
-  assert.doesNotThrow(() =>
-    authorizeContractUserScope(principal, 'hosted-agent'));
-  assert.throws(
-    () => authorizeContractUserScope(principal, 'different-agent'),
-    ContractAuthorizationError,
-  );
-
-  for (const value of ['false', 'TRUE', '1', ' true ', '']) {
+test('hosted agent identity cannot be re-enabled by the deprecated flag', () => {
+  for (const value of ['true', 'false', 'TRUE', '1', ' true ', '']) {
     assert.throws(
       () => authenticateContractRequest(
         headers({ developmentUserId: 'hosted-agent' }),
@@ -205,6 +187,16 @@ test('hosted agent identity requires the exact insecure opt-in flag', () => {
       ContractAuthenticationError,
     );
   }
+});
+
+test('trusted gateway identity fails closed without the reviewed adapter flag', () => {
+  assert.throws(
+    () => authenticateContractRequest(
+      headers({ authenticatedUserId: 'gateway-user' }),
+      { NODE_ENV: 'production' },
+    ),
+    ContractAuthenticationError,
+  );
 });
 
 test('missing or malformed identity headers cannot authenticate or downgrade', () => {

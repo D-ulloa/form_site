@@ -4,7 +4,7 @@ import type { ContractEntryRecord } from '../contracts/types.js';
 export type ContractPrincipal =
   | { readonly mode: 'api_key' }
   | {
-      readonly mode: 'gateway' | 'development' | 'insecure_agent';
+      readonly mode: 'gateway' | 'development';
       readonly userId: string;
     }
   | {
@@ -93,6 +93,11 @@ export function authenticateContractRequest(
   environment: NodeJS.ProcessEnv = process.env,
 ): ContractPrincipal {
   if (input.authenticatedUserId !== undefined) {
+    if (environment.CONTRACT_TRUSTED_GATEWAY_ENABLED !== 'true') {
+      throw new ContractAuthenticationError(
+        'X-Authenticated-User-Id requires the reviewed trusted gateway adapter.',
+      );
+    }
     return {
       mode: 'gateway',
       userId: parseUserIdentity(
@@ -117,16 +122,13 @@ export function authenticateContractRequest(
 
   if (input.developmentUserId !== undefined) {
     const isDevelopment = environment.NODE_ENV === 'development';
-    const allowInsecureAgentId =
-      environment.CONTRACT_ALLOW_INSECURE_AGENT_ID === 'true';
-    if (!isDevelopment && !allowInsecureAgentId) {
+    if (!isDevelopment) {
       throw new ContractAuthenticationError(
-        'X-User-Id authentication is enabled only in development unless '
-          + 'CONTRACT_ALLOW_INSECURE_AGENT_ID=true.',
+        'X-User-Id authentication is enabled only in exact local development.',
       );
     }
     return {
-      mode: isDevelopment ? 'development' : 'insecure_agent',
+      mode: 'development',
       userId: parseUserIdentity(input.developmentUserId, 'X-User-Id'),
     };
   }

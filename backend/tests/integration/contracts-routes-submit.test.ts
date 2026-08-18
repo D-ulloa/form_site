@@ -67,7 +67,11 @@ test('POST returns typed authentication and owner-scope failures', async (t) => 
   await t.test('gateway identity overrides body attribution', async () => {
     let captured: CreateContractSubmissionInput | undefined;
     const response = await request(createContractRouteTestApp({
-      environment: { ...ROUTE_ENVIRONMENT, NODE_ENV: 'production' },
+      environment: {
+        ...ROUTE_ENVIRONMENT,
+        NODE_ENV: 'production',
+        CONTRACT_TRUSTED_GATEWAY_ENABLED: 'true',
+      },
       createSubmission: async (input) => {
         captured = input;
         return ROUTE_RECEIPT;
@@ -82,7 +86,11 @@ test('POST returns typed authentication and owner-scope failures', async (t) => 
 
   await t.test('development identity fails closed in production', async () => {
     const response = await request(createContractRouteTestApp({
-      environment: { ...ROUTE_ENVIRONMENT, NODE_ENV: 'production' },
+      environment: {
+        ...ROUTE_ENVIRONMENT,
+        NODE_ENV: 'production',
+        CONTRACT_TRUSTED_GATEWAY_ENABLED: 'true',
+      },
     }))
       .post('/api/contracts/submit')
       .set('X-User-Id', body.meta.userId)
@@ -95,7 +103,11 @@ test('POST accepts gateway, API-key, and explicit development auth paths', async
   const cases = [
     {
       name: 'gateway',
-      environment: { ...ROUTE_ENVIRONMENT, NODE_ENV: 'production' },
+      environment: {
+        ...ROUTE_ENVIRONMENT,
+        NODE_ENV: 'production',
+        CONTRACT_TRUSTED_GATEWAY_ENABLED: 'true',
+      },
       headers: { 'X-Authenticated-User-Id': 'user-123' },
       userId: 'user-123',
     },

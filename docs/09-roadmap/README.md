@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 This folder is reserved for durable plans, specifications, audits, and decisions.
 
@@ -13,3 +13,7 @@ This folder is reserved for durable plans, specifications, audits, and decisions
 - `decisions/`
 
 Add files here when work is formally scoped or reviewed.
+
+MT-SPEC-02 implementation artifacts are present, but its document remains in
+`specs/pending/` until named approvals and the real-database/concurrency gate are
+recorded.

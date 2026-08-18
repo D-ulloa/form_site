@@ -1,5 +1,4 @@
 import type { PropertyFormValues } from '../schemas/propertySchema.ts';
-import type { AgentData } from '../../../app/contexts/AgentContext.tsx';
 import type { FileEntry } from '../../../components/ui/FileDropzone.tsx';
 
 export interface MediaUploadMetadata {
@@ -13,9 +12,6 @@ export interface MediaUploadMetadata {
 }
 
 export interface PropertySubmissionPayload {
-  agent_user_id: string;
-  agent_name: string;
-  agent_email: string;
   cover_file_name: string;
   media_uploads?: MediaUploadMetadata[];
   media_upload_session_id?: string;
@@ -23,21 +19,16 @@ export interface PropertySubmissionPayload {
 }
 
 /**
- * Maps form values + files + agent identity → multipart/form-data.
+ * Maps form values and files to multipart/form-data. Actor identity is omitted
+ * deliberately and derived from the application session by the backend.
  * The backend consumes canonical property field names.
  */
 export function buildFormData(
   values: PropertyFormValues,
   files: FileEntry[],
   coverFileName: string,
-  agent: AgentData,
 ): FormData {
   const fd = new FormData();
-
-  // Agent fields
-  fd.append('agent_user_id', agent.agent_user_id);
-  fd.append('agent_name', agent.agent_name);
-  fd.append('agent_email', agent.agent_email);
 
   // Cover file reference
   fd.append('cover_file_name', coverFileName);
@@ -91,12 +82,8 @@ export function buildPropertySubmitPayload(
   mediaUploads: MediaUploadMetadata[],
   mediaUploadSessionId: string | undefined,
   coverFileName: string,
-  agent: AgentData,
 ): PropertySubmissionPayload {
   const payload: PropertySubmissionPayload = {
-    agent_user_id: agent.agent_user_id,
-    agent_name: agent.agent_name,
-    agent_email: agent.agent_email,
     cover_file_name: coverFileName,
     media_uploads: mediaUploads,
     ...(mediaUploadSessionId ? { media_upload_session_id: mediaUploadSessionId } : {}),

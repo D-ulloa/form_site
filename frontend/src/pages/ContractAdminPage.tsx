@@ -95,7 +95,7 @@ export function ContractAdminPage() {
     },
     onSuccess: () => {
       setGenerateError(null);
-      setGenerateStatusMessage('Estado actualizado correctamente.');
+      setGenerateStatusMessage('Estado guardado. La entrega a Make está diferida por contención.');
       void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
       if (selectedId) {
         void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId, userId] });
@@ -253,8 +253,8 @@ export function ContractAdminPage() {
                         }}
                       >
                         {generateContractMutation.isPending && generatingEntryId === entry.entryId
-                          ? 'Generando contrato'
-                          : 'Generar contrato'}
+                          ? 'Guardando estado'
+                          : 'Marcar para generación'}
                       </Button>
                     </div>
                   ))}

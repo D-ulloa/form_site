@@ -1,1 +1,1 @@
-{"version":3,"file":"serverConfig.d.ts","sourceRoot":"","sources":["../../src/utils/serverConfig.ts"],"names":[],"mappings":"AAAA,wBAAgB,mBAAmB,CAAC,QAAQ,EAAE,MAAM,GAAG,SAAS,GAAG,MAAM,CAMxE"}
+{"version":3,"file":"serverConfig.d.ts","sourceRoot":"","sources":["../../src/utils/serverConfig.ts"],"names":[],"mappings":"AAAA,wBAAgB,mBAAmB,CAAC,QAAQ,EAAE,MAAM,GAAG,SAAS,GAAG,MAAM,CAMxE;AAED,wBAAgB,8BAA8B,CAAC,WAAW,EAAE,MAAM,CAAC,UAAU,GAAG,IAAI,CAanF"}

@@ -1,6 +1,13 @@
 # Testing Strategy
 
-Status: 2026-08-06.
+Status: 2026-08-18.
+
+SPEC-25 adds fail-before-side-effect coverage for closed registration and
+unauthenticated property requests, server-derived actor tests, exact-development
+identity tests, startup guard tests, session-version behavior, forward-migration
+markers, and static assertions against public Drive permissions or new webhook
+literals. Production providers are verified manually against the containment
+runbook; automated tests never call production APIs.
 
 ## Current coverage
 
@@ -39,7 +46,7 @@ The backend suite runs with `cd backend && npm test`. It covers:
 - Exact `RAW` append parameters, returned range, transient-only retries, and permanent Google failures.
 - Sensitive-field and mapped-row redaction, expanded PII coverage, exclusive audit creation, strict receipt IDs, and isolated filesystem reads.
 - Orchestration order, receipt shape, metrics, failure short-circuiting, non-retriable post-append audit failure, and submission ID format.
-- Bearer, trusted-gateway, exact-development, and explicit insecure-agent authentication; fail-closed defaults and precedence; owner scope; and API-key scope.
+- Bearer, explicitly enabled trusted-gateway, and exact-development authentication; fail-closed precedence, owner scope, API-key scope, and inability of deprecated flags to enable hosted `X-User-Id`.
 - Direct/cacheable public schemas, validation short-circuiting, exact receipts, typed `400/401/403/404/500/502/503` responses, and sanitized operational error logs.
 - User-scoped attribution override, API-key attribution preservation, bounded request IDs, proxy-derived IP capture, and safe proxy-hop parsing.
 - Authenticated audit retrieval, owner mismatch, API-key reads, invalid/missing IDs, missing records, and integrity failures.
@@ -80,3 +87,16 @@ The frontend suite covers:
 Tests that write audits use a temporary directory and remove their own fixtures; they must not modify committed historical files under `backend/logs/`.
 
 Focused SPEC-14 backend coverage lives in `backend/tests/integration/contract-entries-spec14.test.ts`.
+
+## SPEC-26 governance coverage
+
+SPEC-26 adds static migration-contract tests plus unit coverage for the complete
+versioned role matrix, deny-by-default capability evaluation, state machines,
+last-owner validation, slug/email/locale/time-zone and branding validation,
+allowlisted feature defaults, 256-bit invitation tokens, constant-time hash
+comparison, and recursive secret redaction.
+
+A disposable Supabase certification remains mandatory before completion. Apply
+`20260818120000_spec26_organization_governance.sql`, verify grants and RLS using
+browser roles, and race invitation acceptance plus two owner-reducing
+transactions. Static SQL inspection cannot prove runtime isolation or locking.

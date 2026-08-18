@@ -67,6 +67,13 @@ class MemoryContractRepository implements ContractEntryRepository {
     return this.submissions.filter((submission) => submission.entryId === entryId);
   }
 
+  async updateGenerationTrigger(entryId: string): Promise<ContractEntryRecord> {
+    const entry = await this.findEntry(entryId);
+    if (!entry) throw new Error('entry not found');
+    this.entry = { ...entry, status: 'generar_contrato' };
+    return this.entry;
+  }
+
   async saveRoleSubmission(input: SaveContractRoleSubmissionInput): Promise<ContractEntryRecord> {
     assert.ok(this.entry);
     this.submissions.push({
@@ -234,7 +241,7 @@ test('contract access tokens are HMAC hashed and compared safely', () => {
   assert.equal(verifyContractAccessToken('b'.repeat(43), hash, ENVIRONMENT), false);
 });
 
-test('hosted create accepts the agent ID with the explicit insecure opt-in', async () => {
+test('SPEC-25 hosted create rejects the removed insecure agent opt-in', async () => {
   const repository = new MemoryContractRepository();
   const app = createApp(repository, {
     ...ENVIRONMENT,
@@ -249,9 +256,8 @@ test('hosted create accepts the agent ID with the explicit insecure opt-in', asy
     .set('X-User-Id', 'hosted-agent')
     .send({});
 
-  assert.equal(created.status, 201);
-  assert.equal(repository.entry?.createdBy, 'hosted-agent');
-  assert.equal(repository.entry?.createdByUserId, 'hosted-agent');
+  assert.equal(created.status, 401);
+  assert.equal(repository.entry, null);
 });
 
 test('SPEC-22 stores the authenticated session user ID as the contract owner', async () => {
@@ -354,16 +360,27 @@ test("preview create links use the current Vercel deployment URL", async () => {
     ...ENVIRONMENT,
     NODE_ENV: "production",
     CONTRACT_PUBLIC_BASE_URL: "https://production.example.test",
-    CONTRACT_ALLOW_INSECURE_AGENT_ID: "true",
     VERCEL_ENV: "preview",
     VERCEL_URL: "form-site-preview.example.vercel.app",
   });
   app.set("trust proxy", 1);
+  const cookie = serializeContractPasswordSessionCookie({
+    userId: 'preview-admin',
+    email: 'preview-admin@example.test',
+    name: 'Preview Admin',
+    isAdmin: true,
+  }, {
+    ...ENVIRONMENT,
+    NODE_ENV: 'production',
+    CONTRACT_PUBLIC_BASE_URL: 'https://production.example.test',
+    VERCEL_ENV: 'preview',
+    VERCEL_URL: 'form-site-preview.example.vercel.app',
+  });
 
   const created = await request(app)
     .post("/api/contracts/create")
     .set("X-Forwarded-Proto", "https")
-    .set("X-User-Id", "preview-agent")
+    .set('Cookie', cookie)
     .send({});
 
   assert.equal(created.status, 201);
@@ -371,6 +388,25 @@ test("preview create links use the current Vercel deployment URL", async () => {
     "https://form-site-preview.example.vercel.app");
   assert.equal(new URL(created.body.clientUrl as string).origin,
     "https://form-site-preview.example.vercel.app");
+});
+
+test('SPEC-25 generation intent reports Make delivery as deferred', async () => {
+  const repository = new MemoryContractRepository();
+  const app = createApp(repository);
+  const created = await request(app)
+    .post('/api/contracts/create')
+    .set('X-User-Id', 'agent-001')
+    .send({});
+  const response = await request(app)
+    .post(`/api/contracts/admin/entries/${created.body.entryId as string}/status`)
+    .set('X-User-Id', 'agent-001')
+    .send({ status: 'generar_contrato' });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.entry.status, 'generar_contrato');
+  assert.deepEqual(response.body.integration, {
+    delivery: 'deferred',
+    reason: 'SPEC25_CONTAINMENT',
+  });
 });
 
 test('create, both role submissions, admin inspection, token regeneration, and archive', async () => {

@@ -17,7 +17,11 @@ test('trusted gateway identity takes precedence over forwarded authorization', (
         authenticatedUserId: 'gateway-user',
         developmentUserId: 'dev-user',
       },
-      { NODE_ENV: 'production', CONTRACTS_API_KEY: 'different-api-key' },
+      {
+        NODE_ENV: 'production',
+        CONTRACTS_API_KEY: 'different-api-key',
+        CONTRACT_TRUSTED_GATEWAY_ENABLED: 'true',
+      },
     );
     assert.deepEqual(principal, { mode: 'gateway', userId: 'gateway-user' });
   }

@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const CONTRACT_PASSWORD_SESSION_COOKIE = 'contract_password_session';
+export const CONTRACT_PASSWORD_SESSION_VERSION = 'spec25-containment-v1';
 const STANDARD_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const REMEMBERED_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
@@ -11,6 +12,7 @@ export interface ContractPasswordSession {
   readonly email: string;
   readonly name: string;
   readonly isAdmin: boolean;
+  readonly sessionVersion: string;
   readonly expiresAt: number;
 }
 
@@ -28,7 +30,10 @@ export interface ContractGoogleAccessToken {
   readonly rememberMe?: boolean;
 }
 
-export type ContractPasswordSessionData = Omit<ContractPasswordSession, 'expiresAt'>;
+export type ContractPasswordSessionData = Omit<
+  ContractPasswordSession,
+  'expiresAt' | 'sessionVersion'
+>;
 
 export class ContractPasswordAuthConfigurationError extends Error {
   constructor() {
@@ -41,10 +46,10 @@ export class ContractPasswordAuthConfigurationError extends Error {
 }
 
 export class ContractPasswordAuthError extends Error {
-  readonly code: 'invalid_credentials' | 'email_in_use' | 'not_admin';
+  readonly code: 'invalid_credentials' | 'email_in_use' | 'not_admin' | 'registration_closed';
 
   constructor(
-    code: 'invalid_credentials' | 'email_in_use' | 'not_admin',
+    code: 'invalid_credentials' | 'email_in_use' | 'not_admin' | 'registration_closed',
     message: string,
   ) {
     super(message);
@@ -65,7 +70,8 @@ function getServiceClient(environment: NodeJS.ProcessEnv): SupabaseClient {
 type ContractAuthClientFactory = (environment: NodeJS.ProcessEnv) => SupabaseClient;
 
 function sessionSecret(environment: NodeJS.ProcessEnv): string {
-  const secret = environment.CONTRACT_TOKEN_SECRET?.trim();
+  const secret = environment.CONTRACT_SESSION_SECRET?.trim()
+    || environment.CONTRACT_TOKEN_SECRET?.trim();
   if (!secret || secret.length < 32) {
     throw new ContractPasswordAuthConfigurationError();
   }
@@ -167,6 +173,10 @@ export function getContractPasswordSession(
     || typeof session.email !== 'string'
     || typeof session.name !== 'string'
     || typeof session.isAdmin !== 'boolean'
+    || session.sessionVersion !== (
+      environment.CONTRACT_SESSION_VERSION?.trim()
+      || CONTRACT_PASSWORD_SESSION_VERSION
+    )
     || typeof session.expiresAt !== 'number'
     || !Number.isSafeInteger(session.expiresAt)
     || session.expiresAt <= Math.floor(Date.now() / 1000)
@@ -183,8 +193,10 @@ export function serializeContractPasswordSessionCookie(
     ? REMEMBERED_SESSION_TTL_SECONDS
     : STANDARD_SESSION_TTL_SECONDS;
   const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const sessionVersion = environment.CONTRACT_SESSION_VERSION?.trim()
+    || CONTRACT_PASSWORD_SESSION_VERSION;
   return serializeCookie(
-    signedValue(encode({ ...session, expiresAt }), environment),
+    signedValue(encode({ ...session, sessionVersion, expiresAt }), environment),
     environment,
     rememberMe ? ttlSeconds : undefined,
   );
@@ -219,25 +231,6 @@ async function isAdminUser(client: SupabaseClient, userId: string): Promise<bool
     .maybeSingle();
   if (error) throw new Error(`Supabase admin role lookup failed: ${error.message}`);
   return Boolean(data);
-}
-
-/**
- * Keep the durable administrator grant in sync with a successful main-page
- * registration. The database trigger remains the first line of defense, but
- * this explicit upsert makes the registration flow self-healing when a
- * deployment has the table but the trigger was not applied correctly.
- */
-export async function ensureContractAdminUser(
-  client: SupabaseClient,
-  userId: string,
-): Promise<void> {
-  const { error } = await client
-    .from('contract_admin_users')
-    .upsert(
-      { user_id: userId, role: 'admin' },
-      { onConflict: 'user_id' },
-    );
-  if (error) throw new Error(`Supabase admin role grant failed: ${error.message}`);
 }
 
 async function makeSession(
@@ -276,6 +269,15 @@ export async function registerContractUser(
   credentials: ContractPasswordCredentials,
   environment: NodeJS.ProcessEnv = process.env,
 ): Promise<ContractPasswordSessionData> {
+  if (
+    environment.NODE_ENV !== 'development'
+    || environment.CONTRACT_ALLOW_SYNTHETIC_REGISTRATION !== 'true'
+  ) {
+    throw new ContractPasswordAuthError(
+      'registration_closed',
+      'El registro está cerrado. Solicitá una invitación al administrador.',
+    );
+  }
   const client = getServiceClient(environment);
   const email = normalizeEmail(credentials.email);
   const { data, error } = await client.auth.admin.createUser({
@@ -298,7 +300,6 @@ export async function registerContractUser(
     }
     throw new Error(error?.message ?? 'Supabase no devolvió el usuario creado.');
   }
-  await ensureContractAdminUser(client, data.user.id);
   return makeSession(client, data.user);
 }
 
@@ -332,6 +333,7 @@ export async function loginContractUser(
 export async function loginContractGoogleUser(
   credentials: ContractGoogleAccessToken,
   environment: NodeJS.ProcessEnv = process.env,
+  clientFactory: ContractAuthClientFactory = getServiceClient,
 ): Promise<ContractPasswordSessionData> {
   const accessToken = credentials.accessToken.trim();
   if (!accessToken || accessToken.length > 16384) {
@@ -341,7 +343,7 @@ export async function loginContractGoogleUser(
     );
   }
 
-  const client = getServiceClient(environment);
+  const client = clientFactory(environment);
   const { data, error } = await client.auth.getUser(accessToken);
   if (error || !data.user || !isGoogleUser(data.user)) {
     throw new ContractPasswordAuthError(
@@ -350,8 +352,5 @@ export async function loginContractGoogleUser(
     );
   }
 
-  // OAuth-created users do not pass through the password registration route,
-  // so grant the same durable administrator access explicitly.
-  await ensureContractAdminUser(client, data.user.id);
   return makeSession(client, data.user);
 }

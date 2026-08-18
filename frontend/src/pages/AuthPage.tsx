@@ -85,6 +85,34 @@ export function AuthPage({ mode }: AuthPageProps) {
     return () => { active = false; };
   }, [navigate]);
 
+  const syntheticRegistrationEnabled = import.meta.env.DEV
+    && import.meta.env.VITE_ALLOW_SYNTHETIC_REGISTRATION === 'true';
+
+  if (isRegister && !syntheticRegistrationEnabled) {
+    return (
+      <main className="relative flex min-h-dvh items-center justify-center bg-[var(--bg-base)] px-4 py-10 sm:px-6">
+        <section className="surface-elevated w-full max-w-[470px] rounded-2xl px-6 py-8 text-center shadow-2xl shadow-black/30 sm:px-8">
+          <ProductMark />
+          <p className="mt-7 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-400">
+            Acceso por invitación
+          </p>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-100">
+            El registro está cerrado
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-400">
+            Solicitá una cuenta autorizada al administrador de Azar. No se crean cuentas desde este formulario.
+          </p>
+          <Link
+            to="/login"
+            className="mt-7 inline-flex rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+          >
+            Ir a iniciar sesión
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -282,13 +310,14 @@ export function AuthPage({ mode }: AuthPageProps) {
         </form>
 
         <p className="mt-5 text-center text-xs text-slate-500">
-          {isRegister ? '¿Ya tenés cuenta?' : '¿No tenés cuenta?'}{' '}
-          <Link
-            to={isRegister ? '/login' : '/register'}
-            className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300"
-          >
-            {isRegister ? 'Iniciar sesión' : 'Crear cuenta'}
-          </Link>
+          {isRegister ? '¿Ya tenés cuenta?' : '¿Necesitás acceso?'}{' '}
+          {isRegister ? (
+            <Link to="/login" className="font-semibold text-indigo-400 transition-colors hover:text-indigo-300">
+              Iniciar sesión
+            </Link>
+          ) : (
+            <span>Solicitá una invitación al administrador.</span>
+          )}
         </p>
       </section>
     </main>

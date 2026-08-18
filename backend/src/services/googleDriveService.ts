@@ -1,5 +1,5 @@
 import { Readable } from 'stream';
-import { google } from 'googleapis';
+import { google, drive_v3 } from 'googleapis';
 import { withRetry } from '../utils/retryPolicy.js';
 import { createGoogleAuth } from '../utils/googleAuth.js';
 import type { MediaFile } from '../types.js';
@@ -18,12 +18,39 @@ export interface CreateFolderResult {
   folder_url: string;
 }
 
+async function assertPrivateParentAccess(
+  drive: drive_v3.Drive,
+  parentFolderId: string,
+): Promise<void> {
+  const permissionResponse = await withRetry(() => drive.permissions.list({
+    ...DRIVE_REQUEST_OPTIONS,
+    fileId: parentFolderId,
+    fields: 'permissions(id,type,role,emailAddress,domain,allowFileDiscovery)',
+  }));
+  const permissions = permissionResponse.data.permissions ?? [];
+  if (
+    permissions.length === 0
+    || permissions.some((permission) => (
+      permission.type === 'anyone' || permission.type === 'domain'
+    ))
+    || !permissions.some((permission) => (
+      permission.type === 'user' || permission.type === 'group'
+    ))
+  ) {
+    throw new Error(
+      'Configured Drive parent does not have a verified private user/group ACL.',
+    );
+  }
+}
+
 export async function createDriveFolder(
   folderName: string,
   parentFolderId: string,
 ): Promise<CreateFolderResult> {
   const auth = createGoogleAuth(DRIVE_SCOPES);
   const drive = google.drive({ version: 'v3', auth });
+
+  await assertPrivateParentAccess(drive, parentFolderId);
 
   const createRes = await withRetry(() =>
     drive.files.create({
@@ -42,15 +69,8 @@ export async function createDriveFolder(
     throw new Error('Drive folder creation returned incomplete metadata');
   }
 
-  // Make folder readable by anyone with the link
-  await withRetry(() =>
-    drive.permissions.create({
-      ...DRIVE_REQUEST_OPTIONS,
-      fileId: id,
-      requestBody: { role: 'reader', type: 'anyone' },
-    }),
-  );
-
+  // SPEC-25 containment: the folder remains private and inherits only the
+  // reviewed ACL from its configured Azar parent. A Drive URL is not access.
   return { folder_id: id, folder_name: folderName, folder_url: webViewLink };
 }
 
