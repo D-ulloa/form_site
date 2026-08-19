@@ -1,0 +1,1 @@
+{"version":3,"file":"serviceRoleClient.d.ts","sourceRoot":"","sources":["../../src/platform/serviceRoleClient.ts"],"names":[],"mappings":"AAAA,OAAO,EAAgB,KAAK,cAAc,EAAE,MAAM,uBAAuB,CAAC;AAE1E,kFAAkF;AAClF,wBAAgB,+BAA+B,CAC7C,WAAW,GAAE,MAAM,CAAC,UAAwB,GAC3C,cAAc,CAQhB"}

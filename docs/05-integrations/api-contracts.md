@@ -2,6 +2,48 @@
 
 Status: 2026-08-18.
 
+## Shared SPEC-28 API conventions
+
+Every backend response receives an effective `X-Request-Id`. A caller value is
+accepted only when it matches `[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`; otherwise the
+server generates an unpredictable ID. The same ID follows durable audit,
+usage, jobs, and future outbox work.
+
+New public errors use this envelope and do not expose database/provider text:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "request_id": "req_example"
+  }
+}
+```
+
+Status conventions are `401 UNAUTHENTICATED`, `403 FORBIDDEN`, generic `404
+NOT_FOUND`, `409 VERSION_CONFLICT`/`IDEMPOTENCY_CONFLICT`, `423
+ORGANIZATION_LOCKED`, `429 RATE_LIMITED`, and `503 AUDIT_UNAVAILABLE`/
+`LIMITER_UNAVAILABLE`/`DEPENDENCY_UNAVAILABLE`. A `429` also carries a bounded
+integer `Retry-After` without confirming whether the target exists.
+
+New organization list endpoints use `snake_case` envelopes, a default page of
+25, maximum 100, stable `(created_at, id)` order, and an opaque signed cursor
+bound to the active filters. Invalid/tampered/incompatible cursors return `400
+INVALID_CURSOR`; unbounded limits are rejected. Request JSON on ordinary
+organization routes must not contain caller-selected `organization_id`.
+
+SPEC-30 defines the future organization property contract under
+`/api/organizations/:organization_id/property-drafts`, `/properties`, and
+`/property-submission-runs`. Its durable `202` result is identified by
+`property_id`, `revision_id`, and `submission_run_id`; status is fetched from
+the scoped run instead of browser navigation state. These routes remain
+unmounted until SPEC-27 context, SPEC-31 assets, SPEC-32 integrations, and
+SPEC-34 cutover are certified.
+
+These conventions are implemented as shared backend primitives. Domain APIs
+adopt them in SPEC-27 and SPEC-29 through SPEC-32; current compatibility routes
+retain their documented response shapes until their owning cutover.
+
 ## `POST /properties/submit`
 
 ### Purpose

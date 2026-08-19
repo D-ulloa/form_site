@@ -17,6 +17,10 @@ Status: 2026-08-18.
 - Use React Hook Form for form state and Zod for schema validation.
 - Use `useCreatePropertySubmission` for submission side effects.
 - Maintain explicit route structure: `/`, `/properties/new`, `/properties/success/:submissionId`.
+- Treat those property routes as contained legacy compatibility surfaces. New
+  property work uses organization-namespaced routes, durable drafts/results,
+  immutable revisions, explicit `OrganizationScope`, optimistic versions,
+  idempotency fingerprints, and organization-first browser keys.
 - Legacy agent metadata may remain in local storage for presentation only; it must never authorize or attribute a property/contract request.
 - Render contract controls from the public schema and normalize values before transport. Client validation must never replace backend validation.
 - Keep SPEC-14 evidence receivers passive during file selection. Begin the signed upload preflight only from the explicit form submission action, lock the editable form during the save sequence, promote successful uploads to stable form-state references for retry, and remove `uploadUrl` before constructing the role payload.
@@ -48,6 +52,19 @@ Status: 2026-08-18.
 - Resolve `CONTRACT_AUDIT_LOGS_DIR` when each audit operation runs. Use it only for a writable persistent mount; a configured path on Vercel remains ephemeral and is not an audit-retention solution.
 - Treat audit-write failure after a successful external append as a reconciliation event; do not silently report a fully audited success.
 - Do not describe an append retry as duplicate-safe unless an idempotency mechanism is added. `retriable` classifies the provider failure, not whether Google committed the row.
+
+## Multi-tenant platform standards
+
+- Organization-owned persistence methods require `OrganizationScope`; never derive it from request JSON, slug, creator, assignee, or email.
+- Match `organization_id` in every service-role query/RPC and assert every returned row. Cross-organization IDs map to generic `NOT_FOUND`.
+- Create new platform service-role clients only in `backend/src/platform/serviceRoleClient.ts`. Existing constructors are documented legacy migration targets, not examples.
+- Give parent tables `unique (id, organization_id)` and children composite organization foreign keys. Add organization-leading indexes from real query paths.
+- Enable and force RLS without permissive browser policies for backend-only tables. A `security definer` RPC must use a fixed safe search path, schema-qualified objects, explicit scope, restricted execute grants, and real-database tests.
+- Persist successful sensitive mutation, audit, usage, and outbox intent atomically. Fail high-risk work with `AUDIT_UNAVAILABLE` when required audit persistence is unavailable.
+- Use `redactTelemetry` before general log/audit sinks. Do not send raw secrets, token/hash values, signed URLs, private paths, identity data, customer payloads, or raw provider errors.
+- Use the distributed limiter policy registry for new protected actions. Process-local maps are forbidden as production authority.
+- Use bounded, filter-bound opaque cursors and SQL filtering. Never fetch a global collection and filter it in application code.
+- Jobs carry organization scope and idempotency, use fair claims and bounded retry/dead-letter behavior, and stay paused after restore until reconciliation.
 
 ## Documentation expectations
 

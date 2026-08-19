@@ -6,6 +6,7 @@ import contractsRouter from './routes/contracts.js';
 import contractEntriesRouter from './routes/contractEntries.js';
 import contractPasswordAuthRouter from './routes/contractPasswordAuth.js';
 import { parseTrustProxyHops, validateContainmentEnvironment, } from './utils/serverConfig.js';
+import { requestIdMiddleware } from './platform/requestId.js';
 dotenv.config();
 validateContainmentEnvironment(process.env);
 const app = express();
@@ -18,6 +19,7 @@ if (trustProxyHops > 0) {
     app.set('trust proxy', trustProxyHops);
 }
 // ─── Middleware ───────────────────────────────────────────────────────────────
+app.use(requestIdMiddleware);
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: '256kb' }));
 // Strip Vercel's experimentalServices route prefix if present

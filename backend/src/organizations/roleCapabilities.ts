@@ -5,7 +5,7 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 1 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 2 as const;
 
 const capabilities = {
   owner: [
@@ -13,6 +13,9 @@ const capabilities = {
     'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
     'members.manage_member', 'members.manage_admin', 'members.transfer_ownership',
     'contracts.read', 'contracts.write', 'contracts.manage', 'contracts.manage_links',
+    'contracts.create', 'contracts.update', 'contracts.assign', 'contracts.change_status',
+    'contracts.archive', 'contracts.view_history', 'contracts.view_assets', 'contracts.generate',
+    'contract_templates.read', 'contract_templates.manage',
     'properties.read', 'properties.write', 'properties.manage', 'files.read',
     'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
   ],
@@ -20,13 +23,19 @@ const capabilities = {
     'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
     'members.manage_member', 'contracts.read', 'contracts.write', 'contracts.manage',
     'contracts.manage_links', 'properties.read', 'properties.write', 'properties.manage',
+    'contracts.create', 'contracts.update', 'contracts.assign', 'contracts.change_status',
+    'contracts.archive', 'contracts.view_history', 'contracts.view_assets', 'contracts.generate',
+    'contract_templates.read', 'contract_templates.manage',
     'files.read', 'integrations.read', 'audit.read',
   ],
   member: [
     'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
+    'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',
+    'contract_templates.read',
     'properties.write', 'files.read',
   ],
-  viewer: ['organization.read', 'contracts.read', 'properties.read'],
+  viewer: ['organization.read', 'contracts.read', 'contracts.view_history',
+    'contract_templates.read', 'properties.read'],
 } as const satisfies Record<OrganizationRole, readonly OrganizationCapability[]>;
 
 export const ROLE_CAPABILITIES: Readonly<Record<OrganizationRole, ReadonlySet<OrganizationCapability>>> = {
@@ -68,4 +77,3 @@ export function canManageMembership(
 ): boolean {
   return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer'));
 }
-

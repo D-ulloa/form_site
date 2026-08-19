@@ -40,6 +40,17 @@ Contract Generation values:
 - `CONTRACT_EVIDENCE_STORAGE_BUCKET` — separate private Supabase Storage bucket for SPEC-14 guarantor evidence (default `contract-evidence`).
 - `CONTRACT_EVIDENCE_MAX_FILE_BYTES` — maximum size of one salary-receipt or property-guarantee file (default `10485760`, 10 MB). Keep this aligned with the evidence bucket object limit.
 
+Staged SPEC-28 platform values (required before activating multi-tenant paths):
+
+- `PLATFORM_RATE_LIMIT_PEPPER` — secret-manager value of at least 32 bytes used only to HMAC limiter subjects; version and rotate it independently from session/link secrets.
+- `PLATFORM_CURSOR_SECRET` — secret-manager value of at least 32 bytes used only for opaque pagination cursor signatures.
+- `PLATFORM_AUDIT_REQUIRED` — must remain `true` for privileged/support/security-sensitive mutations; no production emergency mode is currently approved.
+- `PLATFORM_RESTORE_MODE` — absent/`false` in normal service. An isolated restore process sets it while traffic and workers remain disabled; it must never be a public feature flag.
+
+Do not place any of these values in `VITE_*`, logs, audit metadata, database
+dumps, export manifests, or repository files. Current platform constructors
+accept injected secrets/adapters; runtime activation waits for SPEC-27.
+
 Apply these migrations in order before enabling the complete flow.
 
 The currently linked Supabase project has already received these migrations manually. Consolidating their files does not re-run or alter them. Before using `supabase db push` against that project, reconcile the Supabase CLI migration history (for example with `supabase migration repair`) so already-applied migrations are not attempted again.
@@ -57,6 +68,13 @@ The currently linked Supabase project has already received these migrations manu
 10. `supabase/migrations/20260806000000_contract_generate_trigger_webhook.sql`
 11. `supabase/migrations/20260811000000_contract_spec22_access_control.sql`
 12. `supabase/migrations/20260818000000_spec25_containment.sql`
+13. `supabase/migrations/20260818120000_spec26_organization_governance.sql`
+14. `supabase/migrations/20260818160000_spec28_platform_controls.sql`
+
+Migration 14 creates no organizations or business rows. It adds only shared
+backend-only control tables/functions with forced RLS and revoked browser
+grants. Apply and certify it first in a disposable project; do not enable a
+second production organization based on static migration tests.
 
 The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket; the third provisions the default private evidence bucket with the SPEC-14 MIME allowlist; the fourth adds the durable `Direccion` identifier and update RPC; the fifth enables PDF DNI objects while preserving the private bucket policy; the sixth provisions the SPEC-19 administrator-grant table and signup trigger; the eighth repairs missing administrator grants for existing main-page accounts and reasserts the signup trigger. The seventh adds the `generar_contrato` status, the ninth adds its durable trigger flag, and the tenth installs the configured Supabase-to-Make webhook trigger. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
 

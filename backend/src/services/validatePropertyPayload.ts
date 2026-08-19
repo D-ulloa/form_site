@@ -230,6 +230,20 @@ Amoblado: formBool.default(false),
   Detalle: z.string().default(''),
 });
 
+/**
+ * Canonical multi-tenant revisions contain business data only. Identity is
+ * taken from OrganizationRequestContext and cover ordering is represented by
+ * property_revision_assets, never by caller-attributed agent fields.
+ */
+export const canonicalPropertySchema = propertySchema.omit({
+  agent_user_id: true,
+  agent_name: true,
+  agent_email: true,
+  cover_file_name: true,
+}).strict();
+
+export type CanonicalPropertyPayload = z.infer<typeof canonicalPropertySchema>;
+
 export type ValidatedPropertyPayload = z.infer<typeof propertySchema>;
 
 // ─── Validation function ──────────────────────────────────────────────────────
@@ -248,4 +262,17 @@ export function validatePropertyPayload(raw: unknown): ValidationResult {
     (issue) => `${issue.path.join('.')}: ${issue.message}`,
   );
   return { success: false, errors };
+}
+
+export type CanonicalValidationResult =
+  | { success: true; data: CanonicalPropertyPayload }
+  | { success: false; errors: string[] };
+
+export function validateCanonicalPropertyPayload(raw: unknown): CanonicalValidationResult {
+  const result = canonicalPropertySchema.safeParse(raw);
+  if (result.success) return { success: true, data: result.data };
+  return {
+    success: false,
+    errors: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+  };
 }

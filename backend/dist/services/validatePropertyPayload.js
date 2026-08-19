@@ -215,6 +215,17 @@ export const propertySchema = z.object({
     Titulo: z.string().min(1, 'Titulo es requerido'),
     Detalle: z.string().default(''),
 });
+/**
+ * Canonical multi-tenant revisions contain business data only. Identity is
+ * taken from OrganizationRequestContext and cover ordering is represented by
+ * property_revision_assets, never by caller-attributed agent fields.
+ */
+export const canonicalPropertySchema = propertySchema.omit({
+    agent_user_id: true,
+    agent_name: true,
+    agent_email: true,
+    cover_file_name: true,
+}).strict();
 export function validatePropertyPayload(raw) {
     const normalized = normalizePropertyPayload(raw);
     const result = propertySchema.safeParse(normalized);
@@ -223,5 +234,14 @@ export function validatePropertyPayload(raw) {
     }
     const errors = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
     return { success: false, errors };
+}
+export function validateCanonicalPropertyPayload(raw) {
+    const result = canonicalPropertySchema.safeParse(raw);
+    if (result.success)
+        return { success: true, data: result.data };
+    return {
+        success: false,
+        errors: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+    };
 }
 //# sourceMappingURL=validatePropertyPayload.js.map

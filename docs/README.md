@@ -1,6 +1,6 @@
 # Documentation Index
 
-Status: 2026-08-06.
+Status: 2026-08-18.
 
 This repository uses a structured documentation layout under `docs/`.
 The top-level files are intentionally minimized in favor of numbered folders that preserve reading order.
@@ -17,6 +17,7 @@ The top-level files are intentionally minimized in favor of numbered folders tha
 - `03-operation/`
   - `usage.md` — user and API usage patterns.
   - `runtime-files.md` — runtime artifacts, logs, and build outputs.
+  - `spec28-platform-controls-recovery-and-incidents.md` — staged deployment, recovery, alerts, and six incident playbooks.
 - `05-integrations/`
   - `api-contracts.md` — property and Contract Generation API request/response contracts and integration boundaries.
 - `06-testing/`
@@ -30,6 +31,12 @@ The top-level files are intentionally minimized in favor of numbered folders tha
   - `specs/research/README.md`
   - `audits/README.md`
   - `decisions/README.md`
+
+The roadmap currently includes staged repository implementations for the
+SPEC-25 containment boundary, SPEC-26 organization governance, and SPEC-28
+shared platform controls. Their pending status records outstanding approvals,
+real-database/recovery evidence, and the block on Solar—not missing repository
+artifacts.
 
 ## Existing project docs
 

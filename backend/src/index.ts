@@ -9,6 +9,7 @@ import {
   parseTrustProxyHops,
   validateContainmentEnvironment,
 } from './utils/serverConfig.js';
+import { requestIdMiddleware } from './platform/requestId.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
@@ -25,6 +26,7 @@ if (trustProxyHops > 0) {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
+app.use(requestIdMiddleware);
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json({ limit: '256kb' }));
 

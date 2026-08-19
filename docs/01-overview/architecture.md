@@ -127,3 +127,31 @@ row is created by SPEC-26. Protected organization endpoints remain unmounted
 until SPEC-27 supplies revocable sessions and a server-validated organization
 context. The `/t/:organizationSlug/settings/*` pages therefore render a staged
 closed state; the slug is never treated as authorization.
+
+## Staged shared platform-control boundary
+
+SPEC-28 adds empty organization-owned stores for append-only audit and usage
+events, atomic distributed rate-limit buckets, quota reservations, fair jobs,
+deletion tombstones, and recovery evidence. Browser roles receive no table or
+RPC access; RLS is enabled and forced. Privileged functions use a fixed
+`pg_catalog` search path, schema-qualified objects, and explicit organization
+arguments. No production data or organization is seeded.
+
+New backend platform code lives under `backend/src/platform/`. It uses a
+branded non-optional `OrganizationScope`, asserts returned organization IDs,
+constructs the service-role client through one platform factory, applies safe
+request IDs/errors/redaction, HMACs rate-limit subjects, signs pagination
+cursors, and keeps restored external work paused until reconciliation. The
+request-ID middleware applies to every backend response before JSON parsing.
+
+This layer is staged infrastructure, not a domain migration. Existing
+contract/property repositories, local logs/maps, and compatibility principals
+remain contained Azar-only legacy surfaces until SPEC-27 and SPEC-29 through
+SPEC-34 replace them. They cannot be used for Solar.
+
+SPEC-30 adds the replacement property persistence boundary: organization-owned
+durable drafts, immutable revisions, processing runs/steps, domain events, and
+metadata-only provider intents. PostgreSQL is canonical; Drive, Sheets, Make,
+local logs, and browser navigation state are projections or compatibility
+evidence. This additive schema is not mounted through the legacy property
+authority before SPEC-27/31/32/34 gates pass.

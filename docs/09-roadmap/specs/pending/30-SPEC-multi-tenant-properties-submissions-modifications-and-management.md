@@ -4,7 +4,7 @@
 **Priority:** critical
 **Status:** pending prerequisite specifications and approval
 **Roadmap identifier:** MT-SPEC-06
-**Dependencies:** SPEC-25 / MT-SPEC-01, SPEC-26 / MT-SPEC-02, MT-SPEC-03, SPEC-28 / MT-SPEC-04, and the MT-SPEC-07/MT-SPEC-08 interfaces
+**Dependencies:** SPEC-25 / MT-SPEC-01, SPEC-26 / MT-SPEC-02, SPEC-27 / MT-SPEC-03, SPEC-28 / MT-SPEC-04, SPEC-29 / MT-SPEC-05, and the SPEC-31/32 interfaces
 **Blocks:** production property migration in MT-SPEC-10 and onboarding any second real organization
 
 ---
@@ -38,7 +38,10 @@ It defines:
 
 PostgreSQL becomes the source of truth. Drive, Sheets, Make, local files, console logs, and frontend navigation state are projections or operational evidence, never the canonical property record.
 
-This document specifies behavior and implementation contracts. It does not apply migrations, migrate existing production submissions, configure real organization provider credentials, or enable Solar.
+This document specifies behavior and implementation contracts. Its additive
+repository migration and typed contracts are implemented, but they do not
+migrate existing production submissions, mount the new routes, configure real
+organization provider credentials, or enable Solar.
 
 ## Authority and relationship to other specifications
 
@@ -50,9 +53,14 @@ This is the sixth formal implementation SPEC derived from:
 - `docs/09-roadmap/specs/pending/26-SPEC-multi-tenant-organizations-memberships-onboarding-and-lifecycle.md`; and
 - `docs/09-roadmap/specs/pending/28-SPEC-multi-tenant-database-enforcement-audit-abuse-observability-and-recovery.md`.
 
-MT-SPEC-03 and MT-SPEC-05 are not currently present as project documents. MT-SPEC-05 is not a functional dependency for the property domain, but shared navigation or UI conventions must remain compatible when it is drafted. MT-SPEC-03 is a hard dependency because it supplies trusted organization request context and frontend organization state.
+SPEC-27 / MT-SPEC-03 and SPEC-29 / MT-SPEC-05 are now present as staged
+project documents and repository foundations. SPEC-29 is not a functional
+dependency for the property aggregate, but its shared navigation and tenant
+state conventions remain compatible. SPEC-27 is a hard release dependency
+because it supplies trusted organization request context and frontend
+organization switching.
 
-MT-SPEC-07 and MT-SPEC-08 may be co-designed with this SPEC, but their interfaces must be approved before property media or provider deliveries can be completed:
+SPEC-31 / MT-SPEC-07 and SPEC-32 / MT-SPEC-08 are co-designed with this SPEC, but their interfaces must be approved before property media or provider deliveries can be completed:
 
 - MT-SPEC-07 owns durable asset/upload sessions, verification, private views, retention, and cleanup.
 - MT-SPEC-08 owns organization integration configuration, credentials, outbox workers, provider delivery, retry reconciliation, and external deletion.

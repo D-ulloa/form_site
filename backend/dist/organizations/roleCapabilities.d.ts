@@ -1,5 +1,5 @@
 import type { MembershipStatus, OrganizationCapability, OrganizationRole, OrganizationStatus } from './types.js';
-export declare const ROLE_CAPABILITY_REGISTRY_VERSION: 1;
+export declare const ROLE_CAPABILITY_REGISTRY_VERSION: 2;
 export declare const ROLE_CAPABILITIES: Readonly<Record<OrganizationRole, ReadonlySet<OrganizationCapability>>>;
 export declare function isOrganizationRole(value: string): value is OrganizationRole;
 export declare function hasOrganizationCapability(role: string, membershipStatus: MembershipStatus, organizationStatus: OrganizationStatus, capability: OrganizationCapability): boolean;

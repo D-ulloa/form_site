@@ -2,7 +2,7 @@ export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer';
 export type OrganizationStatus = 'active' | 'suspended' | 'pending_deletion' | 'deleted';
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type RecordVisibility = 'organization' | 'assigned_only';
-export type OrganizationCapability = 'organization.read' | 'organization.update_settings' | 'organization.request_deletion' | 'organization.cancel_deletion' | 'organization.export' | 'members.read' | 'members.invite' | 'members.manage_member' | 'members.manage_admin' | 'members.transfer_ownership' | 'contracts.read' | 'contracts.write' | 'contracts.manage' | 'contracts.manage_links' | 'properties.read' | 'properties.write' | 'properties.manage' | 'files.read' | 'integrations.read' | 'integrations.manage' | 'audit.read' | 'billing.read' | 'billing.manage';
+export type OrganizationCapability = 'organization.read' | 'organization.update_settings' | 'organization.request_deletion' | 'organization.cancel_deletion' | 'organization.export' | 'members.read' | 'members.invite' | 'members.manage_member' | 'members.manage_admin' | 'members.transfer_ownership' | 'contracts.read' | 'contracts.write' | 'contracts.manage' | 'contracts.manage_links' | 'contracts.create' | 'contracts.update' | 'contracts.assign' | 'contracts.change_status' | 'contracts.archive' | 'contracts.view_history' | 'contracts.view_assets' | 'contracts.generate' | 'contract_templates.read' | 'contract_templates.manage' | 'properties.read' | 'properties.write' | 'properties.manage' | 'files.read' | 'integrations.read' | 'integrations.manage' | 'audit.read' | 'billing.read' | 'billing.manage';
 export interface OrganizationRecord {
     readonly id: string;
     readonly slug: string;

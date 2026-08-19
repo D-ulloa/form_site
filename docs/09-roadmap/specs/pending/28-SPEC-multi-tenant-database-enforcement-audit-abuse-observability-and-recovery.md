@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-18
 **Priority:** critical
-**Status:** pending prerequisite specifications and approval
+**Status:** implemented in repository; prerequisite approval, real-database certification, and operational proof pending
 **Roadmap identifier:** MT-SPEC-04
 **Dependencies:** SPEC-25 / MT-SPEC-01, SPEC-26 / MT-SPEC-02, and MT-SPEC-03
 **Blocks:** MT-SPEC-05 through MT-SPEC-10 and the onboarding of any second real organization
@@ -45,7 +45,7 @@ This is the fourth formal implementation SPEC derived from:
 - `docs/09-roadmap/specs/pending/25-SPEC-multi-tenant-policy-threat-model-containment-and-inventory.md`; and
 - `docs/09-roadmap/specs/pending/26-SPEC-multi-tenant-organizations-memberships-onboarding-and-lifecycle.md`.
 
-MT-SPEC-03 is not currently present as a project document. SPEC-28 may be reviewed, but implementation cannot be completed until MT-SPEC-03 defines the authenticated `OrganizationRequestContext`, machine principals, platform/support principals, session revocation, and request middleware boundary consumed here.
+MT-SPEC-03 is documented as SPEC-27. The SPEC-28 controls are staged and deny-by-default, but authenticated domain activation cannot complete until SPEC-27's `OrganizationRequestContext`, machine principals, platform/support principals, session revocation, and request middleware boundary are implemented and approved.
 
 SPEC-25 policy decisions are authoritative. In particular:
 
@@ -1015,4 +1015,4 @@ Expected historical/contained matches require documented disposition. No root `p
 
 ---
 
-Status: pending prerequisite specifications plus security, data, backend, operations/SRE, privacy/legal, and product approval. Author: redacted.
+Status: repository implementation complete; SPEC-27 activation, disposable-database and recovery certification, and security, data, backend, operations/SRE, privacy/legal, and product approval remain pending. Author: redacted.

@@ -69,6 +69,12 @@ The frontend suite covers:
 
 - Unit tests for `frontend/src/features/properties/schemas/propertySchema.ts` and media validation hooks.
 - Integration tests for `backend/src/routes/properties.ts` and `backend/src/services/createPropertySubmission.ts`.
+- SPEC-30 migration contract tests cover composite organization ownership,
+  immutable history, scoped RPC/grant shape, atomic durable intents, and the
+  absence of provider calls in the canonical transaction. Domain/frontend unit
+  tests cover visibility, version/idempotency/retry decisions, redacted
+  summaries, tenant cache/recovery keys, stale-response rejection, and conflict
+  retention. Real-database/provider execution remains a SPEC-31/32/34 gate.
 - Additional staging coverage for the Supabase database migration/RPC, RLS grants, and the private `contract-dni`/`contract-evidence` bucket restrictions.
 - End-to-end tests covering the full property submission path, including Drive/Sheets/Make integration if feasible.
 - Accessibility checks for the hosted role form, entry modal, and contract admin UI; legacy two-step modal tests remain compatibility coverage.
@@ -100,3 +106,25 @@ A disposable Supabase certification remains mandatory before completion. Apply
 `20260818120000_spec26_organization_governance.sql`, verify grants and RLS using
 browser roles, and race invitation acceptance plus two owner-reducing
 transactions. Static SQL inspection cannot prove runtime isolation or locking.
+
+## SPEC-28 platform-control coverage
+
+`spec28-platform-controls.test.ts` covers validated organization scope and
+returned-row assertions, safe error envelopes, recursive telemetry canaries,
+fail-closed audit and limiter behavior, two-client shared limiter capacity,
+usage idempotency contracts, quota denial, signed/filter-bound cursors, bounded
+pages, fair scheduling/backoff/dead letters, manifest organization binding, and
+external-effect reconciliation decisions.
+
+`spec28-migration-contract.test.ts` checks the additive tables, organization
+ownership, composite actor reference, organization-leading indexes,
+append-only triggers, enabled/forced deny-by-default RLS, fixed function search
+paths, restricted grants, atomic limiter/usage/job RPC shapes, request
+correlation installation, and the new platform service-role import boundary.
+
+Before production activation, apply both SPEC-26 and SPEC-28 migrations to a
+disposable Supabase/Postgres project. Run concurrent limiter and job claims;
+Azar/Solar RLS, composite-FK, cross-scope, append-only, rollback, and query-plan
+tests; then perform isolated full/logical restore exercises. Static tests do not
+substitute for those gates and automated tests must never use production
+providers or state.

@@ -9,6 +9,9 @@ Status: 2026-08-18.
 - Supabase `contract_events` — creation, role submission, completion, archive, and token-regeneration events.
 - Supabase Storage `contract-dni` — default private SPEC-11 bucket for front/back DNI files.
 - Supabase Storage `contract-evidence` — default private SPEC-14 bucket for guarantor salary-receipt and property-guarantee evidence.
+- Supabase `audit_events` and `usage_events` — staged append-only SPEC-28 organization evidence.
+- Supabase organization/platform limiter buckets, quota snapshots/reservations, and `platform_jobs` — staged shared operational authority; never replaced by local files in a multi-tenant path.
+- Supabase `deletion_tombstones` and `recovery_evidence` — restricted append-only restore gates.
 
 - `backend/logs/` — default local JSON location for property submissions and successful contract appends.
 - `CONTRACT_AUDIT_LOGS_DIR` — optional contract-only audit location. The logger resolves it at call time for both persistence and retrieval; blank or unset falls back to `backend/logs`.
@@ -48,3 +51,4 @@ For an explicitly enabled reviewed gateway or exact-development authentication, 
 - An ambiguous Google append failure may also leave a row without an audit file because the backend persists the audit only after Google returns an appended range. Check the Sheet before retrying; this append path has no idempotency or deduplication store.
 - Audit `ip` is the normalized Express `req.ip`. Configure `TRUST_PROXY_HOPS` only for known proxies; otherwise keep it at `0`.
 - Legacy frontend agent metadata may remain in localStorage via `AgentContext`, but no property/contract authorization or attribution reads it.
+- SPEC-28 export/backup artifacts must be encrypted, expiring, inventoried, and stored outside public buckets. Manifests contain checksums and encryption references, never plaintext secrets. Restored jobs and external intents remain paused until provider reconciliation.
