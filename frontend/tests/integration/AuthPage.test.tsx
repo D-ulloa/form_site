@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentProvider } from '../../src/app/contexts/AgentContext.tsx';
+import { AuthenticationProvider } from '../../src/app/contexts/AuthenticationContext.tsx';
 import {
   fetchAdminSession,
   loginAdmin,
@@ -111,9 +112,7 @@ describe('SPEC-19 main entry', () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AgentProvider>
-          <MemoryRouter>
-            <ActionSelectionPage />
-          </MemoryRouter>
+          <MemoryRouter><AuthenticationProvider><ActionSelectionPage /></AuthenticationProvider></MemoryRouter>
         </AgentProvider>
       </QueryClientProvider>,
     );
@@ -125,30 +124,31 @@ describe('SPEC-19 main entry', () => {
     expect(screen.queryByText(/OPEV-H/iu)).toBeNull();
   });
 
-  it('offers contract administration as the third action and navigates to its canonical route', async () => {
+  it('requires an explicit organization selection before tenant actions render', async () => {
     vi.mocked(fetchAdminSession).mockResolvedValue({
       authenticated: true,
       user: { id: 'admin-id', email: 'admin@example.test', name: 'Admin' },
+      memberships: [{ organization_id: '20000000-0000-4000-8000-000000000001', organization_slug: 'azar',
+        organization_display_name: 'Azar', organization_status: 'active',
+        membership_id: '30000000-0000-4000-8000-000000000001', membership_status: 'active',
+        role: 'owner', capabilities: ['contracts.manage'] }],
     });
 
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AgentProvider>
-          <MemoryRouter initialEntries={['/']}>
+          <MemoryRouter initialEntries={['/']}><AuthenticationProvider>
             <Routes>
               <Route path="/" element={<ActionSelectionPage />} />
-              <Route path="/contracts/admin" element={<p>Administración de contratos</p>} />
+              <Route path="/t/azar" element={<p>Contexto Azar</p>} />
             </Routes>
-          </MemoryRouter>
+          </AuthenticationProvider></MemoryRouter>
         </AgentProvider>
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('button', { name: 'Administrar contratos' })).toBeTruthy();
-    expect(screen.queryByText('Editar propiedad')).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Administrar contratos' }));
-
-    expect(await screen.findByText('Administración de contratos')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Elegí una organización' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('link', { name: 'Azar · owner' }));
+    expect(await screen.findByText('Contexto Azar')).toBeTruthy();
   });
 });

@@ -89,3 +89,46 @@ For Contract Generation, the service account is required rather than a fallback.
 ## Supabase administrator authentication
 
 Supabase Auth provides password and Google login for pre-reviewed Azar accounts. Open real-data registration is closed, and neither password registration nor Google handoff writes `contract_admin_users`. The browser receives a signed, versioned HttpOnly application cookie; the service-role key is never sent to the browser.
+
+## Supabase private asset storage
+
+`contract-dni`, `contract-evidence`, `property-media`, and any approved branding
+or export bucket must be private. Browser roles may not list, read, overwrite,
+or delete objects directly. The backend issues an upload only for the exact
+organization-prefixed registered target with `upsert: false`, inspects live
+metadata during finalization, and signs view/download only after current domain
+authorization. Bucket MIME/size settings are defense in depth and must be no
+broader than the receiver registry.
+
+Before activation, verify bucket privacy and direct browser denial in a
+disposable project, including cross-organization targets and expired signed
+capabilities. Scanner/content-detector outages follow the receiver's fail-closed
+quarantine policy. Google Drive copies are non-canonical and remain private;
+their ACL/receipt lifecycle belongs to SPEC-32.
+
+## Organization integration provisioning
+
+The SPEC-32 target model uses platform-managed credentials with a distinct
+private Drive parent, separate spreadsheet per purpose, and separate Make
+endpoint/signing secret for every organization. Register only opaque secret
+references and safe destination configuration; do not paste credentials into
+SQL, migrations, tickets, fixtures, or health responses. Google resources have
+no `anyone` permission and are shared explicitly with minimum roles.
+
+Before enablement, a side-effect-free health test verifies the exact Drive
+parent/access, Sheet identity/tab/header/reserved marker columns, or webhook
+TLS/signature acknowledgement. Custom webhook destinations require approved
+HTTPS egress with save-time and connect-time DNS/IP validation and redirect
+revalidation. Automated tests use fake providers; staging uses synthetic,
+distinct Azar/Solar resources and never production credentials/customer data.
+
+The existing direct property adapters and contract Sheet compatibility path do
+not satisfy this boundary. Do not dual-deliver to production. SPEC-34 may remove
+them and the historical fixed trigger only after inventory, parity, stable-ID
+reconciliation, ACL remediation, restore testing, and rollback approval.
+
+SPEC-34 certification records only sanitized provider-destination fingerprints and
+evidence references. It never stores credentials or treats an HTTP success as routing
+proof. Solar staging/production resources must be distinct from Azar, private, tested
+in both directions, and reconciled after restore before workers resume. Repository
+installation creates or modifies no provider resource.

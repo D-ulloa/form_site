@@ -1,6 +1,16 @@
 # Testing Strategy
 
-Status: 2026-08-18.
+Status: 2026-08-19.
+
+SPEC-27 adds `spec27-identity.test.ts` and
+`spec27-migration-contract.test.ts` for 256-bit opaque credentials, independent
+keyed hashes, host-only production cookies, CSRF/exact-Origin enforcement,
+expiry/revocation/rotation shape, session limits, API-key CIDR restrictions,
+current membership and cross-organization denial, forced RLS/grants, and safe
+HTTP bootstrap/logout. Frontend `tenantState.test.ts` proves UUID/epoch-first
+query keys, stale-callback denial, and organization-partitioned draft keys.
+These repository tests do not replace disposable real-Postgres concurrency,
+RLS, Auth, browser multi-tab, proxy, or production-shaped Azar/Solar evidence.
 
 SPEC-25 adds fail-before-side-effect coverage for closed registration and
 unauthenticated property requests, server-derived actor tests, exact-development
@@ -128,3 +138,43 @@ Azar/Solar RLS, composite-FK, cross-scope, append-only, rollback, and query-plan
 tests; then perform isolated full/logical restore exercises. Static tests do not
 substitute for those gates and automated tests must never use production
 providers or state.
+
+## SPEC-31 private asset coverage
+
+`spec31-asset-platform.test.ts` covers organization-prefixed sanitized paths, receiver parity, active/unknown type denial, exact provider metadata and detected MIME verification, state transitions, tenant-first view authorization, property cover/order, safe disposition, and hold/association-aware cleanup. `spec31-migration-contract.test.ts` checks the durable registry/session/intent/receipt/mapping schema, composite contract/property/branding ownership, safe projection, forced RLS/grant removal, scoped idempotent RPC shape, atomic audit/usage evidence, and append-only history. Frontend `assetState.test.ts` covers organization/epoch cache partitioning, stable asset-ID promotion, transient URL removal, stale response rejection, and object-URL revocation.
+
+Before production activation, apply the SPEC-31 migration to disposable Postgres/Supabase Storage. Race two finalizers and association versus cleanup; exercise Azar/Solar composite-FK/RLS attacks, quotas, reissue/revoke/expiry, missing/replaced/mismatched objects, scanner outage/quarantine, private direct list/read/delete denial, idempotent deletion receipts, restore tombstones/holds, and multi-instance behavior. Use generated non-sensitive fixtures only. Static SQL tests and mocked Storage do not certify provider behavior.
+
+## SPEC-32 integration/outbox coverage
+
+`spec32-integrations.test.ts` covers the provider registry, masked projections,
+organization-bound secret AAD, transient secret cleanup, SSRF IP/DNS cases,
+bounded exact-body signing, cross-tenant provider guards, private Drive ACLs,
+Sheet receipts, delivery transitions/backoff, and zero/one/multiple reconciliation.
+Migration tests cover all seven relations, composite ownership, indexes,
+append-only evidence, deny-by-default grants, deterministic fanout, fair leased
+claims, and token/version transitions. Frontend tests cover tenant cache keys,
+stale responses, secret canaries, and write-only clearing.
+
+Before activation, apply through SPEC-32 to disposable Postgres and race claims,
+lease expiry, disable/rotation, and manual retry. Use distinct synthetic
+Azar/Solar folders, Sheets, receivers, secrets, and credentials; test direct-ID,
+timeout-before/after-commit, redirect/rebinding, duplicate markers, provider
+outage, and restore reconciliation. Automated tests must use fakes and never a
+production provider or credential.
+
+## SPEC-34 migration and release coverage
+
+`spec34-migration-control-plane.test.ts` covers manifest identity, feature/threshold
+gates, deterministic fingerprints, quarantine-first disposition, legal holds,
+non-waivable certification, approvals, and Solar containment. The migration contract
+test checks the restricted durable evidence model, idempotency, append-only records,
+artifact binding, forced RLS, and ordinary-role grant removal. Frontend
+`rolloutState.test.ts` covers organization/epoch/certification partitioning, closed
+responses, stale rejection, and disabled-route behavior.
+
+These are static/additive checks. Release evidence must also apply the complete migration
+chain to empty and production-shaped disposable databases; interrupt/resume/rerun
+backfills; exercise Azar/Solar RLS, identifiers, assets, providers, caches, sessions,
+workers, restore, rollback, ambiguity, and performance; and compare distinct staging
+destinations. Automated suites never use production tenants, data, or credentials.

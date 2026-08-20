@@ -1,12 +1,12 @@
 # SPEC-28 acceptance traceability
 
-Status: repository evidence recorded 2026-08-18. SPEC-27 activation,
+Status: repository evidence recorded 2026-08-18. SPEC-27 repository activation is complete;
 disposable real-database certification, provider configuration, restore drills,
 alert exports, and multidisciplinary approval remain open.
 
 | Acceptance criteria | Implementation evidence | Automated/operational evidence | Status |
 |---|---|---|---|
-| 1–2 prerequisites and invariants | SPEC-25/26 docs; SPEC-27 contract; SPEC-28 | Review/sign-off | SPEC-27 implementation and named approvals pending |
+| 1–2 prerequisites and invariants | SPEC-25/26 docs; SPEC-27 implementation; SPEC-28 | Review/sign-off | Named approvals and production evidence pending |
 | 3–5 ownership, composite constraints, indexes/plans | SPEC-28 migration shared patterns | Migration contract test | Static pass; representative real plans pending |
 | 6–7 scoped repositories/RPCs/returned scope | `platform/scope.ts`, platform repository | Platform-control unit tests | Shared layer pass; domain adoption pending |
 | 8–10 safe functions, RLS, service-role containment | migration; service-role factory; architecture standard | Migration/architecture tests | Static pass; real DB and legacy constructor retirement pending |

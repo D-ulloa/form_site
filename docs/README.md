@@ -1,6 +1,6 @@
 # Documentation Index
 
-Status: 2026-08-18.
+Status: 2026-08-19.
 
 This repository uses a structured documentation layout under `docs/`.
 The top-level files are intentionally minimized in favor of numbered folders that preserve reading order.
@@ -18,6 +18,10 @@ The top-level files are intentionally minimized in favor of numbered folders tha
   - `usage.md` — user and API usage patterns.
   - `runtime-files.md` — runtime artifacts, logs, and build outputs.
   - `spec28-platform-controls-recovery-and-incidents.md` — staged deployment, recovery, alerts, and six incident playbooks.
+  - `spec31-private-assets-runbook.md` — private asset operation and recovery boundary.
+  - `spec32-integrations-outbox-runbook.md` — organization-scoped provider/outbox operation.
+  - `spec33-commercial-extension-framework.md` — fail-closed optional-module operation.
+  - `spec34-migration-cutover-and-solar-runbook.md` — migration evidence, certification, containment, and Solar gates.
 - `05-integrations/`
   - `api-contracts.md` — property and Contract Generation API request/response contracts and integration boundaries.
 - `06-testing/`
@@ -32,11 +36,10 @@ The top-level files are intentionally minimized in favor of numbered folders tha
   - `audits/README.md`
   - `decisions/README.md`
 
-The roadmap currently includes staged repository implementations for the
-SPEC-25 containment boundary, SPEC-26 organization governance, and SPEC-28
-shared platform controls. Their pending status records outstanding approvals,
-real-database/recovery evidence, and the block on Solar—not missing repository
-artifacts.
+The roadmap currently includes staged repository implementations for SPEC-25,
+SPEC-26, and SPEC-28 through SPEC-34. Their pending status records outstanding
+dependencies, approvals, real-database/provider/recovery evidence, and the block
+on Solar real data—not missing repository scaffolding.
 
 ## Existing project docs
 

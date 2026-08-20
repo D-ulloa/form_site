@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-18
 **Priority:** critical, prerequisite for every authenticated multi-tenant domain
-**Status:** pending policy approval and prerequisite implementation
+**Status:** implemented in repository; policy approval, real-database certification, and SPEC-34 compatibility cutover pending
 **Roadmap identifier:** MT-SPEC-03
 **Dependencies:** MT-SPEC-01 and MT-SPEC-02
 **Blocks:** authenticated implementation of MT-SPEC-04 through MT-SPEC-10
@@ -619,4 +619,3 @@ Closure evidence includes schema/migration fingerprints, cookie/CSRF/origin revi
 MT-SPEC-03 is complete only when the revocable opaque-session flow, current membership/organization validation, canonical typed contexts/middleware, API namespace/error/pagination conventions, scoped machine/link boundaries, optional support deny-by-default boundary, protected frontend tenant routing, switch/cache/draft isolation, and compatibility retirement plan are implemented, documented, and tested.
 
 It remains pending until real-database and frontend tests prove Azar and Solar sessions, roles, keys, links, cursors, caches, drafts, in-flight responses, and optional support grants cannot cross organizations, and SPEC-34 proves old global sessions/principals are invalidated before Solar stores real data.
-

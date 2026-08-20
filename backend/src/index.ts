@@ -5,6 +5,22 @@ import propertiesRouter from './routes/properties.js';
 import contractsRouter from './routes/contracts.js';
 import contractEntriesRouter from './routes/contractEntries.js';
 import contractPasswordAuthRouter from './routes/contractPasswordAuth.js';
+import { createIdentityRepository } from './identity/identityRepository.js';
+import { createOrganizationRouteContextResolver } from './identity/organizationContextResolver.js';
+import { SessionService } from './identity/sessionService.js';
+import { approvedOrigins, validateIdentityEnvironment } from './identity/sessionSecurity.js';
+import { createSupabaseIdentityProvider } from './identity/supabaseIdentityProvider.js';
+import { MembershipService } from './organizations/membershipService.js';
+import {
+  createMembershipMutationRepository, createOrganizationGovernanceRepository,
+  createOrganizationSettingsRepository,
+} from './organizations/organizationRepository.js';
+import { DisabledInvitationDeliveryAdapter, OrganizationService } from './organizations/organizationService.js';
+import { OrganizationSettingsService } from './organizations/organizationSettingsService.js';
+import { createOrganizationGovernanceRouter } from './routes/organizationGovernance.js';
+import {
+  createIdentityRouter, createOrganizationContextRouter, createTenantMutationSecurity,
+} from './routes/identity.js';
 import {
   parseTrustProxyHops,
   validateContainmentEnvironment,
@@ -13,12 +29,17 @@ import { requestIdMiddleware } from './platform/requestId.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
+validateIdentityEnvironment(process.env);
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 const trustProxyHops = parseTrustProxyHops(process.env.TRUST_PROXY_HOPS);
+const allowedOrigins = approvedOrigins(process.env);
 const corsOrigin = process.env.NODE_ENV === 'production'
-  ? process.env.CONTRACT_PUBLIC_BASE_URL?.trim() || false
+  ? (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      if (!origin || !allowedOrigins.has(origin)) callback(new Error('CORS origin denied.'));
+      else callback(null, true);
+    }
   : true;
 
 if (trustProxyHops > 0) {
@@ -43,10 +64,28 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+const identityRepository = createIdentityRepository(process.env);
+const sessionService = new SessionService(identityRepository, process.env);
+const contextResolver = createOrganizationRouteContextResolver(sessionService);
+const governanceRepository = createOrganizationGovernanceRepository(process.env);
+const governanceServices = {
+  organizations: new OrganizationService(governanceRepository, new DisabledInvitationDeliveryAdapter()),
+  memberships: new MembershipService(createMembershipMutationRepository(process.env)),
+  settings: new OrganizationSettingsService(createOrganizationSettingsRepository(process.env)),
+};
+
+app.use('/api/auth', createIdentityRouter(
+  sessionService, createSupabaseIdentityProvider(process.env), process.env,
+));
+app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
+app.use('/api', createTenantMutationSecurity(sessionService, process.env),
+  createOrganizationGovernanceRouter(contextResolver, governanceServices,
+    process.env.CONTRACT_PUBLIC_BASE_URL?.trim() ?? 'https://invalid.example'));
+
 app.use('/properties', propertiesRouter);
 app.use('/api/contracts', contractEntriesRouter);
 app.use('/api/contracts', contractsRouter);
-app.use('/api/auth', contractPasswordAuthRouter);
+app.use('/api/legacy-auth', contractPasswordAuthRouter);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

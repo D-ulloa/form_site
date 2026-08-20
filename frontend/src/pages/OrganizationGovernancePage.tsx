@@ -1,18 +1,17 @@
-import { useParams } from 'react-router-dom';
-import type { GovernanceSection } from '../features/organizations/components/OrganizationGovernancePanel';
+import { OrganizationGovernancePanel, type GovernanceSection } from '../features/organizations/components/OrganizationGovernancePanel';
+import { useOrganization } from '../app/contexts/OrganizationContext';
+import { createOrganizationInvitation } from '../features/organizations/services/organizationApi';
+import type { OrganizationCapability } from '../features/organizations/types';
 
 interface OrganizationGovernancePageProps { section: GovernanceSection }
 
 export function OrganizationGovernancePage({ section }: OrganizationGovernancePageProps) {
-  const { organizationSlug } = useParams();
-  return (
-    <main className="min-h-dvh grid place-items-center px-6">
-      <section className="surface max-w-xl rounded-2xl p-7" aria-labelledby="staged-title">
-        <p className="text-sm text-indigo-300">{organizationSlug} · {section}</p>
-        <h1 id="staged-title" className="mt-2 text-2xl font-semibold">Contexto de organización requerido</h1>
-        <p className="mt-4 text-slate-400">Esta pantalla está preparada, pero permanece cerrada hasta que la sesión revocable de SPEC-27 valide la organización y la membresía en el servidor.</p>
-      </section>
-    </main>
-  );
+  const context = useOrganization();
+  const governanceCapabilities = context.capabilities.filter((capability): capability is OrganizationCapability =>
+    capability.startsWith('organization.') || capability.startsWith('members.'));
+  return <OrganizationGovernancePanel section={section} context={{
+    organization_id: context.organization.id, organization_slug: context.organization.slug,
+    display_name: context.organization.display_name, status: context.organization.status,
+    plan_key: 'server_confirmed', role: context.membership.role, capabilities: governanceCapabilities,
+  }} onInvite={async (input) => { await createOrganizationInvitation(context.organization.id, input); }} />;
 }
-

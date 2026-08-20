@@ -21,6 +21,7 @@ export function GoogleAuthCallbackPage() {
     void completeGoogleLogin()
       .then(() => {
         clearContractAdminQueryCache(queryClient);
+        window.dispatchEvent(new Event('form-site-auth-refresh'));
         navigate('/', { replace: true });
       })
       .catch((caughtError) => {

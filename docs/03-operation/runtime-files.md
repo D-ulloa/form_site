@@ -12,6 +12,7 @@ Status: 2026-08-18.
 - Supabase `audit_events` and `usage_events` — staged append-only SPEC-28 organization evidence.
 - Supabase organization/platform limiter buckets, quota snapshots/reservations, and `platform_jobs` — staged shared operational authority; never replaced by local files in a multi-tenant path.
 - Supabase `deletion_tombstones` and `recovery_evidence` — restricted append-only restore gates.
+- Supabase `media_assets`, `asset_upload_sessions`, `asset_upload_intents`, owner associations, deletion receipts, and migration mappings — canonical SPEC-31 private-file authority. Bucket/path fields are internal only.
 
 - `backend/logs/` — default local JSON location for property submissions and successful contract appends.
 - `CONTRACT_AUDIT_LOGS_DIR` — optional contract-only audit location. The logger resolves it at call time for both persistence and retrieval; blank or unset falls back to `backend/logs`.
@@ -45,6 +46,8 @@ For an explicitly enabled reviewed gateway or exact-development authentication, 
 - The contract logger creates the selected audit directory recursively. Configure a writable absolute mount path; changing the environment variable only selects a path.
 - Contract audits are available only through the authenticated audit API; the logs directory is not served statically.
 - Current contract submission JSON persists stable private media metadata. Signed upload URLs and ten-minute administrator view URLs are transient and are never stored in the contract tables.
+- New SPEC-31 writes persist asset IDs instead of raw bucket/path references. Legacy contract JSON remains immutable Azar-only compatibility evidence until registered or quarantined by SPEC-34.
+- Signed asset upload/view/download URLs are response-only, memory-only values. They never belong in runtime files, query persistence, audits, logs, analytics, or backup manifests.
 - A direct evidence upload that succeeds before a final role submission fails can remain unreferenced in Storage. Only references accepted into immutable submission JSON are exposed through administrator inspection.
 - Local disk is not durable on many serverless and container deployments. Production must use a mounted persistent volume or forward audit records to durable storage. A successful Sheet append followed by a disk failure requires operational reconciliation because the append cannot be rolled back.
 - `CONTRACT_AUDIT_LOGS_DIR` does not make Vercel's ephemeral filesystem durable. A Vercel path may disappear between instances or deployments even when the variable is stable; use an external durable store there.
@@ -52,3 +55,5 @@ For an explicitly enabled reviewed gateway or exact-development authentication, 
 - Audit `ip` is the normalized Express `req.ip`. Configure `TRUST_PROXY_HOPS` only for known proxies; otherwise keep it at `0`.
 - Legacy frontend agent metadata may remain in localStorage via `AgentContext`, but no property/contract authorization or attribution reads it.
 - SPEC-28 export/backup artifacts must be encrypted, expiring, inventoried, and stored outside public buckets. Manifests contain checksums and encryption references, never plaintext secrets. Restored jobs and external intents remain paused until provider reconciliation.
+- SPEC-32 secret material is not a runtime file. Application persistence/backups contain only versioned opaque secret-store references and safe fingerprints; external key/secret recovery is separate. Outbox payloads are minimized, while delivery attempts store safe fingerprints/status/classes rather than raw requests or provider bodies.
+- SPEC-34 manifests and result artifacts are restricted evidence, not application runtime files. Keep them outside the repository and public buckets; include sanitized references/fingerprints only. Migration checkpoints are durable database state, never process-local files.

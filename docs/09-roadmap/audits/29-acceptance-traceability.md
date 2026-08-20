@@ -16,7 +16,7 @@ Status: additive implementation evidence, 2026-08-18. Final completion remains o
 
 ## Deferred owning-spec gates
 
-- SPEC-27: canonical session/API-key/support/link request-context middleware and organization route mounting.
+- SPEC-27 repository gate is satisfied: canonical revocable member/API-key context and tenant frontend routing exist; SPEC-34 owns the final legacy contract route switch and old-principal rejection.
 - SPEC-31: shared asset foreign key, upload finalization, verified association, retention, and signed media.
 - SPEC-32: provider secrets, outbox claiming, Google/Make routing, generated-document delivery, and provider receipts.
 - SPEC-34: Azar ownership/template/link/revision/file backfill, quarantine, non-null validation, legacy token-column removal, route switch, Solar enablement, and adversarial certification.

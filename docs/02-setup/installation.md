@@ -64,3 +64,4 @@ npm run typecheck
 - `backend/package.json` controls the Express API, TypeScript build, and dev runner.
 - The backend is configured as an ES module project and relies on `dotenv` for environment variables.
 - The frontend uses an API prefix of `/_/backend` in production, while development uses a relative root path.
+- SPEC-34 manifests live in approved restricted storage, not this checkout. Validate one with `npm --prefix backend run spec34:validate-manifest -- /restricted/path/manifest.json`; this does not execute a migration or authorize Solar.

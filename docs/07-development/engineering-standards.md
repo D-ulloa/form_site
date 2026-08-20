@@ -65,9 +65,38 @@ Status: 2026-08-18.
 - Use the distributed limiter policy registry for new protected actions. Process-local maps are forbidden as production authority.
 - Use bounded, filter-bound opaque cursors and SQL filtering. Never fetch a global collection and filter it in application code.
 - Jobs carry organization scope and idempotency, use fair claims and bounded retry/dead-letter behavior, and stay paused after restore until reconciliation.
+- Provider adapters require an immutable organization/integration execution context; they may not read global routing variables or silently change credential mode.
+- Write domain intent and a bounded, allowlisted outbox event in one transaction. Make provider calls only after commit and outside database locks.
+- Treat a timeout, thrown call, or expired in-call lease as ambiguous. Reconcile by stable provider marker before retry; never retry by recreating a revision or asset.
+- Keep integration secrets write-only and externally referenced. Decrypt only in the adapter boundary, bind envelope AAD to organization/integration/type/version, and exclude secret refs, raw bodies, private paths, and full endpoint URLs from ordinary projections/telemetry.
+- Validate custom webhook HTTPS, port, every DNS answer, connect-time address, redirects, response size, and timeouts. Organization-specific exact-body signatures and receiver event-ID dedupe are mandatory for automatic ambiguous retries.
 
 ## Documentation expectations
 
 - Keep `docs/prd.md` as the source of property-workflow scope decisions; use SPEC-10 through SPEC-19 and the numbered canonical docs for Contract Generation behavior.
 - Use the numbered `docs/` structure for new canonical docs.
 - Add implementation notes to the appropriate numbered folder rather than to root-level `docs/` files.
+
+## Private asset standards
+
+- Use `media_assets` plus an explicit owner association as authority. Asset UUID, bucket, path, signed URL, filename, and legacy agent metadata are never authorization.
+- New object paths are server-generated under `organizations/{organization_uuid}/...`; browser payloads and ordinary projections contain stable asset/session/intent IDs, not bucket/path/checksum values.
+- Validate the versioned receiver registry before reserving quota or signing. Finalization must inspect the exact registered provider object and compare bytes plus allowed provider/detected MIME and required checksum before attachment.
+- Keep every Storage bucket private. Signed capabilities are short-lived, memory-only, redacted, and issued only after current owner/capability checks.
+- Cleanup must recheck association, legal hold, retention, state, and version immediately before exact-object deletion and append a deletion receipt. Never enumerate or delete from a caller-provided prefix.
+- Until SPEC-27/34 cutover, legacy upload services are compatibility targets only. Do not extend the process-local `mediaUploadSessionService` or raw `{storageBucket, storagePath}` contract.
+
+## Migration and release standards
+
+- Treat a migration manifest as immutable, restricted input. Validate fixed identities,
+  revisions, feature selection, thresholds, and approvals; keep all secret/customer
+  material out of it and retain its canonical fingerprint.
+- Inventory before assignment. Azar requires reviewed ownership evidence and an approved
+  rule; ambiguity is quarantine, never a global/null-owner fallback.
+- Make batches resumable through durable checkpoints and source fingerprints. Preserve
+  source-to-canonical mappings append-only and reconcile external ambiguity before retry.
+- Core isolation validation cannot be waived. A certification binds the exact build,
+  schema, worker/frontend versions, flags, fixture, providers, results, monitoring,
+  thresholds, exceptions, and approvals.
+- Solar advances only through the recorded stage machine. A boundary or wrong-destination
+  incident requires containment, and rollback must retain organization enforcement.

@@ -1,0 +1,1 @@
+{"version":3,"file":"organizationContextResolver.d.ts","sourceRoot":"","sources":["../../src/identity/organizationContextResolver.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,gCAAgC,EAAE,MAAM,qCAAqC,CAAC;AAC5F,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,qBAAqB,CAAC;AAO1D,wBAAgB,sCAAsC,CAAC,OAAO,EAAE,cAAc,GAAG,gCAAgC,CAahH"}

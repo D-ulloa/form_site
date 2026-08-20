@@ -123,10 +123,19 @@ fail closed. Browser database roles have no governance-table access; RLS is
 enabled without browser policies.
 
 These tables do not alter current contract/property ownership. No Azar or Solar
-row is created by SPEC-26. Protected organization endpoints remain unmounted
-until SPEC-27 supplies revocable sessions and a server-validated organization
-context. The `/t/:organizationSlug/settings/*` pages therefore render a staged
-closed state; the slug is never treated as authorization.
+row is created by SPEC-26. SPEC-27 now mounts governance endpoints behind a
+revocable opaque application session, current organization/membership lookup,
+capability evaluation, exact Origin, and CSRF validation. The protected
+`/t/:organizationSlug/*` frontend resolves the slug through the server and uses
+the returned immutable organization UUID for context, cache, draft, and epoch
+boundaries; the slug is never treated as authorization.
+
+SPEC-27 stores only keyed session/API-key hashes, keeps role and organization
+authority out of cookies, revalidates current membership on protected requests,
+and keeps support disabled by default. The historical signed administrator
+cookie, global API key, trusted identity header, and legacy contract/property
+routes remain Azar-only compatibility surfaces pending SPEC-34 migration and
+removal; they are not organization authority and cannot authorize Solar.
 
 ## Staged shared platform-control boundary
 
@@ -155,3 +164,43 @@ metadata-only provider intents. PostgreSQL is canonical; Drive, Sheets, Make,
 local logs, and browser navigation state are projections or compatibility
 evidence. This additive schema is not mounted through the legacy property
 authority before SPEC-27/31/32/34 gates pass.
+
+SPEC-31 adds the shared private-file boundary. `media_assets` is canonical for
+organization ownership and provider identity; durable upload sessions/intents
+bind one trusted principal, owner, receiver, and exact generated object. Domain
+tables—not a polymorphic path—associate verified assets with contract revisions,
+property revisions, branding, or exports. New paths start with the immutable
+organization UUID, while ordinary projections omit bucket, path, checksum, and
+signed capabilities. All Storage buckets remain private.
+
+The backend asset registry, receiver policies, state/verification rules, scoped
+repository, and provider adapter live under `backend/src/assets/`. The browser
+stores stable asset IDs and organization/epoch-partitioned state under
+`frontend/src/features/assets/`; upload/view URLs remain transient memory-only
+capabilities. This additive boundary does not mount routes or migrate objects:
+SPEC-27 supplies trusted request context, SPEC-32 owns exported copies, and
+SPEC-34 certifies Azar registration/cutover before Solar.
+
+SPEC-32 adds the provider projection boundary. Domain transactions write
+immutable, minimized `outbox_events`; deterministic fanout resolves only active
+integrations owned by that event's organization. Stateless workers use fair
+organization scheduling, atomic leases, fixed credential/configuration versions,
+append-only attempts, stable external-resource markers, bounded retry, and
+reconciliation before any resend after an ambiguous outcome. Secrets remain in
+an external store (or approved envelope boundary), Drive resources are private,
+Sheets are organization-separated, and webhook destinations/signatures are
+organization-specific. The boundary is additive and unmounted until SPEC-27;
+SPEC-34 owns provider inventory and legacy direct-call/trigger cutover.
+
+SPEC-34 adds a restricted migration and release evidence plane under the
+`migration_control` schema. It records immutable source mappings, validation,
+artifact-bound certification, and Solar rollout decisions without granting normal
+application authority. Backend helpers validate fixed distinct Azar/Solar identity,
+quarantine ambiguous inventory, forbid core-isolation waivers, and gate real-data
+stages on exact certification. The browser consumes only a closed feature projection
+partitioned by organization, context epoch, and certification fingerprint.
+
+This is an additive framework, not a production cutover. No Azar/Solar organization,
+customer mapping, external destination, feature enablement, or release certification
+is seeded by repository migration. Those actions require reviewed manifests,
+production-shaped rehearsal, real-database/provider evidence, and named approval.

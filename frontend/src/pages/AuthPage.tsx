@@ -128,6 +128,7 @@ export function AuthPage({ mode }: AuthPageProps) {
         await loginAdmin({ email, password, rememberMe });
       }
       clearContractAdminQueryCache(queryClient);
+      window.dispatchEvent(new Event('form-site-auth-refresh'));
       navigate('/', { replace: true });
     } catch (caughtError) {
       const authError = caughtError as AdminAuthError;

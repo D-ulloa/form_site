@@ -275,11 +275,29 @@ The server validates each stored evidence reference before signing it. Evidence 
 
 ## Authentication endpoints
 
-- `POST /api/auth/register` — returns `403 REGISTRATION_CLOSED` in real-data modes; an explicit synthetic local fixture may create an account but never grants administrator access.
-- `POST /api/auth/login` — validates a pre-reviewed email/password account and sets the versioned signed HttpOnly cookie.
-- `POST /api/auth/google/session` — validates a Google token and an existing reviewed grant without writing one, then sets the same cookie.
-- `GET /api/auth/session` — returns the current authenticated application session.
-- `POST /api/auth/logout` — clears the application session cookie.
+- `POST /api/auth/register` — returns `403 REGISTRATION_CLOSED`; synthetic accounts are created only through isolated test fixtures, never this runtime route.
+- `POST /api/auth/login` — validates Supabase identity without granting organization authority and creates a server-side revocable opaque session.
+- `POST /api/auth/google/session` — validates a Google token and creates the same opaque application-session boundary without automatic membership.
+- `GET /api/auth/session` — returns safe user, device-session, and current membership summaries with `no-store`; it returns no cookie, token hash, role assertion, or secret.
+- `GET /api/auth/sessions` — lists safe device-session metadata for the current user.
+- `POST /api/auth/sessions/rotate` — atomically revokes the predecessor and issues new session and CSRF cookies.
+- `POST /api/auth/sessions/revoke-others` — revokes the user's other active sessions.
+- `POST /api/auth/logout` — revokes the current server-side session and clears both cookies.
+- `POST /api/auth/password/reset/request` — returns the same accepted response for known and unknown accounts; Supabase performs the approved reset delivery.
+- `POST /api/auth/password/change` and `POST /api/auth/email/change` — require current opaque session, exact Origin, CSRF, and `aal2`; successful changes revoke other sessions.
+
+Cookie-authenticated mutations require an exact allowed `Origin`, the readable
+same-origin CSRF cookie, and an equal `X-CSRF-Token` header whose keyed hash
+matches the session row. Production session cookies use the `__Host-` prefix,
+`Secure`, `HttpOnly`, `Path=/`, and `SameSite=Lax`. Authentication failures do
+not fall back to legacy headers or global keys.
+
+`GET /api/organizations/:organization/context` resolves either a UUID or routing
+slug, reloads the active membership and organization, and returns the immutable
+UUID, current role/state, and effective capability summary. Governance and API
+key endpoints use UUID paths and repeat this server-side context check. Raw API
+keys are returned once at issuance; later reads expose metadata only. API-key
+issuance requires `integrations.manage` and an `aal2` session.
 
 ## Legacy SPEC-09 contract endpoint authorization
 
@@ -480,3 +498,54 @@ Invitation links use
 `/invitations/accept#invitation_token=<one-time-token>`. The frontend removes
 the fragment immediately, retains the token only in memory, and sends it in a
 JSON body. Persisted rows contain only the SHA-256 hash.
+
+## SPEC-31 private asset API contract (staged)
+
+SPEC-31 reserves organization-scoped upload-session and asset routes under
+`/api/organizations/:organization_id`. Initialization accepts owner ID,
+receiver descriptors, filename, declared MIME/bytes, and optional checksum; it
+never accepts organization, bucket, or object-path authority in JSON. The
+immediate response contains `upload_session_id`, `asset_id`,
+`upload_intent_id`, an expiring `upload_url`, and required headers. Only stable
+IDs survive upload.
+
+Finalization accepts the session version and stable IDs. The backend reads the
+registered object from private Storage and verifies its exact path, bytes,
+provider/detected MIME, and required checksum before marking it verified.
+View/download endpoints reauthorize the current principal and exact owner, then
+return a very short-lived URL or safe proxy response. Asset metadata responses
+omit bucket, path, checksum, provider errors, and internal retention details.
+
+Cross-organization session/owner/asset IDs return generic `404`. Invalid
+receivers/MIME use safe `400` codes, stale/consumed state uses `409`, oversized
+files use `413`, quarantine/lifecycle locks use disclosure-safe `423`, limits
+use `429`, and unverifiable Storage/detection uses `503`. These routes remain
+available only through the SPEC-27 trusted context boundary; provider activation
+and production cutover remain SPEC-32/SPEC-34 gates.
+
+## SPEC-32 integration and delivery API contract (staged)
+
+Organization integration list/detail responses contain provider, purpose,
+state, configuration version, masked destination, safe health/error class,
+timestamps, version, and allowed actions only. Secret plaintext/ciphertext,
+usable secret references, credential JSON, full endpoint URL, private provider
+paths/IDs, raw bodies, and event payloads are forbidden response fields.
+
+Lifecycle endpoints reserve create/update/test/enable/disable/rotate/disconnect;
+delivery endpoints reserve list/detail/retry/reconcile under
+`/api/organizations/:organization_id`. They require SPEC-27 trusted context,
+`integrations.read` or `integrations.manage`, optimistic version, step-up/rate
+policy where applicable, and audit. Cross-organization identifiers return a
+generic `404`; stale state/version returns `409`; suspension/disabled work uses
+`423`; limits use `429`; safe dependency failure uses `503`. Health tests are
+read-only/no-customer-payload. These routes are intentionally unmounted in the
+additive implementation.
+
+## SPEC-34 migration and rollout contracts
+
+There is no public migration/certification API. The `migration_control` schema is
+unavailable to browser roles, and a future operator API requires separately reviewed
+least-privileged functions. Browser rollout responses contain only `feature_key` and
+`state`, where state is `disabled` or `certified_enabled`; provider destinations,
+test evidence, exceptions, approvals, thresholds, and certification internals are
+never response fields. Missing, malformed, stale, or mismatched state denies access.

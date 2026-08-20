@@ -72,3 +72,6 @@ This repository implements two internal workflows in an admin-style web applicat
 - `backend/src/config/`: authoritative contract schema registry and role-specific projections.
 - `backend/src/services/`: contract entry/token persistence, submission orchestration, validation, Drive/Sheets/Make integration, and log persistence.
 - `backend/logs/`: property and legacy SPEC-09 JSON records; current contract records live in Supabase.
+- `backend/src/migration/`: SPEC-34 manifest validation, quarantine-first inventory decisions, release certification, and Solar rollout gates.
+- `frontend/src/features/migration/`: safe certification-bound Solar feature state; it contains no provider or migration evidence.
+- `migration_control` Supabase schema: restricted migration runs, inventory, mappings, validation, certifications, and rollout events.

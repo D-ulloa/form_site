@@ -25,7 +25,7 @@ The 34 invariants map to these enforced groups:
 
 ## Deferred owning-spec gates
 
-- SPEC-27: canonical organization request context, route middleware, organization switching, and endpoint mounting.
+- SPEC-27 repository gate is satisfied: canonical organization context, middleware, switching, and tenant route boundary exist; SPEC-34 owns final legacy property route cutover.
 - SPEC-31: shared asset FK, private upload/finalization, verification, signing, retention, and cross-draft tests.
 - SPEC-32: organization credentials/configuration, outbox worker, provider delivery/receipt/reconciliation, and suspension gates.
 - SPEC-34: legacy property/log/provider/asset inventory, Azar assignment/quarantine, final non-null certification, route cutover, Solar enablement, restore/export evidence, and approvals.

@@ -50,10 +50,12 @@ test('SPEC-26 bootstrap and acceptance functions are atomic and unavailable to b
   assert.match(sql, /spec26_update_organization_settings/u);
 });
 
-test('SPEC-26 protected router remains unmounted from the legacy administrator boundary', async () => {
+test('SPEC-26 protected router is mounted only behind the SPEC-27 revocable context boundary', async () => {
   const index = await readFile(new URL('../../src/index.ts', import.meta.url), 'utf8');
   const stagedRouter = await readFile(new URL('../../src/routes/organizationGovernance.ts', import.meta.url), 'utf8');
-  assert.doesNotMatch(index, /organizationGovernance/u);
+  assert.match(index, /createTenantMutationSecurity/u);
+  assert.match(index, /createOrganizationRouteContextResolver/u);
+  assert.match(index, /createOrganizationGovernanceRouter/u);
   assert.match(stagedRouter, /resolveOrganizationActor/u);
   assert.match(stagedRouter, /actor\.organization\.id !==/u);
   assert.match(stagedRouter, /Cache-Control': 'no-store'/u);

@@ -6,7 +6,7 @@ Status: additive implementation; production enablement remains gated by SPEC-27,
 
 Every draft, property, revision, run, step, event, asset association, and provider intent is selected by immutable `organization_id`. Slugs, property codes, addresses, creator IDs, assignees, legacy `agent_*` fields, storage paths, and provider identifiers never establish ownership. Service-role repositories include an organization predicate and reject a returned row from another organization.
 
-Do not mount the organization property router or enable Solar until SPEC-27 supplies trusted request contexts, SPEC-31 supplies verified private assets, SPEC-32 supplies organization integration configuration and workers, and SPEC-34 certifies legacy ownership/quarantine.
+SPEC-27 now supplies trusted request contexts. Do not activate the organization property data path or enable Solar until SPEC-31 supplies verified private assets, SPEC-32 supplies organization integration configuration and workers, and SPEC-34 certifies legacy ownership/quarantine and route cutover.
 
 ## Draft and conflict response
 

@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { ContractEntryModal } from '../features/contracts/components/ContractEntryModal.tsx';
-import {
-  fetchAdminSession,
-  logoutAdmin,
-  type AdminSession,
-} from '../features/contracts/services/adminAuthApi.ts';
+import { useAuthentication } from '../app/contexts/AuthenticationContext.tsx';
+import { useOptionalOrganization } from '../app/contexts/OrganizationContext.tsx';
 import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 
 type Action = 'property' | 'contract';
@@ -47,19 +44,12 @@ function AuthEntry() {
 export function ActionSelectionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const authentication = useAuthentication();
+  const organizationContext = useOptionalOrganization();
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractUserId, setContractUserId] = useState<string | undefined>();
-  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
 
-  useEffect(() => {
-    void fetchAdminSession()
-      .then(setAdminSession)
-      .catch(() => setAdminSession(null))
-      .finally(() => setSessionChecked(true));
-  }, []);
-
-  if (!sessionChecked) {
+  if (authentication.status === 'loading' || authentication.status === 'unavailable') {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] text-sm text-slate-400" role="status">
         Comprobando sesión…
@@ -67,11 +57,33 @@ export function ActionSelectionPage() {
     );
   }
 
-  if (!adminSession) return <AuthEntry />;
+  if (!authentication.session) return <AuthEntry />;
+  const authenticatedSession = authentication.session;
+
+  if (!organizationContext) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] px-6 py-16">
+        <section className="surface-elevated w-full max-w-lg rounded-2xl p-8">
+          <h1 className="text-2xl font-bold text-slate-100">Elegí una organización</h1>
+          <p className="mt-2 text-sm text-slate-400">La selección se valida nuevamente en el servidor.</p>
+          <div className="mt-6 grid gap-3">
+            {(authenticatedSession.memberships ?? []).length === 0 ? (
+              <p className="rounded-xl border border-white/10 p-4 text-sm text-slate-400">No tenés membresías activas. Aceptá una invitación para continuar.</p>
+            ) : (authenticatedSession.memberships ?? []).map((membership) => (
+              <Link key={membership.membership_id} to={`/t/${membership.organization_slug}`}
+                className="rounded-xl border border-white/10 p-4 text-sm text-slate-200 hover:border-indigo-400/50">
+                {membership.organization_display_name} · {membership.role}
+              </Link>
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const runAction = (action: Action, userId?: string) => {
     if (action === 'property') {
-      navigate('/properties/new');
+      navigate(`/t/${organizationContext.organization.slug}/properties/new`);
       return;
     }
 
@@ -80,7 +92,7 @@ export function ActionSelectionPage() {
   };
 
   const handleAction = (action: Action) => {
-    runAction(action, adminSession.user.id);
+    runAction(action, authenticatedSession.user.id);
   };
 
   return (
@@ -100,13 +112,12 @@ export function ActionSelectionPage() {
             type="button"
             className="text-xs text-slate-400 transition-colors hover:text-white"
             onClick={() => {
-              void logoutAdmin().then(() => {
+              void authentication.logout().then(() => {
                 clearContractAdminQueryCache(queryClient);
-                setAdminSession(null);
               });
             }}
           >
-            {adminSession.user.email} · Cerrar sesión
+            {authenticatedSession.user.email} · Cerrar sesión
           </button>
         </div>
       </header>
@@ -209,7 +220,7 @@ export function ActionSelectionPage() {
             type="button"
             id="btn-admin-contracts"
             aria-label="Administrar contratos"
-            onClick={() => navigate('/contracts/admin')}
+            onClick={() => navigate(`/t/${organizationContext.organization.slug}/contracts/admin`)}
             className="group mt-3 w-full surface rounded-2xl p-6 text-left transition-all duration-200 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5 cursor-pointer"
           >
             <div className="flex items-start gap-5">

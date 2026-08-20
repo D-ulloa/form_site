@@ -5,7 +5,25 @@ import type {
   OrganizationMemberSummary,
 } from '../types';
 
-const api = axios.create({ baseURL: '/api', withCredentials: true });
+const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
+const api = axios.create({ baseURL: `${API_PREFIX}/api`, withCredentials: true });
+api.interceptors.request.use((config) => {
+  const method = config.method?.toUpperCase() ?? 'GET';
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const match = document.cookie.split(';').map((value) => value.trim())
+      .find((value) => value.startsWith('form_site_csrf='));
+    if (match) config.headers.set('X-CSRF-Token', decodeURIComponent(match.slice('form_site_csrf='.length)));
+  }
+  return config;
+});
+
+export async function createOrganizationInvitation(
+  organizationId: string,
+  input: { readonly email: string; readonly intended_role: 'admin' | 'member' | 'viewer' },
+): Promise<{ readonly invitation_id: string }> {
+  const response = await api.post(`/organizations/${organizationId}/invitations`, input);
+  return response.data as { invitation_id: string };
+}
 
 export async function resolveInvitation(invitationToken: string): Promise<InvitationResolution> {
   const response = await api.post<InvitationResolution>('/invitations/resolve', {
@@ -40,4 +58,3 @@ export async function listOrganizationInvitations(
   });
   return response.data as { items: OrganizationInvitationSummary[]; next_cursor: string | null };
 }
-

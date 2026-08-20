@@ -119,6 +119,7 @@ The append operation is non-idempotent. Automatic transient retries and later UI
 - Contract DNI files default to 10 MB each through `CONTRACT_DNI_MAX_IMAGE_BYTES`.
 - Contract evidence files default to 10 MB each through `CONTRACT_EVIDENCE_MAX_FILE_BYTES`; each evidence receiver accepts at most two files.
 - Contract media uploads go directly to private Supabase Storage through signed URLs and are not part of the property multipart payload.
+- New SPEC-31 flows reserve/count verified bytes through the organization usage ledger, use receiver-specific per-file/count limits, and persist only stable asset IDs. Numeric retention and production quota values remain policy-gated; operators must not infer them from the provider bucket ceiling.
 
 ## SPEC-26 staged operation
 
@@ -127,3 +128,21 @@ administrator cookie, `contract_admin_users`, a route slug, Auth metadata, or an
 email domain to simulate organization access. Platform provisioning waits for
 the SPEC-27 operator boundary; production Azar/Solar creation and backfill
 remain owned by SPEC-34.
+
+## SPEC-32 staged delivery operation
+
+New organization-aware flows return durable queued/delivery state and do not
+wait for Drive, Sheets, or Make in the business request. A stateless scheduled
+worker claims fairly with a lease, then records success, retry wait,
+reconciliation, blocked, or dead-letter state. Provider timeout is not proof of
+failure: reconcile the stable marker before any resend. The existing synchronous
+steps above remain Azar-only compatibility behavior until SPEC-34 certifies
+outbox parity and removes direct delivery.
+
+## SPEC-34 migration operation
+
+The repository provides a non-executing manifest validator and deny-by-default
+control plane. Follow `spec34-migration-cutover-and-solar-runbook.md` for inventory,
+quarantine, rehearsal, validation, cutover, certification, containment, and closure.
+No ordinary application route exposes migration evidence. Until an exact immutable
+certification and named go/no-go exist, Solar is limited to synthetic data.

@@ -49,7 +49,21 @@ Staged SPEC-28 platform values (required before activating multi-tenant paths):
 
 Do not place any of these values in `VITE_*`, logs, audit metadata, database
 dumps, export manifests, or repository files. Current platform constructors
-accept injected secrets/adapters; runtime activation waits for SPEC-27.
+accept injected secrets/adapters. SPEC-27 activates the identity/context boundary;
+domain/provider activation and compatibility removal remain SPEC-34 gates.
+
+SPEC-27 identity values (mandatory in production):
+
+- `APP_SESSION_PEPPER` — independent secret-manager value used to HMAC opaque application-session tokens before lookup/storage.
+- `APP_CSRF_PEPPER` — independent value used to HMAC the session-bound CSRF token.
+- `APP_API_KEY_PEPPER` — independent value used for organization API-key hashes.
+- `APP_ALLOWED_ORIGINS` — comma-separated exact scheme/host/port origins; credentialed CORS and mutations reject every other origin.
+- `APP_PASSWORD_RESET_REDIRECT_URL` — reset callback on one of the exact allowed origins.
+- `APP_SESSION_TTL_SECONDS` — standard absolute lifetime; set explicitly in production.
+- `APP_REMEMBERED_SESSION_TTL_SECONDS` — approved remembered-session absolute lifetime.
+- `APP_SESSION_IDLE_TTL_SECONDS` — inactivity lifetime, bounded by the absolute expiry.
+- `APP_MAX_ACTIVE_SESSIONS` — approved per-user active-session limit from 1 through 100; the create RPC enforces it under a user-scoped advisory lock.
+- `SUPPORT_ACCESS_ENABLED` — must remain `false`; production startup rejects `true` until separate approval and runtime implementation exist.
 
 Apply these migrations in order before enabling the complete flow.
 
@@ -69,9 +83,16 @@ The currently linked Supabase project has already received these migrations manu
 11. `supabase/migrations/20260811000000_contract_spec22_access_control.sql`
 12. `supabase/migrations/20260818000000_spec25_containment.sql`
 13. `supabase/migrations/20260818120000_spec26_organization_governance.sql`
-14. `supabase/migrations/20260818160000_spec28_platform_controls.sql`
+14. `supabase/migrations/20260818140000_spec27_identity_sessions_authorization.sql`
+15. `supabase/migrations/20260818160000_spec28_platform_controls.sql`
+16. `supabase/migrations/20260818180000_spec29_multitenant_contract_domain.sql`
+17. `supabase/migrations/20260818200000_spec30_multitenant_property_domain.sql`
+18. `supabase/migrations/20260819000000_spec31_private_asset_platform.sql`
+19. `supabase/migrations/20260819200000_spec32_multitenant_integration_outbox.sql`
+20. `supabase/migrations/20260819300000_spec33_commercial_extension_framework.sql`
+21. `supabase/migrations/20260819400000_spec34_migration_certification_control_plane.sql`
 
-Migration 14 creates no organizations or business rows. It adds only shared
+Migrations 14 and 15 create no organizations or business rows. They add identity and shared
 backend-only control tables/functions with forced RLS and revoked browser
 grants. Apply and certify it first in a disposable project; do not enable a
 second production organization based on static migration tests.
@@ -139,3 +160,47 @@ it:
 Copy `.env.example` to `.env` in `/backend` and fill in all required values before starting the backend.
 
 Keep `backend/.env` local. It is ignored by Git, and secret values must not be written to logs, responses, public schemas, or frontend environment files.
+
+## Private asset configuration
+
+SPEC-31 reuses server-only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+`CONTRACT_DNI_STORAGE_BUCKET`, `CONTRACT_DNI_MAX_IMAGE_BYTES`,
+`CONTRACT_EVIDENCE_STORAGE_BUCKET`, and
+`CONTRACT_EVIDENCE_MAX_FILE_BYTES`. The shared adapter creates its privileged
+client only through the platform service-role factory. Never expose these as
+`VITE_*` values.
+
+Receiver policy owns file limits and allowed types. Do not add an environment
+override that broadens active content, makes a bucket public, supplies a path,
+or invents retention. POL-09 numeric retention/grace values and any scanner or
+detector configuration must be approved, typed, startup-validated, and
+documented before cleanup/scanning workers are enabled.
+
+## Integration and worker configuration
+
+SPEC-32 does not add an environment variable for customer routing. Destination
+folder/spreadsheet/endpoint IDs and credential references belong to the owning
+`organization_integrations` record. Legacy `GOOGLE_*`, `CONTRACT_GOOGLE_*`, and
+`MAKE_WEBHOOK_URL` values remain contained Azar-only compatibility inputs and
+must never resolve a second organization.
+
+Production secret material belongs in an approved external secret manager. If
+the envelope option is approved, its 32-byte key-encryption key is supplied by
+an external KMS/runtime secret boundary, startup-validated, never stored beside
+ciphertext or in general backups, and never exposed through `VITE_*`. Worker
+identity, schedule, lease duration, concurrency, retry thresholds, egress proxy,
+DNS/connect-time validation, timeout, and response-size settings must be typed,
+bounded, and deployment-reviewed before enabling claims. Restored deployments
+start with integration workers paused until reconciliation.
+
+## Migration and certification configuration
+
+SPEC-34 adds no customer routing or secret environment variable. Migration manifests
+are restricted files outside the repository and deployment environment; validate them
+with `npm --prefix backend run spec34:validate-manifest -- /restricted/path/manifest.json`.
+They contain fixed organization IDs/slugs and sanitized references, never secret values,
+tokens, credentials, raw provider URLs, customer payloads, or private object paths.
+
+Do not introduce `VITE_*` rollout overrides. The browser feature manifest is a safe
+server projection bound to organization, context epoch, and immutable certification.
+Absent, stale, `disabled`, or malformed state denies the feature.
