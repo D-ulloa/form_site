@@ -8,6 +8,7 @@ import { contractAdminPath } from '../services/contractIdentity.ts';
 
 interface ContractEntryModalProps {
   open: boolean;
+  organizationSlug: string;
   userId?: string;
   onClose: () => void;
 }
@@ -37,14 +38,14 @@ function formatCreatedAt(value: string): string {
   }).format(date);
 }
 
-export function ContractEntryModal({ open, userId, onClose }: ContractEntryModalProps) {
+export function ContractEntryModal({ open, organizationSlug, userId, onClose }: ContractEntryModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const creationRequestedRef = useRef(false);
   const navigate = useNavigate();
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [direccion, setDireccion] = useState('');
   const creation = useMutation({
-    mutationFn: (value?: string) => value ? createContractEntry(userId, value) : createContractEntry(userId),
+    mutationFn: (value?: string) => value ? createContractEntry(organizationSlug, userId, value) : createContractEntry(organizationSlug, userId),
   });
 
   useEffect(() => {
@@ -80,8 +81,8 @@ export function ContractEntryModal({ open, userId, onClose }: ContractEntryModal
 
   const openContractAdministration = () => {
     const adminPath = creation.data
-      ? contractAdminPath(creation.data.entryId)
-      : '/contracts/admin';
+      ? contractAdminPath(organizationSlug, creation.data.entryId)
+      : contractAdminPath(organizationSlug);
     close();
     navigate(adminPath);
   };

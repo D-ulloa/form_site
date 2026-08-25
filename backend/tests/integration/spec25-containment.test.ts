@@ -5,7 +5,10 @@ import express from 'express';
 import request from 'supertest';
 import propertiesRouter, {
   applyVerifiedPropertyActor,
+  createTenantPropertyCompatibilityRouter,
 } from '../../src/routes/properties.js';
+import type { SessionService } from '../../src/identity/sessionService.js';
+import { hashCsrfToken } from '../../src/identity/sessionSecurity.js';
 
 test('SPEC-25 property routes reject unauthenticated requests before parsing or side effects', async () => {
   const app = express();
@@ -46,6 +49,36 @@ test('SPEC-25 property attribution always overwrites caller-controlled actor fie
     agent_name: 'Verified Name',
     agent_email: 'verified@example.test',
   });
+});
+
+test('tenant property compatibility requires CSRF before resolving organization authority', async () => {
+  const environment = {
+    NODE_ENV: 'development',
+    APP_CSRF_PEPPER: 'c'.repeat(32),
+  } as NodeJS.ProcessEnv;
+  let contextCalls = 0;
+  const sessions = {
+    async authenticate() {
+      return {
+        session: { csrf_token_hash: hashCsrfToken('valid-csrf-token', environment) },
+        identity: { id: 'verified-user', email: 'verified@example.test', display_name: 'Verified User' },
+      };
+    },
+    async context() {
+      contextCalls += 1;
+      throw new Error('context must not be reached without CSRF');
+    },
+  } as unknown as SessionService;
+  const app = express();
+  app.use(express.json());
+  app.use('/api/organizations/:organization/properties/legacy',
+    createTenantPropertyCompatibilityRouter(sessions, environment));
+
+  await request(app)
+    .post('/api/organizations/azar/properties/legacy/media/presign')
+    .send({ files: [{ originalName: 'photo.jpg', mimeType: 'image/jpeg', sizeBytes: 12 }] })
+    .expect(403, { error: 'CSRF_DENIED', retriable: false });
+  assert.equal(contextCalls, 0);
 });
 
 test('SPEC-25 forward migration removes automatic grants and the fixed Make trigger', async () => {

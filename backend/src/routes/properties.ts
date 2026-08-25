@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
 import { validatePropertyPayload } from '../services/validatePropertyPayload.js';
@@ -26,6 +26,12 @@ import {
   getContractPasswordSession,
   type ContractPasswordSession,
 } from '../services/contractPasswordAuth.js';
+import type { SessionService } from '../identity/sessionService.js';
+import {
+  assertCsrf,
+  IdentityAccessError,
+  IdentityConfigurationError,
+} from '../identity/sessionSecurity.js';
 
 const MAX_VERCEL_SAFE_PAYLOAD_BYTES = 3_800_000;
 
@@ -83,7 +89,12 @@ const PresignRequestSchema = z.object({
   ),
 });
 
-function requirePropertySession(req: Request, res: Response): ContractPasswordSession | null {
+type PropertySession = Pick<ContractPasswordSession, 'userId' | 'email' | 'name' | 'isAdmin'>;
+
+function requirePropertySession(req: Request, res: Response): PropertySession | null {
+  const tenantSession = res.locals.propertySession as PropertySession | undefined;
+  if (tenantSession?.isAdmin) return tenantSession;
+
   try {
     const session = getContractPasswordSession(req);
     if (session?.isAdmin) return session;
@@ -99,11 +110,59 @@ function requirePropertySession(req: Request, res: Response): ContractPasswordSe
 
 export function applyVerifiedPropertyActor(
   body: Record<string, unknown>,
-  session: ContractPasswordSession,
+  session: PropertySession,
 ): void {
   body.agent_user_id = session.userId;
   body.agent_name = session.name;
   body.agent_email = session.email;
+}
+
+function tenantAuthError(res: Response, error: unknown): void {
+  res.set('Cache-Control', 'no-store');
+  if (error instanceof IdentityAccessError) {
+    res.status(error.status).json({ error: error.code, retriable: false });
+    return;
+  }
+  if (error instanceof IdentityConfigurationError) {
+    res.status(503).json({ error: 'AUTH_DEPENDENCY_UNAVAILABLE', retriable: true });
+    return;
+  }
+  res.status(503).json({ error: 'AUTH_DEPENDENCY_UNAVAILABLE', retriable: true });
+}
+
+/**
+ * Transitional adapter for the organization-scoped UI. The legacy property
+ * implementation remains behind its original reviewed-admin cookie, while
+ * this wrapper derives the actor from the current revocable app session and
+ * confirms properties.write for the organization in the URL.
+ */
+export function createTenantPropertyCompatibilityRouter(
+  sessions: SessionService,
+  environment: NodeJS.ProcessEnv = process.env,
+): Router {
+  const tenantRouter = Router({ mergeParams: true });
+  tenantRouter.use((req: Request, res: Response, next: NextFunction) => {
+    void sessions.authenticate(req, false).then(async (authenticated) => {
+      assertCsrf(req, authenticated.session.csrf_token_hash, environment);
+      const context = await sessions.context(
+        req,
+        String(req.params.organization ?? ''),
+        'properties.write',
+      );
+      if (context.user_id !== authenticated.identity.id) {
+        throw new IdentityAccessError('AUTHENTICATION_REQUIRED', 401);
+      }
+      res.locals.propertySession = {
+        userId: authenticated.identity.id,
+        email: authenticated.identity.email,
+        name: authenticated.identity.display_name,
+        isAdmin: true,
+      } satisfies PropertySession;
+      next();
+    }).catch((error: unknown) => tenantAuthError(res, error));
+  });
+  tenantRouter.use(router);
+  return tenantRouter;
 }
 
 function parseMediaUploadSessionId(raw: unknown): string | undefined {

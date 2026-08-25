@@ -21,6 +21,20 @@ import { contractIdentityHeaders } from './contractIdentity.ts';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const CONTRACTS_API_PATH = `${API_PREFIX}/api/contracts`;
+
+function tenantContractsPath(organization: string): string {
+  return API_PREFIX + "/api/organizations/" + encodeURIComponent(organization) + "/contracts";
+}
+
+function tenantHeaders(userId: string | undefined, mutation = false): Record<string, string> | undefined {
+  const headers: Record<string, string> = { ...(contractIdentityHeaders(userId) ?? {}) };
+  if (mutation) {
+    const match = document.cookie.split(";").map((value) => value.trim())
+      .find((value) => value.startsWith("form_site_csrf="));
+    if (match) headers["X-CSRF-Token"] = decodeURIComponent(match.slice("form_site_csrf=".length));
+  }
+  return Object.keys(headers).length ? headers : undefined;
+}
 const CONTRACT_EVIDENCE_PRESIGN_BATCH_SIZE = 20;
 
 const ContractOptionSchema = z.union([
@@ -487,15 +501,16 @@ export async function fetchContractAudit(
 }
 
 export async function createContractEntry(
+  organization: string,
   userId?: string,
   direccion?: string,
 ): Promise<ContractEntryLinks> {
   try {
-    const response = await axios.post<unknown>(`${CONTRACTS_API_PATH}/create`, {
+    const response = await axios.post<unknown>(tenantContractsPath(organization) + "/create", {
       Direccion: direccion?.trim() || "Sin dirección",
     }, {
       withCredentials: true,
-      headers: contractIdentityHeaders(userId),
+      headers: tenantHeaders(userId, true),
     });
     return parseResponse(
       ContractEntryLinksSchema,
@@ -659,10 +674,11 @@ export async function submitContractRole(
 }
 
 export async function listContractEntries(
+  organization: string,
   userId?: string,
 ): Promise<ContractEntrySummary[]> {
   try {
-    const response = await axios.get<unknown>(`${CONTRACTS_API_PATH}/admin/entries`, {
+    const response = await axios.get<unknown>(tenantContractsPath(organization) + "/admin/entries", {
       withCredentials: true,
       headers: contractIdentityHeaders(userId),
     });
@@ -677,13 +693,14 @@ export async function listContractEntries(
 }
 
 export async function fetchContractAdminEntry(
+  organization: string,
   entryId: string,
   userId?: string,
 ): Promise<ContractAdminEntryDetail> {
   try {
     const response = await axios.get<unknown>(
-      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}`,
-      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
+      tenantContractsPath(organization) + "/admin/entries/" + encodeURIComponent(entryId),
+      { withCredentials: true, headers: tenantHeaders(userId, true), timeout: 18000 },
     );
     return parseResponse(
       ContractAdminDetailSchema,
@@ -696,15 +713,16 @@ export async function fetchContractAdminEntry(
 }
 
 export async function updateContractAdminEntryStatus(
+  organization: string,
   entryId: string,
   status: ContractEntrySummary['status'],
   userId?: string,
 ): Promise<ContractEntrySummary> {
   try {
     const response = await axios.post<unknown>(
-      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/status`,
+      tenantContractsPath(organization) + "/admin/entries/" + encodeURIComponent(entryId) + "/status",
       { status },
-      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
+      { withCredentials: true, headers: tenantHeaders(userId, true), timeout: 18000 },
     );
     return parseResponse(
       z.object({ entry: ContractEntrySummarySchema }),
@@ -716,6 +734,7 @@ export async function updateContractAdminEntryStatus(
   }
 }
 export async function updateContractAdminSubmission(
+  organization: string,
   entryId: string,
   role: ContractRole,
   fields: Record<string, unknown>,
@@ -723,9 +742,9 @@ export async function updateContractAdminSubmission(
 ): Promise<{ entry: ContractEntrySummary; submissionId: string; submittedAt: string }> {
   try {
     const response = await axios.patch<unknown>(
-      CONTRACTS_API_PATH + "/admin/entries/" + encodeURIComponent(entryId) + "/submissions/" + role,
+      tenantContractsPath(organization) + "/admin/entries/" + encodeURIComponent(entryId) + "/submissions/" + role,
       { fields },
-      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
+      { withCredentials: true, headers: tenantHeaders(userId, true), timeout: 18000 },
     );
     return parseResponse(
       z.object({
@@ -742,14 +761,15 @@ export async function updateContractAdminSubmission(
 }
 
 export async function archiveContractEntry(
+  organization: string,
   entryId: string,
   userId?: string,
 ): Promise<ContractEntrySummary> {
   try {
     const response = await axios.post<unknown>(
-      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/archive`,
+      tenantContractsPath(organization) + "/admin/entries/" + encodeURIComponent(entryId) + "/archive",
       {},
-      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
+      { withCredentials: true, headers: tenantHeaders(userId, true), timeout: 18000 },
     );
     return parseResponse(
       z.object({ entry: ContractEntrySummarySchema }),
@@ -762,15 +782,16 @@ export async function archiveContractEntry(
 }
 
 export async function regenerateContractToken(
+  organization: string,
   entryId: string,
   role: ContractRole,
   userId?: string,
 ): Promise<{ role: ContractRole; url: string }> {
   try {
     const response = await axios.post<unknown>(
-      `${CONTRACTS_API_PATH}/admin/entries/${encodeURIComponent(entryId)}/tokens/${role}/regenerate`,
+      tenantContractsPath(organization) + "/admin/entries/" + encodeURIComponent(entryId) + "/tokens/" + role + "/regenerate",
       {},
-      { withCredentials: true, headers: contractIdentityHeaders(userId), timeout: 18000 },
+      { withCredentials: true, headers: tenantHeaders(userId, true), timeout: 18000 },
     );
     return parseResponse(
       z.object({ role: z.enum(['user', 'client']), url: z.string().url() }),

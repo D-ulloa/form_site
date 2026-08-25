@@ -29,9 +29,11 @@ import {
 } from '../features/contracts/services/adminAuthApi.ts';
 import type { PropertyFormInput, PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
 import type { SubmissionResult } from '../features/properties/services/propertyApi.ts';
+import { useOrganization } from '../app/contexts/OrganizationContext.tsx';
 
 export function NewPropertyPage() {
   const navigate = useNavigate();
+  const organization = useOrganization();
   const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function NewPropertyPage() {
 
   const form = usePropertyForm();
   const media = useMediaValidation();
-  const { mutate, isPending } = useCreatePropertySubmission();
+  const { mutate, isPending } = useCreatePropertySubmission(organization.organization.slug);
   const { setValue } = form;
 
   useEffect(() => {
@@ -112,7 +114,7 @@ export function NewPropertyPage() {
         { mode: 'legacy', formData: fd },
         {
           onSuccess: (result: SubmissionResult) => {
-            navigate(`/properties/success/${result.submission_id}`, {
+            navigate(`/t/${organization.organization.slug}/properties/success/${result.submission_id}`, {
               state: { result },
             });
           },
@@ -136,7 +138,7 @@ export function NewPropertyPage() {
         { mode: 'json', payload },
         {
           onSuccess: (result: SubmissionResult) => {
-            navigate(`/properties/success/${result.submission_id}`, {
+            navigate(`/t/${organization.organization.slug}/properties/success/${result.submission_id}`, {
               state: { result },
             });
           },
@@ -156,6 +158,7 @@ export function NewPropertyPage() {
       }));
 
       const presignResponse = await requestMediaUploadUrls(
+        organization.organization.slug,
         presignRequestFiles,
       );
 
@@ -189,7 +192,7 @@ export function NewPropertyPage() {
         { mode: 'json', payload },
         {
           onSuccess: (result: SubmissionResult) => {
-            navigate(`/properties/success/${result.submission_id}`, {
+            navigate(`/t/${organization.organization.slug}/properties/success/${result.submission_id}`, {
               state: { result },
             });
           },

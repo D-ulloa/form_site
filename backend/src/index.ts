@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import propertiesRouter from './routes/properties.js';
+import propertiesRouter, { createTenantPropertyCompatibilityRouter } from './routes/properties.js';
 import contractsRouter from './routes/contracts.js';
 import contractEntriesRouter from './routes/contractEntries.js';
 import contractPasswordAuthRouter from './routes/contractPasswordAuth.js';
@@ -26,6 +26,7 @@ import {
   validateContainmentEnvironment,
 } from './utils/serverConfig.js';
 import { requestIdMiddleware } from './platform/requestId.js';
+import { createTenantContractEntriesRouter } from './routes/tenantContractEntries.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
@@ -78,6 +79,10 @@ app.use('/api/auth', createIdentityRouter(
   sessionService, createSupabaseIdentityProvider(process.env), process.env,
 ));
 app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
+app.use('/api/organizations/:organization/contracts',
+  createTenantContractEntriesRouter(sessionService, undefined, process.env));
+app.use('/api/organizations/:organization/properties/legacy',
+  createTenantPropertyCompatibilityRouter(sessionService, process.env));
 app.use('/api', createTenantMutationSecurity(sessionService, process.env),
   createOrganizationGovernanceRouter(contextResolver, governanceServices,
     process.env.CONTRACT_PUBLIC_BASE_URL?.trim() ?? 'https://invalid.example'));

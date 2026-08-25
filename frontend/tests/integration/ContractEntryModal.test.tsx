@@ -75,7 +75,7 @@ function renderModal(onClose = vi.fn()) {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/']}>
         <CurrentPath />
-        <ContractEntryModal open userId="agent-001" onClose={onClose} />
+        <ContractEntryModal open organizationSlug="azar" userId="agent-001" onClose={onClose} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -92,7 +92,7 @@ describe('SPEC-12 contract generation actions', () => {
 
     expect(createContractEntry).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('current-path').textContent).toBe('/contracts/admin');
+    expect(screen.getByTestId('current-path').textContent).toBe('/t/azar/contracts/admin');
   });
 
   it('keeps the section passive until the dedicated creation button is clicked', async () => {
@@ -112,7 +112,7 @@ describe('SPEC-12 contract generation actions', () => {
     await waitFor(() => {
     expect(createContractEntry).toHaveBeenCalledTimes(1);
     });
-    expect(createContractEntry).toHaveBeenCalledWith('agent-001');
+    expect(createContractEntry).toHaveBeenCalledWith('azar', 'agent-001');
     expect(await screen.findByText('Esperando ambos formularios')).toBeTruthy();
     expect(screen.getByRole('button', {
       name: 'Administrar contratos',

@@ -252,6 +252,7 @@ export function ActionSelectionPage() {
 
       <ContractEntryModal
         open={showContractModal}
+        organizationSlug={organizationContext.organization.slug}
         userId={contractUserId}
         onClose={() => {
           setShowContractModal(false);

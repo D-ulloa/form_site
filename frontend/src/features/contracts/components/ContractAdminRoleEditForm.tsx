@@ -16,6 +16,7 @@ import {
 } from '../types.ts';
 
 interface ContractAdminRoleEditFormProps {
+  organizationSlug: string;
   entryId: string;
   role: ContractRole;
   schema: ContractRoleSchemaDefinition;
@@ -41,6 +42,7 @@ function fieldsInSubsection(section: ContractSection, fieldNames: string[]) {
 }
 
 export function ContractAdminRoleEditForm({
+  organizationSlug,
   entryId,
   role,
   schema,
@@ -61,7 +63,7 @@ export function ContractAdminRoleEditForm({
   } = form;
   const save = useMutation({
     mutationFn: (fields: Record<string, unknown>) =>
-      updateContractAdminSubmission(entryId, role, fields, userId),
+      updateContractAdminSubmission(organizationSlug, entryId, role, fields, userId),
     onSuccess: onSaved,
   });
 

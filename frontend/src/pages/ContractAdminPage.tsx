@@ -15,6 +15,7 @@ import {
   updateContractAdminEntryStatus,
 } from '../features/contracts/services/contractApi.ts';
 import { contractAdminPath } from '../features/contracts/services/contractIdentity.ts';
+import { useOrganization } from '../app/contexts/OrganizationContext.tsx';
 import {
   getContractEntryWaitingStatus,
   type ContractRole,
@@ -27,6 +28,8 @@ function formatDate(value: string): string {
 }
 
 export function ContractAdminPage() {
+  const organization = useOrganization();
+  const organizationSlug = organization.organization.slug;
   const { entryId: routeEntryId } = useParams<{ entryId?: string }>();
   const sessionQuery = useQuery({
     queryKey: ['contract-admin-session'],
@@ -50,16 +53,16 @@ export function ContractAdminPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'complete' | 'archived' | 'generar_contrato'>('all');
 
   const entriesQuery = useQuery({
-    queryKey: ['contract-admin-entries', userId],
-    queryFn: () => listContractEntries(userId),
+    queryKey: ['contract-admin-entries', organization.organization.id, userId],
+    queryFn: () => listContractEntries(organizationSlug, userId),
     enabled: hasAdminIdentity,
     retry: false,
     staleTime: 0,
     refetchOnMount: 'always',
   });
   const detailQuery = useQuery({
-    queryKey: ['contract-admin-entry', selectedId, userId],
-    queryFn: () => fetchContractAdminEntry(selectedId as string, userId),
+    queryKey: ['contract-admin-entry', organization.organization.id, selectedId, userId],
+    queryFn: () => fetchContractAdminEntry(organizationSlug, selectedId as string, userId),
     enabled: Boolean(selectedId && hasAdminIdentity),
     retry: false,
   });
@@ -70,23 +73,23 @@ export function ContractAdminPage() {
   }, [entriesQuery.data, selectedId]);
 
   const archiveMutation = useMutation({
-    mutationFn: (entryId: string) => archiveContractEntry(entryId, userId),
+    mutationFn: (entryId: string) => archiveContractEntry(organizationSlug, entryId, userId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
+      void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', organization.organization.id, userId] });
       if (selectedId) {
-        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId, userId] });
+        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', organization.organization.id, selectedId, userId] });
       }
     },
   });
 
   const tokenMutation = useMutation({
     mutationFn: ({ entryId, role }: { entryId: string; role: ContractRole }) =>
-      regenerateContractToken(entryId, role, userId),
+      regenerateContractToken(organizationSlug, entryId, role, userId),
     onSuccess: (result) => setRegeneratedUrl(result.url),
   });
 
   const generateContractMutation = useMutation({
-    mutationFn: (entryId: string) => updateContractAdminEntryStatus(entryId, 'generar_contrato', userId),
+    mutationFn: (entryId: string) => updateContractAdminEntryStatus(organizationSlug, entryId, 'generar_contrato', userId),
     onMutate: (entryId) => {
       setGenerateError(null);
       setGenerateStatusMessage(null);
@@ -96,9 +99,9 @@ export function ContractAdminPage() {
     onSuccess: () => {
       setGenerateError(null);
       setGenerateStatusMessage('Estado guardado. La entrega a Make está diferida por contención.');
-      void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
+      void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', organization.organization.id, userId] });
       if (selectedId) {
-        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', selectedId, userId] });
+        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entry', organization.organization.id, selectedId, userId] });
       }
     },
     onError: (error) => {
@@ -149,7 +152,7 @@ export function ContractAdminPage() {
             <p className="text-xs uppercase tracking-wide text-cyan-400">Generación de contratos</p>
             <h1 className="mt-1 text-xl font-semibold text-slate-100">Administrar contratos</h1>
           </div>
-          <Link to="/" className="text-sm text-slate-400 hover:text-white">Volver</Link>
+          <Link to={"/t/" + organizationSlug} className="text-sm text-slate-400 hover:text-white">Volver</Link>
         </div>
       </header>
 
@@ -211,14 +214,14 @@ export function ContractAdminPage() {
                       onClick={() => {
                         setEditingRole(null);
                         setRegeneratedUrl(null);
-                        navigate(contractAdminPath(entry.entryId));
+                        navigate(contractAdminPath(organizationSlug, entry.entryId));
                       }}
                       onKeyDown={(event) => {
                         if (event.key !== 'Enter' && event.key !== ' ') return;
                         event.preventDefault();
                         setEditingRole(null);
                         setRegeneratedUrl(null);
-                        navigate(contractAdminPath(entry.entryId));
+                        navigate(contractAdminPath(organizationSlug, entry.entryId));
                       }}
                       aria-current={selectedId === entry.entryId ? 'page' : undefined}
                       className={
@@ -365,6 +368,7 @@ export function ContractAdminPage() {
 
                   {editingRole && detailQuery.data.roleSchemas?.[editingRole] && (
                     <ContractAdminRoleEditForm
+                      organizationSlug={organizationSlug}
                       entryId={detailQuery.data.entry.entryId}
                       role={editingRole}
                       schema={detailQuery.data.roleSchemas[editingRole]}
@@ -375,9 +379,9 @@ export function ContractAdminPage() {
                       onCancel={() => setEditingRole(null)}
                       onSaved={() => {
                         setEditingRole(null);
-                        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', userId] });
+                        void queryClient.invalidateQueries({ queryKey: ['contract-admin-entries', organization.organization.id, userId] });
                         void queryClient.invalidateQueries({
-                          queryKey: ['contract-admin-entry', selectedId, userId],
+                          queryKey: ['contract-admin-entry', organization.organization.id, selectedId, userId],
                         });
                       }}
                     />

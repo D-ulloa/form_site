@@ -23,6 +23,7 @@ export function contractIdentityHeaders(
   return { 'X-User-Id': userId };
 }
 
-export function contractAdminPath(entryId: string): string {
-  return `/contracts/admin/${encodeURIComponent(entryId)}`;
+export function contractAdminPath(organizationSlug: string, entryId?: string): string {
+  const base = "/t/" + encodeURIComponent(organizationSlug) + "/contracts/admin";
+  return entryId ? base + "/" + encodeURIComponent(entryId) : base;
 }

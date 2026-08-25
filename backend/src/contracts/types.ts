@@ -201,6 +201,8 @@ export interface ContractEntryRecord {
   readonly combinedSubmission: Readonly<Record<string, unknown>> | null;
   readonly status: ContractEntryStatus;
   readonly archivedAt: string | null;
+  /** Present for organization-scoped SPEC-29 aggregates. */
+  readonly version?: number;
 }
 
 export interface ContractEntrySummary {

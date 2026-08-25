@@ -53,6 +53,19 @@ export type UploadClient = 'supabase' | 'drive';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 
+function propertyApiPath(organization: string): string {
+  return `${API_PREFIX}/api/organizations/${encodeURIComponent(organization)}/properties/legacy`;
+}
+
+function mutationHeaders(contentType?: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (contentType) headers['Content-Type'] = contentType;
+  const match = document.cookie.split(';').map((value) => value.trim())
+    .find((value) => value.startsWith('form_site_csrf='));
+  if (match) headers['X-CSRF-Token'] = decodeURIComponent(match.slice('form_site_csrf='.length));
+  return headers;
+}
+
 export function getMediaUploadProvider(): UploadClient {
   const provider =
     typeof import.meta.env.VITE_MEDIA_UPLOAD_PROVIDER === 'string'
@@ -63,17 +76,16 @@ export function getMediaUploadProvider(): UploadClient {
 }
 
 export async function requestMediaUploadUrls(
+  organization: string,
   files: MediaUploadRequestFile[],
 ): Promise<PresignResponse> {
   const response = await axios.post<PresignResponse>(
-    `${API_PREFIX}/properties/media/presign`,
+    `${propertyApiPath(organization)}/media/presign`,
     {
       files,
     },
     {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: mutationHeaders('application/json'),
       withCredentials: true,
     },
   );
@@ -109,22 +121,27 @@ export function buildMediaMetadataFromPresigned(
   };
 }
 
-export async function submitProperty(payload: PropertySubmissionPayload): Promise<SubmissionResult> {
+export async function submitProperty(
+  organization: string,
+  payload: PropertySubmissionPayload,
+): Promise<SubmissionResult> {
   const response = await axios.post<SubmissionResult>(
-    `${API_PREFIX}/properties/submit`,
+    `${propertyApiPath(organization)}/submit`,
     payload,
     {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: mutationHeaders('application/json'),
       withCredentials: true,
     },
   );
   return response.data;
 }
 
-export async function submitPropertyFormData(formData: FormData): Promise<SubmissionResult> {
-  const response = await axios.post<SubmissionResult>(`${API_PREFIX}/properties/submit`, formData, {
+export async function submitPropertyFormData(
+  organization: string,
+  formData: FormData,
+): Promise<SubmissionResult> {
+  const response = await axios.post<SubmissionResult>(`${propertyApiPath(organization)}/submit`, formData, {
+    headers: mutationHeaders(),
     withCredentials: true,
   });
   return response.data;

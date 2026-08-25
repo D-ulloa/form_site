@@ -22,12 +22,12 @@ export type SubmitPropertyArgs = SubmitPropertyJsonArgs | SubmitPropertyLegacyAr
 const REQUEST_TOO_LARGE_MESSAGE =
   'El servidor rechazó el envío por tamaño del payload. Reducí el total de archivos o dividí la carga en partes menores.';
 
-export function useCreatePropertySubmission() {
+export function useCreatePropertySubmission(organization: string) {
   return useMutation<SubmissionResult, Error, SubmitPropertyArgs>({
     mutationFn: (args) =>
       args.mode === 'json'
-        ? submitProperty(args.payload)
-        : submitPropertyFormData(args.formData),
+        ? submitProperty(organization, args.payload)
+        : submitPropertyFormData(organization, args.formData),
     onError: (err) => {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 413) {

@@ -7,6 +7,7 @@ import { issueSignedUploadUrls, } from '../services/supabaseStorageService.js';
 import { createUploadSession, consumeUploadSession, } from '../services/mediaUploadSessionService.js';
 import { validateMimeTypes, validateTotalSize, validateMediaUploadDescriptors, getUploadDescriptorTotalSize, MAX_MEDIA_FILES, MAX_UPLOAD_SIZE_BYTES, } from '../utils/sizeLimits.js';
 import { getContractPasswordSession, } from '../services/contractPasswordAuth.js';
+import { assertCsrf, IdentityAccessError, IdentityConfigurationError, } from '../identity/sessionSecurity.js';
 const MAX_VERCEL_SAFE_PAYLOAD_BYTES = 3_800_000;
 const router = Router();
 const upload = multer({
@@ -55,6 +56,9 @@ const PresignRequestSchema = z.object({
     })),
 });
 function requirePropertySession(req, res) {
+    const tenantSession = res.locals.propertySession;
+    if (tenantSession?.isAdmin)
+        return tenantSession;
     try {
         const session = getContractPasswordSession(req);
         if (session?.isAdmin)
@@ -73,6 +77,45 @@ export function applyVerifiedPropertyActor(body, session) {
     body.agent_user_id = session.userId;
     body.agent_name = session.name;
     body.agent_email = session.email;
+}
+function tenantAuthError(res, error) {
+    res.set('Cache-Control', 'no-store');
+    if (error instanceof IdentityAccessError) {
+        res.status(error.status).json({ error: error.code, retriable: false });
+        return;
+    }
+    if (error instanceof IdentityConfigurationError) {
+        res.status(503).json({ error: 'AUTH_DEPENDENCY_UNAVAILABLE', retriable: true });
+        return;
+    }
+    res.status(503).json({ error: 'AUTH_DEPENDENCY_UNAVAILABLE', retriable: true });
+}
+/**
+ * Transitional adapter for the organization-scoped UI. The legacy property
+ * implementation remains behind its original reviewed-admin cookie, while
+ * this wrapper derives the actor from the current revocable app session and
+ * confirms properties.write for the organization in the URL.
+ */
+export function createTenantPropertyCompatibilityRouter(sessions, environment = process.env) {
+    const tenantRouter = Router({ mergeParams: true });
+    tenantRouter.use((req, res, next) => {
+        void sessions.authenticate(req, false).then(async (authenticated) => {
+            assertCsrf(req, authenticated.session.csrf_token_hash, environment);
+            const context = await sessions.context(req, String(req.params.organization ?? ''), 'properties.write');
+            if (context.user_id !== authenticated.identity.id) {
+                throw new IdentityAccessError('AUTHENTICATION_REQUIRED', 401);
+            }
+            res.locals.propertySession = {
+                userId: authenticated.identity.id,
+                email: authenticated.identity.email,
+                name: authenticated.identity.display_name,
+                isAdmin: true,
+            };
+            next();
+        }).catch((error) => tenantAuthError(res, error));
+    });
+    tenantRouter.use(router);
+    return tenantRouter;
 }
 function parseMediaUploadSessionId(raw) {
     if (typeof raw !== 'string') {
