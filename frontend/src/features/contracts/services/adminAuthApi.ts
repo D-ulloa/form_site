@@ -97,12 +97,13 @@ function getSupabaseAuthClient(): SupabaseClient {
   return supabaseAuthClient;
 }
 
-export async function startGoogleLogin(): Promise<void> {
+export async function startGoogleLogin(returnTo = '/'): Promise<void> {
   try {
     const { error } = await getSupabaseAuthClient().auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: new URL('/auth/callback', window.location.origin).toString(),
+        redirectTo: new URL(returnTo === '/invitations/accept'
+          ? '/auth/callback?return_to=/invitations/accept' : '/auth/callback', window.location.origin).toString(),
       },
     });
     if (error) throw new AdminAuthError(error.message);

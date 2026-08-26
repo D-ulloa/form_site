@@ -1,4 +1,4 @@
-import { type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MembershipMutationRepository } from './membershipService.js';
 import type { OrganizationSettingsRepository } from './organizationSettingsService.js';
 import type { UserProfileRepository } from './userProfileService.js';
@@ -34,7 +34,7 @@ export interface InvitationRecord {
     readonly intended_role: 'admin' | 'member' | 'viewer';
     readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced';
     readonly expires_at: string;
-    readonly delivery_state: 'pending' | 'sent' | 'failed';
+    readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
     readonly token_version: number;
     readonly version: number;
 }

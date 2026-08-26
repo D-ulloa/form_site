@@ -15,6 +15,8 @@ interface OrganizationGovernancePanelProps {
   members?: readonly OrganizationMemberSummary[];
   invitations?: readonly OrganizationInvitationSummary[];
   onInvite?: (input: { email: string; intended_role: 'admin' | 'member' | 'viewer' }) => Promise<void>;
+  onResend?: (invitationId: string) => Promise<void>;
+  onRevoke?: (invitationId: string) => Promise<void>;
   onExport?: () => Promise<void>;
   onDeletionRequest?: () => Promise<void>;
 }
@@ -25,6 +27,8 @@ export function OrganizationGovernancePanel({
   members = [],
   invitations = [],
   onInvite,
+  onResend,
+  onRevoke,
   onExport,
   onDeletionRequest,
 }: OrganizationGovernancePanelProps) {
@@ -40,7 +44,7 @@ export function OrganizationGovernancePanel({
     try {
       await onInvite({ email, intended_role: role });
       setEmail('');
-      setStatus('Invitación creada.');
+      setStatus('Invitación creada. Revisá el estado de entrega.');
     } catch {
       setStatus('No se pudo crear la invitación.');
     }
@@ -105,8 +109,12 @@ export function OrganizationGovernancePanel({
           <p aria-live="polite" className="mt-3 text-sm text-slate-300">{status}</p>
           <ul className="mt-4 space-y-3">
             {invitations.map((invitation) => (
-              <li key={invitation.invitation_id} className="surface rounded-xl p-4 flex justify-between">
-                <span>{invitation.email_masked}</span><span>{invitation.intended_role} · {invitation.status}</span>
+              <li key={invitation.invitation_id} className="surface rounded-xl p-4 flex flex-wrap justify-between gap-3">
+                <span>{invitation.email_masked}<small className="block text-slate-400">{invitation.intended_role} · {invitation.status} · entrega: {invitation.delivery_state}</small></span>
+                {invitation.next_action === 'resend_or_revoke' && <span className="flex gap-2">
+                  <Button variant="secondary" disabled={!onResend} onClick={() => void onResend?.(invitation.invitation_id)}>Reenviar</Button>
+                  <Button variant="danger" disabled={!onRevoke} onClick={() => void onRevoke?.(invitation.invitation_id)}>Revocar</Button>
+                </span>}
               </li>
             ))}
           </ul>
@@ -131,4 +139,3 @@ export function OrganizationGovernancePanel({
     </main>
   );
 }
-

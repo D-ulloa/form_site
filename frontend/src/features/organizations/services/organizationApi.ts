@@ -25,18 +25,26 @@ export async function createOrganizationInvitation(
   return response.data as { invitation_id: string };
 }
 
-export async function resolveInvitation(invitationToken: string): Promise<InvitationResolution> {
-  const response = await api.post<InvitationResolution>('/invitations/resolve', {
-    invitation_token: invitationToken,
-  });
+export async function establishInvitationHandoff(invitationToken: string): Promise<void> {
+  await api.post('/invitations/handoff', { invitation_token: invitationToken });
+}
+
+export async function resolveInvitation(): Promise<InvitationResolution> {
+  const response = await api.post<InvitationResolution>('/invitations/resolve');
   return response.data;
 }
 
-export async function acceptInvitation(invitationToken: string): Promise<{ organization_id: string }> {
-  const response = await api.post<{ organization_id: string }>('/invitations/accept', {
-    invitation_token: invitationToken,
-  });
+export async function acceptInvitation(): Promise<{ organization_id: string; organization_slug: string }> {
+  const response = await api.post<{ organization_id: string; organization_slug: string }>('/invitations/accept');
   return response.data;
+}
+
+export async function resendOrganizationInvitation(organizationId: string, invitationId: string) {
+  return (await api.post(`/organizations/${organizationId}/invitations/${invitationId}/resend`)).data;
+}
+
+export async function revokeOrganizationInvitation(organizationId: string, invitationId: string) {
+  return (await api.post(`/organizations/${organizationId}/invitations/${invitationId}/revoke`)).data;
 }
 
 export async function listOrganizationMembers(

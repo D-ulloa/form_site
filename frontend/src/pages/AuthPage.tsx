@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Input } from '../components/ui/Input.tsx';
@@ -55,6 +55,8 @@ function GoogleMark() {
 
 export function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('return_to') === '/invitations/accept' ? '/invitations/accept' : '/';
   const queryClient = useQueryClient();
   const isRegister = mode === 'register';
   const [name, setName] = useState('');
@@ -79,11 +81,11 @@ export function AuthPage({ mode }: AuthPageProps) {
     let active = true;
     void fetchAdminSession()
       .then((session) => {
-        if (active && session) navigate('/', { replace: true });
+        if (active && session) navigate(returnTo, { replace: true });
       })
       .catch(() => undefined);
     return () => { active = false; };
-  }, [navigate]);
+  }, [navigate, returnTo]);
 
   const syntheticRegistrationEnabled = import.meta.env.DEV
     && import.meta.env.VITE_ALLOW_SYNTHETIC_REGISTRATION === 'true';
@@ -129,7 +131,7 @@ export function AuthPage({ mode }: AuthPageProps) {
       }
       clearContractAdminQueryCache(queryClient);
       window.dispatchEvent(new Event('form-site-auth-refresh'));
-      navigate('/', { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (caughtError) {
       const authError = caughtError as AdminAuthError;
       setError(authError.message || 'No se pudo completar la autenticación.');
@@ -146,7 +148,7 @@ export function AuthPage({ mode }: AuthPageProps) {
     }
     setIsGooglePending(true);
     try {
-      await startGoogleLogin();
+      await startGoogleLogin(returnTo);
     } catch (caughtError) {
       const authError = caughtError as AdminAuthError;
       setError(authError.message || 'No se pudo iniciar el acceso con Google.');

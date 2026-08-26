@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createPlatformServiceRoleClient } from '../platform/serviceRoleClient.js';
 import { mapOrganizationPersistenceError } from './errors.js';
 import type { MembershipMutationRepository } from './membershipService.js';
 import type { OrganizationSettingsRepository } from './organizationSettingsService.js';
@@ -44,7 +45,7 @@ export interface InvitationRecord {
   readonly intended_role: 'admin' | 'member' | 'viewer';
   readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced';
   readonly expires_at: string;
-  readonly delivery_state: 'pending' | 'sent' | 'failed';
+  readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
   readonly token_version: number;
   readonly version: number;
 }
@@ -82,10 +83,7 @@ export interface OrganizationGovernanceRepository {
 }
 
 function createGovernanceClient(environment: NodeJS.ProcessEnv): SupabaseClient {
-  const url = environment.SUPABASE_URL?.trim();
-  const key = environment.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url || !key) throw new Error('Organization persistence requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+  return createPlatformServiceRoleClient(environment);
 }
 
 function requireData<T>(data: unknown, error: { message: string } | null): T {
@@ -141,7 +139,7 @@ export function createOrganizationGovernanceRepository(
     },
 
     async resendInvitation(input) {
-      const { data, error } = await client().rpc('spec26_resend_invitation', {
+      const { data, error } = await client().rpc('spec37_resend_invitation', {
         p_organization_id: input.organization_id,
         p_invitation_id: input.invitation_id,
         p_replacement_invitation_id: input.replacement_invitation_id,
@@ -155,7 +153,7 @@ export function createOrganizationGovernanceRepository(
     },
 
     async revokeInvitation(input) {
-      const { data, error } = await client().rpc('spec26_revoke_invitation', {
+      const { data, error } = await client().rpc('spec37_revoke_invitation', {
         p_organization_id: input.organization_id,
         p_invitation_id: input.invitation_id,
         p_actor_membership_id: input.actor_membership_id,

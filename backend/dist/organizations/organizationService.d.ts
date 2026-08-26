@@ -1,25 +1,11 @@
+import type { IdentityProvisioningService } from '../identity/identityProvisioningService.js';
 import type { OrganizationGovernanceRepository } from './organizationRepository.js';
+import type { InvitationWorkflowService } from './invitationWorkflow.js';
 import type { InvitationIdentityContext, OrganizationActorContext, OrganizationRecord, PlatformActorContext, PublicBranding } from './types.js';
-export interface InvitationDeliveryMessage {
-    readonly invitation_id: string;
-    readonly organization_display_name: string;
-    readonly inviter_display_name: string;
-    readonly intended_role: 'admin' | 'member' | 'viewer';
-    readonly email_normalized: string;
-    readonly expires_at: string;
-    readonly acceptance_url: string;
-}
-export interface InvitationDeliveryAdapter {
-    send(message: InvitationDeliveryMessage): Promise<void>;
-}
-export declare class DisabledInvitationDeliveryAdapter implements InvitationDeliveryAdapter {
-    send(_message: InvitationDeliveryMessage): Promise<void>;
-}
-export declare class FakeInvitationDeliveryAdapter implements InvitationDeliveryAdapter {
-    readonly messages: InvitationDeliveryMessage[];
-    send(message: InvitationDeliveryMessage): Promise<void>;
-}
 export interface CreateOrganizationInput {
+    /** Durable identifiers reserved by a trusted provisioning operation. */
+    readonly organization_id?: string;
+    readonly initial_owner_membership_id?: string;
     readonly slug: string;
     readonly display_name: string;
     readonly legal_name?: string | null;
@@ -37,18 +23,15 @@ export interface InviteMemberInput {
 }
 export declare class OrganizationService {
     private readonly repository;
-    private readonly delivery;
     private readonly now;
-    constructor(repository: OrganizationGovernanceRepository, delivery?: InvitationDeliveryAdapter, now?: () => Date);
+    private readonly invitationWorkflow?;
+    private readonly identityProvisioning?;
+    constructor(repository: OrganizationGovernanceRepository, now?: () => Date, invitationWorkflow?: InvitationWorkflowService | undefined, identityProvisioning?: IdentityProvisioningService | undefined);
     createOrganization(input: CreateOrganizationInput, actor: PlatformActorContext): Promise<OrganizationRecord>;
-    inviteMember(input: InviteMemberInput, actor: OrganizationActorContext): Promise<{
-        readonly invitation_id: string;
-    }>;
+    inviteMember(input: InviteMemberInput, actor: OrganizationActorContext): Promise<import("./invitationWorkflow.js").InvitationDeliveryReceipt>;
     acceptInvitation(rawToken: string, identity: InvitationIdentityContext): Promise<import("./types.js").OrganizationMembershipRecord>;
     resolveInvitation(rawToken: string): Promise<import("./organizationRepository.js").InvitationResolutionRecord>;
-    resendInvitation(invitationId: string, deliveryInput: Omit<InviteMemberInput, 'email' | 'intended_role'>, actor: OrganizationActorContext): Promise<{
-        readonly invitation_id: string;
-    }>;
+    resendInvitation(invitationId: string, deliveryInput: Omit<InviteMemberInput, 'email' | 'intended_role'>, actor: OrganizationActorContext): Promise<import("./invitationWorkflow.js").InvitationDeliveryReceipt>;
     revokeInvitation(invitationId: string, actor: OrganizationActorContext): Promise<import("./organizationRepository.js").InvitationRecord>;
     getPublicBranding(organizationId: string, organizationName: string): Promise<PublicBranding>;
 }

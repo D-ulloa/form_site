@@ -180,10 +180,12 @@ export function createIdentityRouter(
       const { session } = await service.authenticate(request, false);
       assertCsrf(request, session.csrf_token_hash, environment);
       await service.logout(request);
-      response.set('Set-Cookie', [...clearSessionCookies(environment)]);
+      response.set('Set-Cookie', [...clearSessionCookies(environment),
+        `form_site_invitation_handoff=; Path=/api/invitations; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${environment.NODE_ENV === 'production' ? '; Secure' : ''}`]);
       response.status(204).end();
     } catch (error) {
-      response.set('Set-Cookie', [...clearSessionCookies(environment)]);
+      response.set('Set-Cookie', [...clearSessionCookies(environment),
+        `form_site_invitation_handoff=; Path=/api/invitations; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${environment.NODE_ENV === 'production' ? '; Secure' : ''}`]);
       if (error instanceof IdentityAccessError && error.status === 401) { response.status(204).end(); return; }
       safeError(response, error);
     }
@@ -252,7 +254,7 @@ export function createTenantMutationSecurity(
 ): (request: Request, response: Response, next: NextFunction) => void {
   return (request, response, next) => {
     if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS'
-      || request.path === '/invitations/resolve') { next(); return; }
+      || request.path === '/invitations/resolve' || request.path === '/invitations/handoff') { next(); return; }
     void service.authenticate(request, false).then(({ session }) => {
       assertCsrf(request, session.csrf_token_hash, environment);
       next();

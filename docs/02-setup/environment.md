@@ -65,6 +65,20 @@ SPEC-27 identity values (mandatory in production):
 - `APP_MAX_ACTIVE_SESSIONS` — approved per-user active-session limit from 1 through 100; the create RPC enforces it under a user-scoped advisory lock.
 - `SUPPORT_ACCESS_ENABLED` — must remain `false`; production startup rejects `true` until separate approval and runtime implementation exist.
 
+SPEC-35 provisioning values (mandatory in production, even while disabled):
+
+- `IDENTITY_PROVISIONING_ENABLED` — explicit `true` or `false`; deploy `false` and enable only after the SPEC-34 inventory and disposable-project gates pass.
+- `IDENTITY_PROVISIONING_DEFAULT_DISPLAY_NAME` — neutral localized placeholder, initially `Usuario invitado`; never derive it from an email address.
+- `IDENTITY_PROVISIONING_DEFAULT_LOCALE` — validated default, initially `es`.
+- `IDENTITY_PROVISIONING_DEFAULT_TIME_ZONE` — validated IANA zone, initially `America/Caracas`.
+- `IDENTITY_PROVISIONING_EMAIL_PEPPER` — independent secret-manager value of at least 32 bytes used to HMAC canonical emails in restricted evidence.
+- `APP_AUTH_ACTIVATION_REDIRECT_URL` — activation callback whose origin exactly matches `APP_ALLOWED_ORIGINS`.
+
+The operator command is server-only and accepts no password, UUID selection, role,
+membership, verification state, provider metadata, token, or action link. Invoke it
+with `npm --prefix backend run spec35:provision-identity --` and the reviewed flags
+documented in the SPEC-35 runbook. Never place these values in `VITE_*`.
+
 Apply these migrations in order before enabling the complete flow.
 
 The currently linked Supabase project has already received these migrations manually. Consolidating their files does not re-run or alter them. Before using `supabase db push` against that project, reconcile the Supabase CLI migration history (for example with `supabase migration repair`) so already-applied migrations are not attempted again.
@@ -91,6 +105,9 @@ The currently linked Supabase project has already received these migrations manu
 19. `supabase/migrations/20260819200000_spec32_multitenant_integration_outbox.sql`
 20. `supabase/migrations/20260819300000_spec33_commercial_extension_framework.sql`
 21. `supabase/migrations/20260819400000_spec34_migration_certification_control_plane.sql`
+22. `supabase/migrations/20260825120000_spec35_identity_profile_provisioning.sql`
+23. `supabase/migrations/20260825160000_spec36_organization_provisioning.sql`
+24. `supabase/migrations/20260825200000_spec37_invitation_delivery_handoff.sql`
 
 Migrations 14 and 15 create no organizations or business rows. They add identity and shared
 backend-only control tables/functions with forced RLS and revoked browser
@@ -204,3 +221,33 @@ tokens, credentials, raw provider URLs, customer payloads, or private object pat
 Do not introduce `VITE_*` rollout overrides. The browser feature manifest is a safe
 server projection bound to organization, context epoch, and immutable certification.
 Absent, stale, `disabled`, or malformed state denies the feature.
+
+## Restricted organization provisioning
+
+SPEC-36 runs only as the separate operations command documented in
+`docs/03-operation/spec36-organization-provisioning-runbook.md`; it is not mounted in
+the web server. Set `PLATFORM_PROVISIONING_ENVIRONMENT=production`, the exact Supabase
+project ref in `PLATFORM_PROVISIONING_PROJECT_REF`, a reviewed short-lived deployment
+identity label, an exact `PLATFORM_PROVISIONING_APPROVAL_REFERENCE` matching the manifest,
+and the UUID of the named operator's fresh AAL2 session. Keep
+`ORGANIZATION_PROVISIONING_ENABLED=false` except for an approved execution window.
+
+Production manifests are owner-readable restricted files outside Git and the deployment
+environment. The dry-run is the default and remains available while execution is disabled.
+Never put a password, activation link, token, service key, provider metadata, or customer
+payload in a manifest or command argument.
+
+## Invitation delivery and activation
+
+SPEC-37 is disabled by default. `INVITATION_ROUTES_ENABLED=true` requires an exact
+HTTPS `INVITATION_PUBLIC_BASE_URL` present in `APP_ALLOWED_ORIGINS`, template `v1`,
+the independent 32-byte-or-longer `INVITATION_PROVIDER_REFERENCE_PEPPER`,
+`PLATFORM_AUDIT_REQUIRED=true`, `PLATFORM_RATE_LIMIT_PEPPER`, and a named
+`INVITATION_ALERT_OWNER`. A disabled adapter is rejected whenever the routes are on.
+
+Use `INVITATION_EMAIL_ADAPTER=capture` only in isolated non-production environments.
+Production requires `resend`, `RESEND_API_KEY`, an allowlisted CR/LF-free
+`INVITATION_EMAIL_FROM`, `RESEND_WEBHOOK_SECRET`, and an integer
+`INVITATION_EMAIL_TIMEOUT_MS` from 500 through 30000. Preview and non-production
+startup reject the real adapter. These variables are server-only; none may use a
+`VITE_*` prefix. Follow the SPEC-37 runbook before changing the disabled flag.

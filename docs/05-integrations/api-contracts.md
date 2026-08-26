@@ -496,8 +496,25 @@ dependencies use `503 DEPENDENCY_NOT_READY`.
 
 Invitation links use
 `/invitations/accept#invitation_token=<one-time-token>`. The frontend removes
-the fragment immediately, retains the token only in memory, and sends it in a
-JSON body. Persisted rows contain only the SHA-256 hash.
+the fragment immediately and exchanges it once at `POST /api/invitations/handoff`.
+The server returns no handle in JSON; it sets a host-only HttpOnly, SameSite=Strict,
+15-minute cookie bound to the exact origin and a browser nonce. Resolve and accept
+receive no raw token. Persisted rows contain only invitation, handle, binding, origin,
+event, and provider-reference hashes.
+
+SPEC-37 mounts bounded `GET /api/organizations/:organizationId/members` and
+`GET /api/organizations/:organizationId/invitations`, plus create, resend, and revoke
+mutations. Creation/resend return the safe invitation ID, status, expiry,
+`delivery_state`, and `next_action`; provider rejection is reported as `failed`, never
+as sent. Invitation lists expose masked email and safe attempt state, not raw email,
+tokens, provider IDs/errors, or internal cursors.
+
+`POST /api/invitations/accept` requires the current verified identity to match the
+canonical invited email and atomically consumes the handoff, accepts the invitation,
+and creates/reactivates the membership. It returns only canonical organization ID and
+slug plus `context_refresh_required`. `POST /api/provider-webhooks/invitation-email`
+uses a bounded raw JSON body and authenticated/deduplicated delivery evidence; it has
+no cookie, organization selector, or membership authority.
 
 ## SPEC-31 private asset API contract (staged)
 

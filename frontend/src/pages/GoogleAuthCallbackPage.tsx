@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
 import {
   completeGoogleLogin,
@@ -11,6 +11,8 @@ import { clearContractAdminQueryCache } from '../features/contracts/services/con
 export function GoogleAuthCallbackPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('return_to') === '/invitations/accept' ? '/invitations/accept' : '/';
   const started = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,13 +24,13 @@ export function GoogleAuthCallbackPage() {
       .then(() => {
         clearContractAdminQueryCache(queryClient);
         window.dispatchEvent(new Event('form-site-auth-refresh'));
-        navigate('/', { replace: true });
+        navigate(returnTo, { replace: true });
       })
       .catch((caughtError) => {
         const authError = caughtError as AdminAuthError;
         setError(authError.message || 'No se pudo completar el acceso con Google.');
       });
-  }, [navigate, queryClient]);
+  }, [navigate, queryClient, returnTo]);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] px-6 py-16">

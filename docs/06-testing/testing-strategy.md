@@ -178,3 +178,20 @@ chain to empty and production-shaped disposable databases; interrupt/resume/reru
 backfills; exercise Azar/Solar RLS, identifiers, assets, providers, caches, sessions,
 workers, restore, rollback, ambiguity, and performance; and compare distinct staging
 destinations. Automated suites never use production tenants, data, or credentials.
+
+## SPEC-37 invitation delivery coverage
+
+`spec37-invitation-delivery.test.ts` covers escaped templates, fragment URLs, provider
+outcome sanitization, hashed/cookie-bound 15-minute handoffs, Svix-compatible signature
+verification, and fail-closed startup. `spec37-migration-contract.test.ts` checks
+hash-only evidence, forced RLS/revoked browser access, exact-email atomic acceptance,
+transactional resend/revoke invalidation, webhook non-authority, and bounded masked
+lists. Frontend integration coverage proves immediate fragment removal, server handoff,
+token-free resolve/accept, non-owner role UI, and truthful governance states.
+
+Before production enablement, apply through migration 24 to disposable Postgres and run
+accept/resend/revoke/suspension races, direct browser-role denial, cross-tenant attacks,
+and handoff expiry/replay/fixation tests. Then certify Resend sandbox delivery,
+authenticated duplicate/bounce/complaint webhooks, password and Google return, existing
+and new identities, and distinct Azar/Solar recipients. Static/mock tests do not certify
+the database, provider, DNS, mail reputation, or operational approvals.

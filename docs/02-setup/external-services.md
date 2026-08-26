@@ -1,6 +1,6 @@
 # External Services
 
-Status: 2026-08-18.
+Status: 2026-08-25.
 
 ## Supabase contract persistence
 
@@ -89,6 +89,23 @@ For Contract Generation, the service account is required rather than a fallback.
 ## Supabase administrator authentication
 
 Supabase Auth provides password and Google login for pre-reviewed Azar accounts. Open real-data registration is closed, and neither password registration nor Google handoff writes `contract_admin_users`. The browser receives a signed, versioned HttpOnly application cookie; the service-role key is never sent to the browser.
+
+## Transactional invitation email
+
+SPEC-37 provides a provider-neutral delivery boundary and a production Resend
+adapter. It sends one escaped text/minimal-HTML Spanish template, uses the invitation
+generation as the provider idempotency key, stores only an HMAC of the provider
+message reference, and maps responses to safe accepted/rejected/ambiguous outcomes.
+Capture is the only permitted non-production adapter; production sending remains
+disabled until the sending domain, SPF/DKIM/DMARC, privacy/region terms, sender,
+limits, alert owner, and canary recipients have named approval.
+
+The webhook endpoint verifies the timestamped Svix signature against the exact raw
+body before accepting delivered, bounced, or complained evidence. Event IDs are
+hashed and deduplicated. Webhooks can update delivery evidence only; they cannot
+create a membership or accept an invitation. Provider secrets, raw responses,
+recipient addresses, and usable provider references are not persisted in SPEC-37
+evidence.
 
 ## Supabase private asset storage
 

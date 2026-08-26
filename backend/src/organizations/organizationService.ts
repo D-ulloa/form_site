@@ -1,4 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import type { IdentityProvisioningService } from '../identity/identityProvisioningService.js';
+import { createInvitationProvisioningActor } from '../identity/identityProvisioningTypes.js';
 import { OrganizationDomainError } from './errors.js';
 import { createInvitationToken } from './invitationTokens.js';
 import type {
@@ -6,6 +8,7 @@ import type {
   OrganizationGovernanceRepository,
 } from './organizationRepository.js';
 import { allowedInvitationRoles, hasOrganizationCapability } from './roleCapabilities.js';
+import type { InvitationWorkflowService } from './invitationWorkflow.js';
 import type {
   InvitationIdentityContext,
   OrganizationActorContext,
@@ -24,48 +27,10 @@ import {
 const INVITATION_EXPIRY_MILLISECONDS = 72 * 60 * 60 * 1000;
 const PLAN_KEYS = new Set(['internal', 'standard', 'enterprise']);
 
-function buildAcceptanceUrl(publicBaseUrl: string, rawToken: string): string {
-  let url: URL;
-  try {
-    url = new URL('/invitations/accept', publicBaseUrl);
-  } catch {
-    throw new OrganizationDomainError('DEPENDENCY_NOT_READY', 'Invitation public base URL is invalid.');
-  }
-  if (url.protocol !== 'https:') {
-    throw new OrganizationDomainError('DEPENDENCY_NOT_READY', 'Invitation public base URL must use HTTPS.');
-  }
-  url.hash = `invitation_token=${rawToken}`;
-  return url.toString();
-}
-
-export interface InvitationDeliveryMessage {
-  readonly invitation_id: string;
-  readonly organization_display_name: string;
-  readonly inviter_display_name: string;
-  readonly intended_role: 'admin' | 'member' | 'viewer';
-  readonly email_normalized: string;
-  readonly expires_at: string;
-  readonly acceptance_url: string;
-}
-
-export interface InvitationDeliveryAdapter {
-  send(message: InvitationDeliveryMessage): Promise<void>;
-}
-
-export class DisabledInvitationDeliveryAdapter implements InvitationDeliveryAdapter {
-  async send(_message: InvitationDeliveryMessage): Promise<void> {
-    throw new OrganizationDomainError('DEPENDENCY_NOT_READY', 'Invitation delivery provider is not configured.');
-  }
-}
-
-export class FakeInvitationDeliveryAdapter implements InvitationDeliveryAdapter {
-  readonly messages: InvitationDeliveryMessage[] = [];
-  async send(message: InvitationDeliveryMessage): Promise<void> {
-    this.messages.push(message);
-  }
-}
-
 export interface CreateOrganizationInput {
+  /** Durable identifiers reserved by a trusted provisioning operation. */
+  readonly organization_id?: string;
+  readonly initial_owner_membership_id?: string;
   readonly slug: string;
   readonly display_name: string;
   readonly legal_name?: string | null;
@@ -86,8 +51,9 @@ export interface InviteMemberInput {
 export class OrganizationService {
   constructor(
     private readonly repository: OrganizationGovernanceRepository,
-    private readonly delivery: InvitationDeliveryAdapter = new DisabledInvitationDeliveryAdapter(),
     private readonly now: () => Date = () => new Date(),
+    private readonly invitationWorkflow?: InvitationWorkflowService,
+    private readonly identityProvisioning?: IdentityProvisioningService,
   ) {}
 
   async createOrganization(
@@ -95,8 +61,13 @@ export class OrganizationService {
     actor: PlatformActorContext,
   ): Promise<OrganizationRecord> {
     if (!PLAN_KEYS.has(input.plan_key)) throw new OrganizationDomainError('FORBIDDEN', 'Unknown server plan key.');
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+    if ((input.organization_id && !uuid.test(input.organization_id))
+      || (input.initial_owner_membership_id && !uuid.test(input.initial_owner_membership_id))) {
+      throw new OrganizationDomainError('FORBIDDEN', 'Invalid reserved organization identity.');
+    }
     return this.repository.createOrganization({
-      organization_id: randomUUID(),
+      organization_id: input.organization_id ?? randomUUID(),
       slug: validateOrganizationSlug(input.slug),
       display_name: validateDisplayName(input.display_name),
       legal_name: input.legal_name ? validateDisplayName(input.legal_name, 240) : null,
@@ -105,12 +76,12 @@ export class OrganizationService {
       time_zone: validateTimeZone(input.time_zone),
       creation_source: input.creation_source,
       initial_owner_user_id: input.initial_owner_user_id,
-      initial_owner_membership_id: randomUUID(),
+      initial_owner_membership_id: input.initial_owner_membership_id ?? randomUUID(),
       actor,
     });
   }
 
-  async inviteMember(input: InviteMemberInput, actor: OrganizationActorContext): Promise<{ readonly invitation_id: string }> {
+  async inviteMember(input: InviteMemberInput, actor: OrganizationActorContext) {
     if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.invite')) {
       throw new OrganizationDomainError('FORBIDDEN');
     }
@@ -118,6 +89,14 @@ export class OrganizationService {
       throw new OrganizationDomainError('FORBIDDEN');
     }
     const email = normalizeOrganizationEmail(input.email);
+    if (!this.invitationWorkflow || !this.identityProvisioning) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    const identity = await this.identityProvisioning.provision({ email, purpose: 'organization_invitee',
+      request_id: actor.request_id, idempotency_key: `invite:${actor.organization.id}:${createHash('sha256').update(email).digest('hex').slice(0, 32)}` },
+    createInvitationProvisioningActor({ actor_type: 'organization_invitation', user_id: actor.user_id,
+      membership_id: actor.membership.id, organization_id: actor.organization.id }));
+    if (!identity.user_id || identity.outcome === 'blocked_ambiguous' || identity.outcome === 'blocked_ineligible') {
+      throw new OrganizationDomainError('FORBIDDEN');
+    }
     const token = createInvitationToken();
     const invitationId = randomUUID();
     const expiresAt = new Date(this.now().getTime() + INVITATION_EXPIRY_MILLISECONDS).toISOString();
@@ -132,23 +111,10 @@ export class OrganizationService {
       invited_by_membership_id: actor.membership.id,
       request_id: actor.request_id,
     };
-    await this.repository.createInvitation(persistence);
-    try {
-      await this.delivery.send({
-        invitation_id: invitationId,
-        organization_display_name: actor.organization.display_name,
-        inviter_display_name: validateDisplayName(input.inviter_display_name),
-        intended_role: input.intended_role,
-        email_normalized: email,
-        expires_at: expiresAt,
-        acceptance_url: buildAcceptanceUrl(input.public_base_url, token.raw_token),
-      });
-      await this.repository.markInvitationDelivery(invitationId, 'sent');
-    } catch (error) {
-      await this.repository.markInvitationDelivery(invitationId, 'failed',
-        error instanceof OrganizationDomainError ? error.code : 'DELIVERY_FAILED');
-    }
-    return { invitation_id: invitationId };
+    const invitation = await this.repository.createInvitation(persistence);
+    return this.invitationWorkflow.deliver(invitation, token.raw_token, {
+      organization_display_name: actor.organization.display_name,
+      inviter_display_name: validateDisplayName(input.inviter_display_name), request_id: actor.request_id });
   }
 
   async acceptInvitation(rawToken: string, identity: InvitationIdentityContext) {
@@ -169,7 +135,7 @@ export class OrganizationService {
     invitationId: string,
     deliveryInput: Omit<InviteMemberInput, 'email' | 'intended_role'>,
     actor: OrganizationActorContext,
-  ): Promise<{ readonly invitation_id: string }> {
+  ) {
     if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.invite')) {
       throw new OrganizationDomainError('FORBIDDEN');
     }
@@ -186,34 +152,25 @@ export class OrganizationService {
       actor_membership_id: actor.membership.id,
       request_id: actor.request_id,
     });
-    try {
-      await this.delivery.send({
-        invitation_id: replacementId,
-        organization_display_name: actor.organization.display_name,
-        inviter_display_name: validateDisplayName(deliveryInput.inviter_display_name),
-        intended_role: replacement.intended_role,
-        email_normalized: replacement.email_normalized,
-        expires_at: expiresAt,
-        acceptance_url: buildAcceptanceUrl(deliveryInput.public_base_url, token.raw_token),
-      });
-      await this.repository.markInvitationDelivery(replacementId, 'sent');
-    } catch (error) {
-      await this.repository.markInvitationDelivery(replacementId, 'failed',
-        error instanceof OrganizationDomainError ? error.code : 'DELIVERY_FAILED');
-    }
-    return { invitation_id: replacementId };
+    if (!this.invitationWorkflow) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    await this.invitationWorkflow.invalidate(invitationId);
+    return this.invitationWorkflow.deliver(replacement, token.raw_token, {
+      organization_display_name: actor.organization.display_name,
+      inviter_display_name: validateDisplayName(deliveryInput.inviter_display_name), request_id: actor.request_id });
   }
 
   async revokeInvitation(invitationId: string, actor: OrganizationActorContext) {
     if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.invite')) {
       throw new OrganizationDomainError('FORBIDDEN');
     }
-    return this.repository.revokeInvitation({
+    const result = await this.repository.revokeInvitation({
       organization_id: actor.organization.id,
       invitation_id: invitationId,
       actor_membership_id: actor.membership.id,
       request_id: actor.request_id,
     });
+    await this.invitationWorkflow?.invalidate(invitationId);
+    return result;
   }
 
   async getPublicBranding(organizationId: string, organizationName: string): Promise<PublicBranding> {

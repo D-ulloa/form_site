@@ -38,7 +38,10 @@ export interface OrganizationInvitationSummary {
   readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced' | 'expired';
   readonly expires_at: string;
-  readonly delivery_state: 'pending' | 'sent' | 'failed';
+  readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
+  readonly last_attempt_at: string | null;
+  readonly attempt_count: number;
+  readonly next_action: 'resend_or_revoke' | 'none';
   readonly version: number;
 }
 
@@ -48,4 +51,3 @@ export interface InvitationResolution {
   readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly expires_at: string;
 }
-

@@ -5,13 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationGovernancePanel } from '../../src/features/organizations/components/OrganizationGovernancePanel.tsx';
 import {
   acceptInvitation,
+  establishInvitationHandoff,
   resolveInvitation,
 } from '../../src/features/organizations/services/organizationApi.ts';
 import { InvitationAcceptPage } from '../../src/pages/InvitationAcceptPage.tsx';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../../src/features/organizations/services/organizationApi.ts', () => ({
   resolveInvitation: vi.fn(),
+  establishInvitationHandoff: vi.fn(),
   acceptInvitation: vi.fn(),
+}));
+vi.mock('../../src/app/contexts/AuthenticationContext.tsx', () => ({
+  useAuthentication: () => ({ status: 'authenticated', session: {}, refresh: vi.fn(), logout: vi.fn() }),
 }));
 
 beforeEach(() => {
@@ -21,7 +27,8 @@ beforeEach(() => {
     intended_role: 'member',
     expires_at: '2026-08-21T12:00:00.000Z',
   });
-  vi.mocked(acceptInvitation).mockResolvedValue({ organization_id: 'solar-id' });
+  vi.mocked(establishInvitationHandoff).mockResolvedValue();
+  vi.mocked(acceptInvitation).mockResolvedValue({ organization_id: 'solar-id', organization_slug: 'solar' });
 });
 
 afterEach(() => {
@@ -33,23 +40,25 @@ afterEach(() => {
 describe('SPEC-26 invitation acceptance', () => {
   it('reads the token from the fragment, removes it immediately, and passes it only in memory', async () => {
     window.history.replaceState(null, '', '/invitations/accept#invitation_token=single-use-secret');
-    render(<InvitationAcceptPage />);
+    render(<MemoryRouter><InvitationAcceptPage /></MemoryRouter>);
 
-    await waitFor(() => expect(resolveInvitation).toHaveBeenCalledWith('single-use-secret'));
+    await waitFor(() => expect(establishInvitationHandoff).toHaveBeenCalledWith('single-use-secret'));
+    expect(resolveInvitation).toHaveBeenCalledWith();
     expect(window.location.hash).toBe('');
     expect(document.body.textContent).not.toContain('single-use-secret');
     expect(screen.getByText(/Te invitaron a/u).textContent).toContain('Solar');
 
     fireEvent.click(screen.getByRole('button', { name: 'Aceptar invitación' }));
-    await waitFor(() => expect(acceptInvitation).toHaveBeenCalledWith('single-use-secret'));
+    await waitFor(() => expect(acceptInvitation).toHaveBeenCalledWith());
     expect(await screen.findByText(/fue aceptada/u)).toBeTruthy();
   });
 
   it('uses one generic invalid state when no token is present', async () => {
+    vi.mocked(resolveInvitation).mockRejectedValueOnce(new Error('invalid'));
     window.history.replaceState(null, '', '/invitations/accept');
-    render(<InvitationAcceptPage />);
+    render(<MemoryRouter><InvitationAcceptPage /></MemoryRouter>);
     expect(await screen.findByText(/no es válida o ya no está disponible/u)).toBeTruthy();
-    expect(resolveInvitation).not.toHaveBeenCalled();
+    expect(resolveInvitation).toHaveBeenCalledWith();
   });
 });
 

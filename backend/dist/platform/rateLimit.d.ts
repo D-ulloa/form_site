@@ -25,6 +25,11 @@ export declare const RATE_LIMIT_POLICIES: {
         readonly limit: 10;
         readonly sensitive: true;
     };
+    readonly 'identity.provision': {
+        readonly window_seconds: 3600;
+        readonly limit: 20;
+        readonly sensitive: true;
+    };
     readonly 'member.invitation_create': {
         readonly window_seconds: 3600;
         readonly limit: 50;
@@ -32,6 +37,16 @@ export declare const RATE_LIMIT_POLICIES: {
     };
     readonly 'member.invitation_resend': {
         readonly window_seconds: 3600;
+        readonly limit: 20;
+        readonly sensitive: true;
+    };
+    readonly 'member.invitation_revoke': {
+        readonly window_seconds: 3600;
+        readonly limit: 20;
+        readonly sensitive: true;
+    };
+    readonly 'member.invitation_handoff': {
+        readonly window_seconds: 300;
         readonly limit: 20;
         readonly sensitive: true;
     };
@@ -43,6 +58,11 @@ export declare const RATE_LIMIT_POLICIES: {
     readonly 'member.invitation_accept': {
         readonly window_seconds: 900;
         readonly limit: 20;
+        readonly sensitive: true;
+    };
+    readonly 'provider.invitation_webhook': {
+        readonly window_seconds: 60;
+        readonly limit: 120;
         readonly sensitive: true;
     };
     readonly 'contract.link_validate': {
