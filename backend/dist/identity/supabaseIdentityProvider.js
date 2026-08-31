@@ -50,6 +50,20 @@ export function createSupabaseIdentityProvider(environment = process.env) {
             if (error)
                 throw new Error('ACCOUNT_UPDATE_UNAVAILABLE');
         },
+        async activateInvitationUser(userId, expectedEmail, password, displayName) {
+            const admin = fresh();
+            const { data, error } = await admin.auth.admin.getUserById(userId);
+            const user = data.user;
+            if (error || !user?.email || user.email.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()
+                || user.email_confirmed_at || user.confirmed_at || user.last_sign_in_at) {
+                throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
+            }
+            const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+                password, email_confirm: true, user_metadata: { ...user.user_metadata, full_name: displayName },
+            });
+            if (updateError)
+                throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
+        },
     };
 }
 //# sourceMappingURL=supabaseIdentityProvider.js.map

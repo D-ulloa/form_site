@@ -41,6 +41,7 @@ export declare class ResendInvitationDeliveryAdapter implements InvitationDelive
 }
 export interface InvitationDeliveryConfiguration {
     readonly enabled: boolean;
+    readonly delivery_method: 'share_link' | 'email';
     readonly adapter: 'disabled' | 'capture' | 'resend';
     readonly public_base_url: string;
     readonly template_version: string;

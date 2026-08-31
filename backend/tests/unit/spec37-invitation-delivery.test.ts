@@ -5,7 +5,7 @@ import { CaptureInvitationDeliveryAdapter, ResendInvitationDeliveryAdapter,
   invitationDeliveryConfiguration, renderInvitationEmail, verifyResendWebhook } from '../../src/organizations/invitationDelivery.js';
 import { InvitationWorkflowService, type InvitationWorkflowRepository } from '../../src/organizations/invitationWorkflow.js';
 
-const configuration = { enabled: true, adapter: 'capture' as const, public_base_url: 'https://app.example.test',
+const configuration = { enabled: true, delivery_method: 'email' as const, adapter: 'capture' as const, public_base_url: 'https://app.example.test',
   template_version: 'v1', provider_reference_pepper: 'p'.repeat(48), webhook_secret: 'whsec_c2VjcmV0' };
 
 class FakeRepository implements InvitationWorkflowRepository {
@@ -20,6 +20,8 @@ class FakeRepository implements InvitationWorkflowRepository {
   recordWebhook() { return Promise.resolve(true); }
   listMembers() { return Promise.resolve([]); }
   listInvitations() { return Promise.resolve([]); }
+  registrationContext() { return Promise.resolve(null); }
+  completeRegistration() { return Promise.resolve(); }
 }
 
 test('SPEC-37 template escapes customer text and keeps the action in a URL fragment', () => {
@@ -66,11 +68,25 @@ test('SPEC-37 verifies timestamped webhook signatures and rejects tampering', ()
 
 test('SPEC-37 production startup fails closed without the certified provider controls', () => {
   assert.throws(() => invitationDeliveryConfiguration({ INVITATION_ROUTES_ENABLED: 'true',
-    INVITATION_EMAIL_ADAPTER: 'disabled' }), /Invitation/u);
+    INVITATION_DELIVERY_METHOD: 'email', INVITATION_EMAIL_ADAPTER: 'disabled' }), /Invitation/u);
   assert.doesNotThrow(() => invitationDeliveryConfiguration({ NODE_ENV: 'production', INVITATION_ROUTES_ENABLED: 'true',
-    INVITATION_EMAIL_ADAPTER: 'resend', INVITATION_PUBLIC_BASE_URL: 'https://app.example.test',
+    INVITATION_DELIVERY_METHOD: 'email', INVITATION_EMAIL_ADAPTER: 'resend', INVITATION_PUBLIC_BASE_URL: 'https://app.example.test',
     INVITATION_EMAIL_TEMPLATE_VERSION: 'v1', INVITATION_PROVIDER_REFERENCE_PEPPER: 'p'.repeat(48),
     INVITATION_ALERT_OWNER: 'operations', PLATFORM_AUDIT_REQUIRED: 'true', PLATFORM_RATE_LIMIT_PEPPER: 'r'.repeat(48),
     APP_ALLOWED_ORIGINS: 'https://app.example.test', RESEND_API_KEY: 're_test', INVITATION_EMAIL_FROM: 'Access <access@example.test>',
     RESEND_WEBHOOK_SECRET: `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}` }));
+});
+
+test('SPEC-37 manual links need no email provider and are returned only from the issuance call', () => {
+  const config = invitationDeliveryConfiguration({ NODE_ENV: 'production', INVITATION_ROUTES_ENABLED: 'true',
+    INVITATION_DELIVERY_METHOD: 'share_link', INVITATION_EMAIL_ADAPTER: 'disabled',
+    INVITATION_PUBLIC_BASE_URL: 'https://app.example.test', INVITATION_ALERT_OWNER: 'operations',
+    PLATFORM_AUDIT_REQUIRED: 'true', PLATFORM_RATE_LIMIT_PEPPER: 'r'.repeat(48),
+    APP_ALLOWED_ORIGINS: 'https://app.example.test' });
+  const service = new InvitationWorkflowService(new FakeRepository(), new CaptureInvitationDeliveryAdapter(), config);
+  const receipt = service.manualLink({ id: 'invite-1', organization_id: 'organization-1', email_normalized: 'a@example.test',
+    intended_role: 'viewer', status: 'pending', expires_at: '2026-08-29T00:00:00.000Z', delivery_state: 'pending',
+    delivery_method: 'share_link', token_version: 1, version: 1 }, 't'.repeat(43));
+  assert.equal(receipt.delivery_method, 'share_link');
+  assert.match(receipt.share_url ?? '', /^https:\/\/app\.example\.test\/invitations\/accept#invitation_token=/u);
 });

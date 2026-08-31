@@ -29,7 +29,7 @@ export function createOrganizationGovernanceRepository(environment = process.env
             return requireData(data, error);
         },
         async createInvitation(input) {
-            const { data, error } = await client().rpc('spec26_create_invitation', {
+            const { data, error } = await client().rpc('spec37_create_manual_invitation', {
                 p_invitation_id: input.invitation_id,
                 p_organization_id: input.organization_id,
                 p_email_normalized: input.email_normalized,
@@ -39,6 +39,8 @@ export function createOrganizationGovernanceRepository(environment = process.env
                 p_expires_at: input.expires_at,
                 p_invited_by_membership_id: input.invited_by_membership_id,
                 p_request_id: input.request_id,
+                p_invited_auth_user_id: input.invited_auth_user_id,
+                p_registration_permitted: input.registration_permitted,
             }).single();
             return requireData(data, error);
         },

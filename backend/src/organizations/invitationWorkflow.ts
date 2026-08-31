@@ -8,7 +8,8 @@ import type { InvitationRecord, InvitationResolutionRecord } from './organizatio
 
 export interface InvitationDeliveryReceipt {
   readonly invitation_id: string; readonly status: string; readonly delivery_state: string;
-  readonly expires_at: string; readonly next_action: 'wait' | 'resend_or_revoke';
+  readonly delivery_method: 'share_link' | 'email'; readonly expires_at: string;
+  readonly next_action: 'copy_or_revoke' | 'wait' | 'resend_or_revoke'; readonly share_url?: string;
 }
 export interface InvitationHandoffMaterial { readonly handle: string; readonly browser_binding: string; readonly max_age_seconds: number }
 export interface InvitationWorkflowRepository {
@@ -27,6 +28,10 @@ export interface InvitationWorkflowRepository {
   recordWebhook(input: { event_id_hash: string; event_type: string; provider_reference_hash: string }): Promise<boolean>;
   listMembers(organizationId: string, membershipId: string, cursor: string | null, limit: number): Promise<readonly Record<string, unknown>[]>;
   listInvitations(organizationId: string, membershipId: string, cursor: string | null, limit: number): Promise<readonly Record<string, unknown>[]>;
+  registrationContext(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string }):
+    Promise<{ auth_user_id: string; email_normalized: string; registration_permitted: boolean } | null>;
+  completeRegistration(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
+    user_id: string; display_name: string; request_id: string }): Promise<void>;
 }
 
 function failure(error: { message: string } | null): never {
@@ -72,6 +77,14 @@ export function createInvitationWorkflowRepository(environment: NodeJS.ProcessEn
     async listInvitations(organizationId, membershipId, cursor, limit) { const { data, error } = await client.rpc('spec37_list_invitations',
       { p_organization_id: organizationId, p_actor_membership_id: membershipId, p_after_id: cursor, p_limit: limit });
       if (error) failure(error); return (data ?? []) as Record<string, unknown>[]; },
+    async registrationContext(input) { const { data, error } = await client.rpc('spec37_resolve_invitation_registration', {
+      p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
+      p_origin_hash: input.origin_hash }).maybeSingle(); if (error) failure(error);
+      return data as { auth_user_id: string; email_normalized: string; registration_permitted: boolean } | null; },
+    async completeRegistration(input) { const { error } = await client.rpc('spec37_complete_invitation_registration', {
+      p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
+      p_origin_hash: input.origin_hash, p_user_id: input.user_id, p_display_name: input.display_name,
+      p_request_id: input.request_id }); if (error) failure(error); },
   };
 }
 
@@ -83,6 +96,21 @@ export class InvitationWorkflowService {
 
   invalidate(invitationId: string): Promise<void> { return this.repository.invalidateHandoffs(invitationId); }
 
+  private acceptanceUrl(rawToken: string): string {
+    const url = new URL('/invitations/accept', this.config.public_base_url);
+    url.hash = `invitation_token=${rawToken}`;
+    return url.toString();
+  }
+
+  manualLink(invitation: InvitationRecord, rawToken: string): InvitationDeliveryReceipt {
+    if (!this.config.enabled || this.config.delivery_method !== 'share_link') {
+      throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    }
+    return { invitation_id: invitation.id, status: invitation.status, delivery_state: 'pending',
+      delivery_method: 'share_link', expires_at: invitation.expires_at, next_action: 'copy_or_revoke',
+      share_url: this.acceptanceUrl(rawToken) };
+  }
+
   async deliver(invitation: InvitationRecord, rawToken: string, input: { organization_display_name: string;
     inviter_display_name: string; request_id: string }): Promise<InvitationDeliveryReceipt> {
     if (!this.config.enabled || this.config.adapter === 'disabled') throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
@@ -90,21 +118,30 @@ export class InvitationWorkflowService {
     await this.repository.beginDelivery({ attempt_id: attemptId, invitation_id: invitation.id,
       provider: this.config.adapter, template_version: this.config.template_version, locale: 'es',
       idempotency_key: idempotencyKey, request_id: input.request_id });
-    const acceptanceUrl = new URL('/invitations/accept', this.config.public_base_url);
-    acceptanceUrl.hash = `invitation_token=${rawToken}`;
     const result = await this.delivery.send({ attempt_id: attemptId, idempotency_key: idempotencyKey,
       recipient: invitation.email_normalized, organization_display_name: input.organization_display_name,
       inviter_display_name: input.inviter_display_name, intended_role: invitation.intended_role,
-      expires_at: invitation.expires_at, acceptance_url: acceptanceUrl.toString(), locale: 'es',
+      expires_at: invitation.expires_at, acceptance_url: this.acceptanceUrl(rawToken), locale: 'es',
       template_version: this.config.template_version });
     const referenceHash = result.provider_reference ? createHmac('sha256', this.config.provider_reference_pepper)
       .update(result.provider_reference).digest('hex') : null;
     await this.repository.completeDelivery({ attempt_id: attemptId, state: result.outcome,
       provider_reference_hash: referenceHash, safe_error_code: result.safe_error_code ?? null });
-    return { invitation_id: invitation.id, status: invitation.status,
+    return { invitation_id: invitation.id, status: invitation.status, delivery_method: 'email',
       delivery_state: result.outcome === 'accepted_by_provider' ? 'accepted_by_provider'
         : result.outcome === 'rejected' ? 'failed' : 'pending', expires_at: invitation.expires_at,
       next_action: result.outcome === 'accepted_by_provider' ? 'wait' : 'resend_or_revoke' };
+  }
+
+  registrationContext(handle: string, binding: string, origin: string) {
+    return this.repository.registrationContext({ handle_hash: digest(handle), browser_binding_hash: digest(binding),
+      origin_hash: digest(origin) });
+  }
+
+  completeRegistration(handle: string, binding: string, origin: string, userId: string,
+    displayName: string, requestId: string) {
+    return this.repository.completeRegistration({ handle_hash: digest(handle), browser_binding_hash: digest(binding),
+      origin_hash: digest(origin), user_id: userId, display_name: displayName, request_id: requestId });
   }
 
   async createHandoff(rawToken: string, browserBinding: string | null, origin: string): Promise<InvitationHandoffMaterial> {

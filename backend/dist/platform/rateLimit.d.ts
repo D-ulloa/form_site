@@ -60,6 +60,11 @@ export declare const RATE_LIMIT_POLICIES: {
         readonly limit: 20;
         readonly sensitive: true;
     };
+    readonly 'member.invitation_register': {
+        readonly window_seconds: 900;
+        readonly limit: 8;
+        readonly sensitive: true;
+    };
     readonly 'provider.invitation_webhook': {
         readonly window_seconds: 60;
         readonly limit: 120;

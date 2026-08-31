@@ -10,6 +10,7 @@ import {
 } from '../../src/features/organizations/services/organizationApi.ts';
 import { InvitationAcceptPage } from '../../src/pages/InvitationAcceptPage.tsx';
 import { MemoryRouter } from 'react-router-dom';
+import { StrictMode } from 'react';
 
 vi.mock('../../src/features/organizations/services/organizationApi.ts', () => ({
   resolveInvitation: vi.fn(),
@@ -40,9 +41,11 @@ afterEach(() => {
 describe('SPEC-26 invitation acceptance', () => {
   it('reads the token from the fragment, removes it immediately, and passes it only in memory', async () => {
     window.history.replaceState(null, '', '/invitations/accept#invitation_token=single-use-secret');
-    render(<MemoryRouter><InvitationAcceptPage /></MemoryRouter>);
+    render(<StrictMode><MemoryRouter><InvitationAcceptPage /></MemoryRouter></StrictMode>);
 
     await waitFor(() => expect(establishInvitationHandoff).toHaveBeenCalledWith('single-use-secret'));
+    expect(establishInvitationHandoff).toHaveBeenCalledTimes(1);
+    expect(resolveInvitation).toHaveBeenCalledTimes(1);
     expect(resolveInvitation).toHaveBeenCalledWith();
     expect(window.location.hash).toBe('');
     expect(document.body.textContent).not.toContain('single-use-secret');
@@ -64,7 +67,7 @@ describe('SPEC-26 invitation acceptance', () => {
 
 describe('SPEC-26 governance controls', () => {
   it('limits an administrator invite form to member and viewer roles', () => {
-    render(<OrganizationGovernancePanel
+    render(<MemoryRouter><OrganizationGovernancePanel
       section="invitations"
       context={{
         organization_id: 'azar-id', organization_slug: 'azar', display_name: 'Azar',
@@ -72,22 +75,42 @@ describe('SPEC-26 governance controls', () => {
         capabilities: ['organization.read', 'members.read', 'members.invite'],
       }}
       onInvite={vi.fn()}
-    />);
+    /></MemoryRouter>);
     expect(screen.getByLabelText(/Correo electrónico/u)).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Miembro' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Lector' })).toBeTruthy();
     expect(screen.queryByRole('option', { name: 'Administrador' })).toBeNull();
   });
 
+  it('returns a manual link once, copies it without rendering the token, and clears the action', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const shareUrl = 'https://app.example.test/invitations/accept#invitation_token=one-time-secret';
+    const onInvite = vi.fn().mockResolvedValue({ invitation_id: 'invite-1', status: 'pending',
+      delivery_state: 'pending', delivery_method: 'share_link', expires_at: '2026-08-29T00:00:00.000Z',
+      next_action: 'copy_or_revoke', share_url: shareUrl });
+    render(<MemoryRouter><OrganizationGovernancePanel section="invitations" context={{
+      organization_id: 'azar-id', organization_slug: 'azar', display_name: 'Azar', status: 'active',
+      plan_key: 'internal', role: 'owner', capabilities: ['organization.read', 'members.read', 'members.invite'],
+    }} onInvite={onInvite} /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/u), { target: { value: 'new@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear enlace' }));
+    const copy = await screen.findByRole('button', { name: 'Copiar enlace' });
+    expect(document.body.textContent).not.toContain('one-time-secret');
+    fireEvent.click(copy);
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(shareUrl));
+    expect(screen.queryByRole('button', { name: 'Copiar enlace' })).toBeNull();
+  });
+
   it('communicates suspended state in text and disables unavailable lifecycle actions', () => {
-    render(<OrganizationGovernancePanel
+    render(<MemoryRouter><OrganizationGovernancePanel
       section="lifecycle"
       context={{
         organization_id: 'solar-id', organization_slug: 'solar', display_name: 'Solar',
         status: 'suspended', plan_key: 'standard', role: 'owner',
         capabilities: ['organization.read', 'organization.export'],
       }}
-    />);
+    /></MemoryRouter>);
     expect(screen.getByRole('status').textContent).toContain('suspended');
     expect(screen.getByRole('button', { name: 'Solicitar exportación' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: 'Solicitar eliminación' }).hasAttribute('disabled')).toBe(true);

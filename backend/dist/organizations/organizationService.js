@@ -67,9 +67,13 @@ export class OrganizationService {
             token_prefix: token.token_prefix,
             expires_at: expiresAt,
             invited_by_membership_id: actor.membership.id,
+            invited_auth_user_id: identity.user_id,
+            registration_permitted: identity.activation_required && identity.outcome === 'created_activation_required',
             request_id: actor.request_id,
         };
         const invitation = await this.repository.createInvitation(persistence);
+        if (invitation.delivery_method === 'share_link')
+            return this.invitationWorkflow.manualLink(invitation, token.raw_token);
         return this.invitationWorkflow.deliver(invitation, token.raw_token, {
             organization_display_name: actor.organization.display_name,
             inviter_display_name: validateDisplayName(input.inviter_display_name), request_id: actor.request_id
@@ -109,6 +113,8 @@ export class OrganizationService {
         if (!this.invitationWorkflow)
             throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
         await this.invitationWorkflow.invalidate(invitationId);
+        if (replacement.delivery_method === 'share_link')
+            return this.invitationWorkflow.manualLink(replacement, token.raw_token);
         return this.invitationWorkflow.deliver(replacement, token.raw_token, {
             organization_display_name: actor.organization.display_name,
             inviter_display_name: validateDisplayName(deliveryInput.inviter_display_name), request_id: actor.request_id

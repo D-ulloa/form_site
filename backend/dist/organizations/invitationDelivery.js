@@ -67,6 +67,7 @@ export class ResendInvitationDeliveryAdapter {
 }
 export function invitationDeliveryConfiguration(environment) {
     const enabled = environment.INVITATION_ROUTES_ENABLED === 'true';
+    const deliveryMethod = (environment.INVITATION_DELIVERY_METHOD?.trim() || 'share_link');
     const adapter = (environment.INVITATION_EMAIL_ADAPTER?.trim() || 'disabled');
     const publicBaseUrl = environment.INVITATION_PUBLIC_BASE_URL?.trim() ?? '';
     const templateVersion = environment.INVITATION_EMAIL_TEMPLATE_VERSION?.trim() ?? '';
@@ -74,6 +75,8 @@ export function invitationDeliveryConfiguration(environment) {
     const webhookSecret = environment.RESEND_WEBHOOK_SECRET?.trim() ?? '';
     const webhookKeyLength = webhookSecret.startsWith('whsec_')
         ? Buffer.from(webhookSecret.slice('whsec_'.length), 'base64').length : 0;
+    if (!['share_link', 'email'].includes(deliveryMethod))
+        throw new IdentityConfigurationError('Unknown invitation delivery method.');
     if (!['disabled', 'capture', 'resend'].includes(adapter))
         throw new IdentityConfigurationError('Unknown invitation adapter.');
     if (enabled) {
@@ -84,28 +87,35 @@ export function invitationDeliveryConfiguration(environment) {
         catch {
             throw new IdentityConfigurationError('Invitation URL invalid.');
         }
-        if (url.protocol !== 'https:' || !approvedOrigins(environment).has(url.origin) || !/^v[1-9][0-9]{0,5}$/u.test(templateVersion)
-            || Buffer.byteLength(pepper) < 32 || environment.PLATFORM_AUDIT_REQUIRED !== 'true'
+        const secureUrl = url.protocol === 'https:' || (environment.NODE_ENV !== 'production'
+            && url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
+        if (!secureUrl || !approvedOrigins(environment).has(url.origin)
+            || environment.PLATFORM_AUDIT_REQUIRED !== 'true'
             || !environment.INVITATION_ALERT_OWNER?.trim()
             || Buffer.byteLength(environment.PLATFORM_RATE_LIMIT_PEPPER?.trim() ?? '', 'utf8') < 32) {
             throw new IdentityConfigurationError('Invitation production controls incomplete.');
         }
-        if (adapter === 'disabled')
-            throw new IdentityConfigurationError('Invitation delivery adapter is disabled.');
-        const timeout = Number(environment.INVITATION_EMAIL_TIMEOUT_MS ?? 5000);
-        if (!Number.isSafeInteger(timeout) || timeout < 500 || timeout > 30_000
-            || /[\r\n]/u.test(environment.INVITATION_EMAIL_FROM ?? '')) {
-            throw new IdentityConfigurationError('Invitation provider controls are invalid.');
-        }
-        if (environment.NODE_ENV === 'production' && (adapter !== 'resend' || !environment.RESEND_API_KEY?.trim()
-            || !environment.INVITATION_EMAIL_FROM?.trim() || webhookKeyLength < 16)) {
-            throw new IdentityConfigurationError('Certified invitation delivery is unavailable.');
-        }
-        if ((environment.VERCEL_ENV === 'preview' || environment.NODE_ENV !== 'production') && adapter === 'resend') {
-            throw new IdentityConfigurationError('Real invitation sending is forbidden outside production.');
+        if (deliveryMethod === 'email') {
+            if (!/^v[1-9][0-9]{0,5}$/u.test(templateVersion) || Buffer.byteLength(pepper) < 32) {
+                throw new IdentityConfigurationError('Invitation production controls incomplete.');
+            }
+            if (adapter === 'disabled')
+                throw new IdentityConfigurationError('Invitation delivery adapter is disabled.');
+            const timeout = Number(environment.INVITATION_EMAIL_TIMEOUT_MS ?? 5000);
+            if (!Number.isSafeInteger(timeout) || timeout < 500 || timeout > 30_000
+                || /[\r\n]/u.test(environment.INVITATION_EMAIL_FROM ?? '')) {
+                throw new IdentityConfigurationError('Invitation provider controls are invalid.');
+            }
+            if (environment.NODE_ENV === 'production' && (adapter !== 'resend' || !environment.RESEND_API_KEY?.trim()
+                || !environment.INVITATION_EMAIL_FROM?.trim() || webhookKeyLength < 16)) {
+                throw new IdentityConfigurationError('Certified invitation delivery is unavailable.');
+            }
+            if ((environment.VERCEL_ENV === 'preview' || environment.NODE_ENV !== 'production') && adapter === 'resend') {
+                throw new IdentityConfigurationError('Real invitation sending is forbidden outside production.');
+            }
         }
     }
-    return { enabled, adapter, public_base_url: publicBaseUrl, template_version: templateVersion,
+    return { enabled, delivery_method: deliveryMethod, adapter, public_base_url: publicBaseUrl, template_version: templateVersion,
         provider_reference_pepper: pepper, webhook_secret: webhookSecret };
 }
 export function createInvitationDeliveryAdapter(environment) {

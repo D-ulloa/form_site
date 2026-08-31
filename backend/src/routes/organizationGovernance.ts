@@ -13,6 +13,10 @@ import type {
   OrganizationActorContext,
   OrganizationRole,
 } from '../organizations/types.js';
+import type { SessionService } from '../identity/sessionService.js';
+import type { IdentityProvider } from '../identity/supabaseIdentityProvider.js';
+import { serializeSessionCookies } from '../identity/sessionSecurity.js';
+import { validateDisplayName } from '../organizations/validation.js';
 
 export interface OrganizationRouteContextResolver {
   resolveOrganizationActor(request: Request): Promise<OrganizationActorContext>;
@@ -24,6 +28,9 @@ export interface OrganizationRouteServices {
   readonly memberships: MembershipService;
   readonly settings: OrganizationSettingsService;
   readonly invitations: InvitationWorkflowService;
+  readonly sessions: SessionService;
+  readonly identityProvider: IdentityProvider;
+  readonly environment: NodeJS.ProcessEnv;
 }
 
 export interface InvitationRouteRateLimiter {
@@ -125,6 +132,43 @@ export function createOrganizationGovernanceRouter(
     } catch (error) { sendError(response, error); }
   });
 
+  router.post('/invitations/register', async (request, response) => {
+    try {
+      secureResponse(response);
+      const material = cookieValue(request); if (!material) throw new OrganizationDomainError('INVITATION_INVALID');
+      await limitPublic(request, 'member.invitation_register', material[0]);
+      const origin = assertHandoffOrigin(request);
+      const password = typeof request.body?.password === 'string' ? request.body.password : '';
+      const rawDisplayName = typeof request.body?.display_name === 'string' ? request.body.display_name.trim() : '';
+      if (password.length < 12 || password.length > 1024
+        || rawDisplayName.length < 2 || rawDisplayName.length > 120) {
+        response.status(422).json({ error: 'INVALID_REQUEST' }); return;
+      }
+      const displayName = validateDisplayName(rawDisplayName, 120);
+      const registration = await services.invitations.registrationContext(material[0], material[1], origin);
+      if (!registration?.registration_permitted) throw new OrganizationDomainError('INVITATION_INVALID');
+      try {
+        await services.identityProvider.activateInvitationUser(registration.auth_user_id,
+          registration.email_normalized, password, displayName);
+        const identity = await services.identityProvider.password(registration.email_normalized, password);
+        if (identity.user_id !== registration.auth_user_id
+          || identity.email.trim().toLowerCase() !== registration.email_normalized) {
+          throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
+        }
+        await services.invitations.completeRegistration(material[0], material[1], origin, identity.user_id,
+          displayName, String(response.locals.request_id ?? ''));
+        const created = await services.sessions.create(identity, true, request);
+        response.set('Set-Cookie', [...serializeSessionCookies(created.material, services.environment,
+          created.session.remembered, created.max_age_seconds)]);
+        response.status(201).json({ authenticated: true,
+          user: { id: identity.user_id, email: identity.email, name: displayName },
+          memberships: await services.sessions.memberships(identity.user_id) });
+      } catch {
+        throw new OrganizationDomainError('INVITATION_INVALID');
+      }
+    } catch (error) { sendError(response, error); }
+  });
+
   router.post('/invitations/accept', async (request, response) => {
     try {
       secureResponse(response);
@@ -202,6 +246,18 @@ export function createOrganizationGovernanceRouter(
       const result = await services.organizations.resendInvitation(valueAt(request.params.invitationId), {
         inviter_display_name: actor.display_name,
         public_base_url: publicBaseUrl,
+      }, actor);
+      response.status(201).json(result);
+    } catch (error) { sendError(response, error); }
+  });
+
+  router.post('/organizations/:organizationId/invitations/:invitationId/rotate-link', async (request, response) => {
+    try {
+      secureResponse(response);
+      const actor = await scopedActor(request, resolver);
+      await limitActor(request, actor, 'member.invitation_resend', valueAt(request.params.invitationId));
+      const result = await services.organizations.resendInvitation(valueAt(request.params.invitationId), {
+        inviter_display_name: actor.display_name, public_base_url: publicBaseUrl,
       }, actor);
       response.status(201).json(result);
     } catch (error) { sendError(response, error); }

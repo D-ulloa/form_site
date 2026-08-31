@@ -94,6 +94,9 @@ const governanceServices = {
   memberships: new MembershipService(createMembershipMutationRepository(process.env)),
   settings: new OrganizationSettingsService(createOrganizationSettingsRepository(process.env)),
   invitations: invitationWorkflow,
+  sessions: sessionService,
+  identityProvider: createSupabaseIdentityProvider(process.env),
+  environment: process.env,
 };
 
 app.use('/api/auth', createIdentityRouter(

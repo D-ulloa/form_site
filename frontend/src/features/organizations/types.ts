@@ -39,10 +39,22 @@ export interface OrganizationInvitationSummary {
   readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced' | 'expired';
   readonly expires_at: string;
   readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
+  readonly delivery_method: 'share_link' | 'email';
+  readonly link_issued_at: string | null;
   readonly last_attempt_at: string | null;
   readonly attempt_count: number;
-  readonly next_action: 'resend_or_revoke' | 'none';
+  readonly next_action: 'rotate_or_revoke' | 'resend_or_revoke' | 'none';
   readonly version: number;
+}
+
+export interface ManualInvitationReceipt {
+  readonly invitation_id: string;
+  readonly status: string;
+  readonly delivery_state: string;
+  readonly delivery_method: 'share_link';
+  readonly expires_at: string;
+  readonly next_action: 'copy_or_revoke';
+  readonly share_url: string;
 }
 
 export interface InvitationResolution {

@@ -254,7 +254,8 @@ export function createTenantMutationSecurity(
 ): (request: Request, response: Response, next: NextFunction) => void {
   return (request, response, next) => {
     if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS'
-      || request.path === '/invitations/resolve' || request.path === '/invitations/handoff') { next(); return; }
+      || request.path === '/invitations/resolve' || request.path === '/invitations/handoff'
+      || request.path === '/invitations/register') { next(); return; }
     void service.authenticate(request, false).then(({ session }) => {
       assertCsrf(request, session.csrf_token_hash, environment);
       next();

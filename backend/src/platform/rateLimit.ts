@@ -15,6 +15,7 @@ export const RATE_LIMIT_POLICIES = {
   'member.invitation_handoff': { window_seconds: 300, limit: 20, sensitive: true },
   'member.invitation_resolve': { window_seconds: 300, limit: 30, sensitive: true },
   'member.invitation_accept': { window_seconds: 900, limit: 20, sensitive: true },
+  'member.invitation_register': { window_seconds: 900, limit: 8, sensitive: true },
   'provider.invitation_webhook': { window_seconds: 60, limit: 120, sensitive: true },
   'contract.link_validate': { window_seconds: 300, limit: 30, sensitive: true },
   'contract.link_regenerate': { window_seconds: 3600, limit: 10, sensitive: true },

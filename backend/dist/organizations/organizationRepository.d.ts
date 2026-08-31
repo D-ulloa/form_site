@@ -25,6 +25,8 @@ export interface CreateInvitationPersistenceInput {
     readonly token_prefix: string;
     readonly expires_at: string;
     readonly invited_by_membership_id: string;
+    readonly invited_auth_user_id: string;
+    readonly registration_permitted: boolean;
     readonly request_id: string;
 }
 export interface InvitationRecord {
@@ -35,6 +37,7 @@ export interface InvitationRecord {
     readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced';
     readonly expires_at: string;
     readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
+    readonly delivery_method: 'share_link' | 'email';
     readonly token_version: number;
     readonly version: number;
 }

@@ -7,6 +7,7 @@ export interface IdentityProvider {
   requestPasswordReset(email: string, redirectTo: string): Promise<void>;
   updatePassword(userId: string, password: string): Promise<void>;
   updateEmail(userId: string, email: string): Promise<void>;
+  activateInvitationUser(userId: string, expectedEmail: string, password: string, displayName: string): Promise<void>;
 }
 
 function assuranceFromToken(token: string | null | undefined): 'aal1' | 'aal2' {
@@ -51,6 +52,19 @@ export function createSupabaseIdentityProvider(environment: NodeJS.ProcessEnv = 
     async updateEmail(userId, email) {
       const { error } = await fresh().auth.admin.updateUserById(userId, { email: email.trim().toLowerCase(), email_confirm: false });
       if (error) throw new Error('ACCOUNT_UPDATE_UNAVAILABLE');
+    },
+    async activateInvitationUser(userId, expectedEmail, password, displayName) {
+      const admin = fresh();
+      const { data, error } = await admin.auth.admin.getUserById(userId);
+      const user = data.user;
+      if (error || !user?.email || user.email.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()
+        || user.email_confirmed_at || user.confirmed_at || user.last_sign_in_at) {
+        throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
+      }
+      const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+        password, email_confirm: true, user_metadata: { ...user.user_metadata, full_name: displayName },
+      });
+      if (updateError) throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
     },
   };
 }

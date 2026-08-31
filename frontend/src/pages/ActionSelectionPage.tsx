@@ -108,17 +108,25 @@ export function ActionSelectionPage() {
             </div>
             <span className="text-sm font-semibold text-slate-200">Gestión de Propiedades</span>
           </div>
-          <button
-            type="button"
-            className="text-xs text-slate-400 transition-colors hover:text-white"
-            onClick={() => {
-              void authentication.logout().then(() => {
-                clearContractAdminQueryCache(queryClient);
-              });
-            }}
-          >
-            {authenticatedSession.user.email} · Cerrar sesión
-          </button>
+          <div className="flex items-center gap-4">
+            <Link
+              to={`/t/${organizationContext.organization.slug}/settings/members`}
+              className="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-indigo-400/50 hover:text-white"
+            >
+              Miembros
+            </Link>
+            <button
+              type="button"
+              className="text-xs text-slate-400 transition-colors hover:text-white"
+              onClick={() => {
+                void authentication.logout().then(() => {
+                  clearContractAdminQueryCache(queryClient);
+                });
+              }}
+            >
+              {authenticatedSession.user.email} · Cerrar sesión
+            </button>
+          </div>
         </div>
       </header>
 

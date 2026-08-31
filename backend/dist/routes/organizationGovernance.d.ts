@@ -6,6 +6,8 @@ import type { InvitationWorkflowService } from '../organizations/invitationWorkf
 import type { RateLimitPolicyKey } from '../platform/rateLimit.js';
 import { createOrganizationScope } from '../platform/scope.js';
 import type { InvitationIdentityContext, OrganizationActorContext } from '../organizations/types.js';
+import type { SessionService } from '../identity/sessionService.js';
+import type { IdentityProvider } from '../identity/supabaseIdentityProvider.js';
 export interface OrganizationRouteContextResolver {
     resolveOrganizationActor(request: Request): Promise<OrganizationActorContext>;
     resolveInvitationIdentity(request: Request): Promise<InvitationIdentityContext>;
@@ -15,6 +17,9 @@ export interface OrganizationRouteServices {
     readonly memberships: MembershipService;
     readonly settings: OrganizationSettingsService;
     readonly invitations: InvitationWorkflowService;
+    readonly sessions: SessionService;
+    readonly identityProvider: IdentityProvider;
+    readonly environment: NodeJS.ProcessEnv;
 }
 export interface InvitationRouteRateLimiter {
     consume(input: {

@@ -2,6 +2,20 @@
 
 Status: repository implementation available but disabled; production certification pending.
 
+## Manual-link mode
+
+`INVITATION_DELIVERY_METHOD=share_link` replaces provider delivery with a one-time
+administrator copy action. Only the token hash and issuance timestamp persist. The
+creation or rotation response is `no-store`; list endpoints never return the URL.
+Rotation invalidates the prior invitation generation and active handoffs. Share links
+only through a private channel with the intended recipient and revoke immediately after
+suspected disclosure.
+
+An unactivated identity created specifically for the invitation may set a password from
+the cookie-bound handoff. Confirmed or previously used identities cannot be overwritten
+and must log in with their existing password or Google account. Acceptance still checks
+the exact authenticated email and applies only the role stored by the inviter.
+
 ## Enablement gate
 
 Keep `INVITATION_ROUTES_ENABLED=false` until migrations 1–24 apply cleanly to an empty

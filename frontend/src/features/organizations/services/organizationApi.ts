@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type {
   InvitationResolution,
+  ManualInvitationReceipt,
   OrganizationInvitationSummary,
   OrganizationMemberSummary,
 } from '../types';
@@ -20,9 +21,9 @@ api.interceptors.request.use((config) => {
 export async function createOrganizationInvitation(
   organizationId: string,
   input: { readonly email: string; readonly intended_role: 'admin' | 'member' | 'viewer' },
-): Promise<{ readonly invitation_id: string }> {
+): Promise<ManualInvitationReceipt> {
   const response = await api.post(`/organizations/${organizationId}/invitations`, input);
-  return response.data as { invitation_id: string };
+  return response.data as ManualInvitationReceipt;
 }
 
 export async function establishInvitationHandoff(invitationToken: string): Promise<void> {
@@ -39,8 +40,19 @@ export async function acceptInvitation(): Promise<{ organization_id: string; org
   return response.data;
 }
 
+export async function registerInvitationAccount(input: { readonly display_name: string; readonly password: string }): Promise<void> {
+  await api.post('/invitations/register', input);
+}
+
 export async function resendOrganizationInvitation(organizationId: string, invitationId: string) {
   return (await api.post(`/organizations/${organizationId}/invitations/${invitationId}/resend`)).data;
+}
+
+export async function rotateOrganizationInvitationLink(
+  organizationId: string,
+  invitationId: string,
+): Promise<ManualInvitationReceipt> {
+  return (await api.post(`/organizations/${organizationId}/invitations/${invitationId}/rotate-link`)).data as ManualInvitationReceipt;
 }
 
 export async function revokeOrganizationInvitation(organizationId: string, invitationId: string) {

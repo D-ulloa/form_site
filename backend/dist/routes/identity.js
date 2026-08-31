@@ -262,7 +262,8 @@ export function createOrganizationContextRouter(service, repository, environment
 export function createTenantMutationSecurity(service, environment = process.env) {
     return (request, response, next) => {
         if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS'
-            || request.path === '/invitations/resolve' || request.path === '/invitations/handoff') {
+            || request.path === '/invitations/resolve' || request.path === '/invitations/handoff'
+            || request.path === '/invitations/register') {
             next();
             return;
         }

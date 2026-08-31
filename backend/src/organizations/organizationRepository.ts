@@ -35,6 +35,8 @@ export interface CreateInvitationPersistenceInput {
   readonly token_prefix: string;
   readonly expires_at: string;
   readonly invited_by_membership_id: string;
+  readonly invited_auth_user_id: string;
+  readonly registration_permitted: boolean;
   readonly request_id: string;
 }
 
@@ -46,6 +48,7 @@ export interface InvitationRecord {
   readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced';
   readonly expires_at: string;
   readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
+  readonly delivery_method: 'share_link' | 'email';
   readonly token_version: number;
   readonly version: number;
 }
@@ -116,7 +119,7 @@ export function createOrganizationGovernanceRepository(
     },
 
     async createInvitation(input) {
-      const { data, error } = await client().rpc('spec26_create_invitation', {
+      const { data, error } = await client().rpc('spec37_create_manual_invitation', {
         p_invitation_id: input.invitation_id,
         p_organization_id: input.organization_id,
         p_email_normalized: input.email_normalized,
@@ -126,6 +129,8 @@ export function createOrganizationGovernanceRepository(
         p_expires_at: input.expires_at,
         p_invited_by_membership_id: input.invited_by_membership_id,
         p_request_id: input.request_id,
+        p_invited_auth_user_id: input.invited_auth_user_id,
+        p_registration_permitted: input.registration_permitted,
       }).single();
       return requireData<InvitationRecord>(data, error);
     },

@@ -240,12 +240,19 @@ payload in a manifest or command argument.
 ## Invitation delivery and activation
 
 SPEC-37 is disabled by default. `INVITATION_ROUTES_ENABLED=true` requires an exact
-HTTPS `INVITATION_PUBLIC_BASE_URL` present in `APP_ALLOWED_ORIGINS`, template `v1`,
-the independent 32-byte-or-longer `INVITATION_PROVIDER_REFERENCE_PEPPER`,
+HTTPS `INVITATION_PUBLIC_BASE_URL` present in `APP_ALLOWED_ORIGINS`,
 `PLATFORM_AUDIT_REQUIRED=true`, `PLATFORM_RATE_LIMIT_PEPPER`, and a named
-`INVITATION_ALERT_OWNER`. A disabled adapter is rejected whenever the routes are on.
+`INVITATION_ALERT_OWNER`. Local development may use an HTTP loopback origin only.
 
-Use `INVITATION_EMAIL_ADAPTER=capture` only in isolated non-production environments.
+`INVITATION_DELIVERY_METHOD=share_link` returns the invitation URL once to the
+authorized inviter and does not require an email adapter. The URL is never persisted,
+listed, logged, or recoverable; rotation replaces the invitation generation and
+invalidates the old URL and handoffs. `INVITATION_EMAIL_ADAPTER=disabled` is expected
+in this mode.
+
+For `INVITATION_DELIVERY_METHOD=email`, use `INVITATION_EMAIL_ADAPTER=capture` only
+in isolated non-production environments. Email delivery also requires template `v1`
+and the independent 32-byte-or-longer `INVITATION_PROVIDER_REFERENCE_PEPPER`.
 Production requires `resend`, `RESEND_API_KEY`, an allowlisted CR/LF-free
 `INVITATION_EMAIL_FROM`, `RESEND_WEBHOOK_SECRET`, and an integer
 `INVITATION_EMAIL_TIMEOUT_MS` from 500 through 30000. Preview and non-production
