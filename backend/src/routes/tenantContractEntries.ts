@@ -16,6 +16,7 @@ import {
   createTenantContractHttpRepository,
   type TenantContractHttpRepository,
 } from '../contracts/tenantContractHttpRepository.js';
+import type { ContractMakeDeliveryRunner } from '../integrations/contractMakeDeliveryRunner.js';
 
 const EntryId = z.string().uuid();
 const Role = z.enum(['user', 'client']);
@@ -82,6 +83,7 @@ export function createTenantContractEntriesRouter(
   sessions: SessionService,
   repository: TenantContractHttpRepository = createTenantContractHttpRepository(),
   environment: NodeJS.ProcessEnv = process.env,
+  contractMakeDeliveryRunner?: ContractMakeDeliveryRunner,
 ): Router {
   const router = Router({ mergeParams: true });
   router.use((_request, response, next) => { privateHeaders(response); next(); });
@@ -162,8 +164,21 @@ export function createTenantContractEntriesRouter(
         user_id: context.user_id, membership_id: context.membership.id,
         request_id: requestId(response),
       }, entryId, current.version ?? 1, status);
-      response.json({ entry: toContractEntrySummary(entry), ...(status === 'generar_contrato'
-        ? { integration: { delivery: 'deferred', reason: 'SPEC25_CONTAINMENT' } } : {}) });
+      let integration: Readonly<Record<string, unknown>> | undefined;
+      if (status === 'generar_contrato') {
+        try {
+          const claimed = contractMakeDeliveryRunner
+            ? await contractMakeDeliveryRunner.run(requestId(response))
+            : 0;
+          integration = claimed > 0
+            ? { delivery: 'triggered', claimed }
+            : { delivery: 'queued', reason: contractMakeDeliveryRunner ? 'NO_ACTIVE_DELIVERY' : 'WORKER_NOT_CONFIGURED' };
+        } catch {
+          // The status/outbox transaction has committed. A scheduled worker can retry it.
+          integration = { delivery: 'queued', reason: 'WORKER_TRIGGER_FAILED' };
+        }
+      }
+      response.json({ entry: toContractEntrySummary(entry), ...(integration ? { integration } : {}) });
     } catch (error) { sendError(response, error); }
   });
 

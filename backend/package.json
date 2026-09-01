@@ -12,6 +12,7 @@
     "spec34:validate-manifest": "tsx src/migration/manifestCli.ts",
     "spec35:provision-identity": "tsx src/identity/provisionIdentityCli.ts",
     "platform:provision-organization": "tsx src/platform/provisionOrganizationCli.ts",
+    "worker:contract-make": "tsx src/integrations/runContractMakeDeliveryWorker.ts",
     "test": "tsx --test tests/unit/*.test.ts tests/integration/*.test.ts"
   },
   "keywords": [],

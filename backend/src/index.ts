@@ -35,6 +35,7 @@ import { createTenantContractEntriesRouter } from './routes/tenantContractEntrie
 import { validateIdentityProvisioningEnvironment } from './identity/identityProvisioningConfig.js';
 import { createDistributedRateLimiter } from './platform/rateLimit.js';
 import { createPlatformRepository } from './platform/platformRepository.js';
+import { createContractMakeDeliveryRunner } from './integrations/contractMakeDeliveryRunner.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
@@ -104,7 +105,8 @@ app.use('/api/auth', createIdentityRouter(
 ));
 app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
 app.use('/api/organizations/:organization/contracts',
-  createTenantContractEntriesRouter(sessionService, undefined, process.env));
+  createTenantContractEntriesRouter(sessionService, undefined, process.env,
+    createContractMakeDeliveryRunner(process.env)));
 app.use('/api/organizations/:organization/properties/legacy',
   createTenantPropertyCompatibilityRouter(sessionService, process.env));
 app.use('/api', createTenantMutationSecurity(sessionService, process.env),

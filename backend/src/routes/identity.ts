@@ -253,9 +253,13 @@ export function createTenantMutationSecurity(
   environment: NodeJS.ProcessEnv = process.env,
 ): (request: Request, response: Response, next: NextFunction) => void {
   return (request, response, next) => {
+    const usesContractAccessToken = typeof request.query.token === 'string'
+      && request.path.startsWith('/contracts/')
+      && ['/submit', '/dni-uploads/presign', '/evidence-uploads/presign']
+        .some((suffix) => request.path.endsWith(suffix));
     if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS'
       || request.path === '/invitations/resolve' || request.path === '/invitations/handoff'
-      || request.path === '/invitations/register') { next(); return; }
+      || request.path === '/invitations/register' || usesContractAccessToken) { next(); return; }
     void service.authenticate(request, false).then(({ session }) => {
       assertCsrf(request, session.csrf_token_hash, environment);
       next();

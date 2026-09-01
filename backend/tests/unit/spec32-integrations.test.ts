@@ -17,7 +17,7 @@ const event: OutboxEnvelope = { event_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
 const delivery: LeasedDelivery = { id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', organization_id: azar,
   outbox_event_id: event.event_id, integration_id: integrationId, provider: 'make_webhook', purpose: 'property_events',
   state: 'leased', lease_token: '11111111-1111-4111-8111-111111111111', lease_expires_at: '2030-01-01T00:00:00Z',
-  attempt_count: 0, idempotency_key: event.idempotency_key, event };
+  attempt_count: 0, idempotency_key: event.idempotency_key, version: 1, event };
 
 test('SPEC-32 registry allows only closed provider/purpose pairs and safe configuration', () => {
   assert.deepEqual(validateIntegrationConfiguration('google_sheets', 'property_sheet', {

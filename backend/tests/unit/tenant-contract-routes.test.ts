@@ -7,6 +7,7 @@ import type { SessionService } from '../../src/identity/sessionService.js';
 import type { TenantContractHttpRepository } from '../../src/contracts/tenantContractHttpRepository.js';
 import { hashCsrfToken } from '../../src/identity/sessionSecurity.js';
 import { requestIdMiddleware } from '../../src/platform/requestId.js';
+import type { ContractMakeDeliveryRunner } from '../../src/integrations/contractMakeDeliveryRunner.js';
 
 const organizationId = '8bcdb84f-9380-4c50-b63b-84a9cc335281';
 const userId = '5ef4d749-88ab-4b39-bc51-e5e939612669';
@@ -26,7 +27,7 @@ function entry(id = '22222222-2222-4222-8222-222222222222') {
     status: 'open' as const, archivedAt: null, version: 1 };
 }
 
-function harness() {
+function harness(contractMakeDeliveryRunner?: ContractMakeDeliveryRunner) {
   const calls: Array<{ organization_id: string; actor_user_id: string }> = [];
   const sessions = {
     async authenticate() { return { session: { csrf_token_hash: hashCsrfToken(csrf, environment) } }; },
@@ -49,7 +50,7 @@ function harness() {
   const app = express();
   app.use(requestIdMiddleware, express.json());
   app.use('/api/organizations/:organization/contracts',
-    createTenantContractEntriesRouter(sessions, repository, environment));
+    createTenantContractEntriesRouter(sessions, repository, environment, contractMakeDeliveryRunner));
   return { app, calls };
 }
 
@@ -76,4 +77,16 @@ test('tenant contract creation rejects missing CSRF before persistence', async (
     .set('Origin', 'http://localhost:5173').send({ Direccion: 'Test 123' });
   assert.equal(response.status, 403);
   assert.equal(calls.length, 0);
+});
+
+test('generar contrato immediately invokes one Make delivery worker pass after status persistence', async () => {
+  const triggerCalls: string[] = [];
+  const { app } = harness({ async run(triggerId) { triggerCalls.push(triggerId); return 1; } });
+  const response = await request(app)
+    .post('/api/organizations/azar/contracts/admin/entries/22222222-2222-4222-8222-222222222222/status')
+    .set('Origin', 'http://localhost:5173').set('X-CSRF-Token', csrf)
+    .set('Cookie', `form_site_csrf=${csrf}`).send({ status: 'generar_contrato' });
+  assert.equal(response.status, 200);
+  assert.equal(triggerCalls.length, 1);
+  assert.deepEqual(response.body.integration, { delivery: 'triggered', claimed: 1 });
 });

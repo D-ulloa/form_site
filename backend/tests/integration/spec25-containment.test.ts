@@ -7,6 +7,7 @@ import propertiesRouter, {
   applyVerifiedPropertyActor,
   createTenantPropertyCompatibilityRouter,
 } from '../../src/routes/properties.js';
+import { createTenantMutationSecurity } from '../../src/routes/identity.js';
 import type { SessionService } from '../../src/identity/sessionService.js';
 import { hashCsrfToken } from '../../src/identity/sessionSecurity.js';
 
@@ -79,6 +80,29 @@ test('tenant property compatibility requires CSRF before resolving organization 
     .send({ files: [{ originalName: 'photo.jpg', mimeType: 'image/jpeg', sizeBytes: 12 }] })
     .expect(403, { error: 'CSRF_DENIED', retriable: false });
   assert.equal(contextCalls, 0);
+});
+
+test('public contract token mutations bypass tenant session CSRF middleware', async () => {
+  let authenticateCalls = 0;
+  const sessions = {
+    async authenticate() {
+      authenticateCalls += 1;
+      throw new Error('contract token routes must authenticate in their own router');
+    },
+  } as unknown as SessionService;
+  const app = express();
+  app.use(express.json());
+  app.use('/api', createTenantMutationSecurity(sessions, { NODE_ENV: 'development' }));
+  app.post('/api/contracts/:entryId/submit', (_request, response) => {
+    response.status(204).end();
+  });
+
+  await request(app)
+    .post('/api/contracts/3c3261d8-cef1-4e35-87f9-98fa54bcf1f7/submit')
+    .query({ role: 'user', token: 'valid-contract-token' })
+    .send({ fields: {} })
+    .expect(204);
+  assert.equal(authenticateCalls, 0);
 });
 
 test('SPEC-25 forward migration removes automatic grants and the fixed Make trigger', async () => {
