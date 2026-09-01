@@ -1,6 +1,6 @@
 # Engineering Standards
 
-Status: 2026-08-18.
+Status: 2026-09-01.
 
 ## Project conventions
 
@@ -16,11 +16,8 @@ Status: 2026-08-18.
 
 - Use React Hook Form for form state and Zod for schema validation.
 - Use `useCreatePropertySubmission` for submission side effects.
-- Maintain explicit route structure: `/`, `/properties/new`, `/properties/success/:submissionId`.
-- Treat those property routes as contained legacy compatibility surfaces. New
-  property work uses organization-namespaced routes, durable drafts/results,
-  immutable revisions, explicit `OrganizationScope`, optimistic versions,
-  idempotency fingerprints, and organization-first browser keys.
+- Maintain the current route boundary: `/` and auth/invitation entry points; tenant routes under `/t/:organizationSlug/*`; public hosted forms under `/contracts/:entryId/:role`; and explicit legacy redirects.
+- Treat `/t/:organizationSlug/properties/new` and its result route as the current tenant compatibility flow. The durable SPEC-30 property domain and SPEC-31 asset platform remain staged; new property work must use organization-namespaced routes, explicit `OrganizationScope`, optimistic versions, idempotency fingerprints, and organization-first browser keys.
 - Legacy agent metadata may remain in local storage for presentation only; it must never authorize or attribute a property/contract request.
 - Render contract controls from the public schema and normalize values before transport. Client validation must never replace backend validation.
 - Keep SPEC-14 evidence receivers passive during file selection. Begin the signed upload preflight only from the explicit form submission action, lock the editable form during the save sequence, promote successful uploads to stable form-state references for retry, and remove `uploadUrl` before constructing the role payload.
@@ -64,7 +61,7 @@ Status: 2026-08-18.
 - Use `redactTelemetry` before general log/audit sinks. Do not send raw secrets, token/hash values, signed URLs, private paths, identity data, customer payloads, or raw provider errors.
 - Use the distributed limiter policy registry for new protected actions. Process-local maps are forbidden as production authority.
 - Use bounded, filter-bound opaque cursors and SQL filtering. Never fetch a global collection and filter it in application code.
-- Jobs carry organization scope and idempotency, use fair claims and bounded retry/dead-letter behavior, and stay paused after restore until reconciliation.
+- Jobs carry organization scope and idempotency, use fair claims and bounded retry/dead-letter behavior, and stay paused after restore until reconciliation. Contract generation must write domain intent and the allowlisted outbox event atomically, call the bounded worker only after commit, and classify timeout or thrown provider calls as ambiguous.
 - Provider adapters require an immutable organization/integration execution context; they may not read global routing variables or silently change credential mode.
 - Write domain intent and a bounded, allowlisted outbox event in one transaction. Make provider calls only after commit and outside database locks.
 - Treat a timeout, thrown call, or expired in-call lease as ambiguous. Reconcile by stable provider marker before retry; never retry by recreating a revision or asset.
@@ -73,8 +70,9 @@ Status: 2026-08-18.
 
 ## Documentation expectations
 
-- Keep `docs/prd.md` as the source of property-workflow scope decisions; use SPEC-10 through SPEC-19 and the numbered canonical docs for Contract Generation behavior.
+- Keep `docs/prd.md` as the source of property-workflow scope decisions; use the current operation/API docs and completed specs for Contract Generation behavior.
 - Use the numbered `docs/` structure for new canonical docs.
+- New specs live directly under `docs/09-roadmap/specs/` in a folder containing the spec, task file or files, and `IMPLEMENTATION-GUIDE.md`. Do not place new folder-style specs in `pending/` or `completed/`.
 - Add implementation notes to the appropriate numbered folder rather than to root-level `docs/` files.
 
 ## Private asset standards

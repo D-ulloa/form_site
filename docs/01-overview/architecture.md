@@ -1,17 +1,18 @@
 # Architecture
 
-Status: 2026-08-18.
+Status: 2026-09-01.
 
 ## SPEC-25 containment boundary
 
-The deployment remains `azar_legacy_single_organization`; it is not a
-multi-tenant system and real Solar data is release-blocked. Property presign and
+The deployment remains `azar_legacy_single_organization`; tenant-scoped routes
+exist but no second production organization is authorized, and real Solar data is
+release-blocked. Property presign and
 submit require the reviewed Azar session and overwrite caller actor fields with
 the signed identity before validation or side effects. Browser agent state is
 not authorization or attribution. Open registration and automatic administrator
 grants are disabled. Application cookies have an independent secret/version,
-new Drive folders remain under verified private ACLs, and a forward migration
-removes the historical database-to-Make trigger.
+new Drive folders remain under verified private ACLs, and the historical fixed
+database-to-Make trigger is removed; current tenant contract generation uses an organization-scoped outbox and bounded worker path.
 
 ## Stack
 
@@ -50,6 +51,8 @@ The backend lives under `backend/` and is structured into:
 - `src/services/`: domain orchestration and integration adapters.
 - `src/mappers/`: mapping logic for Google Sheets and Make payloads.
 - `src/utils/`: shared utilities for auth, retry policy, sanitization, and size limits.
+- `src/integrations/`: contract Make payload loading, SSRF-safe dispatch, delivery claiming, and worker orchestration.
+- `src/platform/`, `src/identity/`, and `src/organizations/`: service-role, session, context, governance, and provisioning boundaries.
 
 Key backend responsibilities:
 
@@ -64,7 +67,7 @@ Key backend responsibilities:
 - Enforce production HTTPS, per-entry/IP rate limiting, admin access, archive, and token regeneration.
 - Create a Google Drive folder and upload media.
 - Append canonical property rows to Google Sheets; retained SPEC-09 routes still append `RAW` legacy contract rows.
-- Send a properly formatted payload to the Make webhook.
+- Send property compatibility payloads to Make synchronously; for tenant contract generation, materialize an outbox delivery and dispatch it through the bounded worker after commit.
 - Persist current contract state/audits in Supabase and property/legacy audit files under `backend/logs/`.
 
 Property Google operations may use configured user OAuth with a service-account fallback. Legacy SPEC-09 Contract Sheet reads and writes use `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` exclusively and never fall back to user OAuth credentials.
@@ -106,7 +109,7 @@ The production proxy must remove client-supplied `X-Authenticated-User-Id` value
 - Contract submission and legacy audit IPs come from Express `req.ip`; forwarded addresses affect that value only when `TRUST_PROXY_HOPS` enables the corresponding trusted proxy chain.
 - Legacy Google Sheets `values.append` is not idempotent. A timeout or lost response can leave the server unable to prove whether a row was written, so transient retry guidance does not guarantee that retrying cannot duplicate a row.
 
-## Staged organization-governance boundary
+## Current organization-governance boundary
 
 SPEC-26 adds empty, additive governance tables for profiles, organizations,
 settings, memberships, invitations, append-only events, exports, deletion
@@ -153,17 +156,19 @@ request IDs/errors/redaction, HMACs rate-limit subjects, signs pagination
 cursors, and keeps restored external work paused until reconciliation. The
 request-ID middleware applies to every backend response before JSON parsing.
 
-This layer is staged infrastructure, not a domain migration. Existing
-contract/property repositories, local logs/maps, and compatibility principals
-remain contained Azar-only legacy surfaces until SPEC-27 and SPEC-29 through
-SPEC-34 replace them. They cannot be used for Solar.
+The governance/context layer is mounted, but production remains Azar-contained.
+Existing contract/property repositories, local logs/maps, and compatibility
+principals remain legacy surfaces; they cannot authorize Solar or substitute for
+SPEC-34 migration certification.
 
 SPEC-30 adds the replacement property persistence boundary: organization-owned
 durable drafts, immutable revisions, processing runs/steps, domain events, and
 metadata-only provider intents. PostgreSQL is canonical; Drive, Sheets, Make,
 local logs, and browser navigation state are projections or compatibility
-evidence. This additive schema is not mounted through the legacy property
-authority before SPEC-27/31/32/34 gates pass.
+evidence. This additive schema is not the current property write path. The mounted
+`/api/organizations/:organization/properties/legacy` route remains a compatibility
+surface; the durable SPEC-30 property domain and SPEC-31 asset platform are not
+fully cut over.
 
 SPEC-31 adds the shared private-file boundary. `media_assets` is canonical for
 organization ownership and provider identity; durable upload sessions/intents
@@ -189,8 +194,11 @@ append-only attempts, stable external-resource markers, bounded retry, and
 reconciliation before any resend after an ambiguous outcome. Secrets remain in
 an external store (or approved envelope boundary), Drive resources are private,
 Sheets are organization-separated, and webhook destinations/signatures are
-organization-specific. The boundary is additive and unmounted until SPEC-27;
-SPEC-34 owns provider inventory and legacy direct-call/trigger cutover.
+organization-specific. The general integration-management API remains unmounted, but contract-generation
+delivery is now mounted through the tenant contract status route. That route commits
+intent first, then performs one bounded worker pass; a scheduler can run the same
+worker independently. SPEC-34 still owns provider inventory, production cutover,
+and removal of legacy direct-call paths.
 
 SPEC-34 adds a restricted migration and release evidence plane under the
 `migration_control` schema. It records immutable source mappings, validation,

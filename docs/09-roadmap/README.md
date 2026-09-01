@@ -1,27 +1,26 @@
 # Roadmap
 
-Status: 2026-08-25.
+Status: 2026-09-01.
 
 This folder is reserved for durable plans, specifications, audits, and decisions.
 
 ## Expected structure
 
-- `specs/pending/`
-- `specs/completed/`
-- `specs/research/`
-- `audits/`
-- `decisions/`
+- `specs/` — current direct-child spec folders plus legacy status/history indexes.
+- `specs/pending/` — legacy pending-spec documents.
+- `specs/completed/` — legacy completed-spec documents.
+- `specs/research/` — historical research and superseded proposals.
+- `audits/` — acceptance, traceability, and documentation audits.
+- `decisions/` — durable architecture and product decisions.
 
-Add files here when work is formally scoped or reviewed.
+New specs must be created directly under `specs/` in a folder named for the spec.
+Each folder contains the specification, one or more task files, and an
+`IMPLEMENTATION-GUIDE.md`. Do not place new specs in `pending/` or `completed/`;
+those folders remain for historical material and legacy indexes.
 
-Repository artifacts are staged for SPEC-25 through
-SPEC-34, but their documents remain in `specs/pending/` until prerequisites,
-named approvals, real-database/provider/concurrency gates, and required
-operational/recovery evidence are recorded. SPEC-34's control plane is not a
-production certification; no staged implementation authorizes Solar real data.
-
-SPEC-35 through SPEC-37 now have disabled repository implementations for Auth/profile,
-restricted organization/initial-owner provisioning, and invitation delivery/activation.
-Their real-provider/database, inventory, mail-domain, concurrency, security, and approval
-gates remain open.
-None of these artifacts authorize production changes.
+SPEC-25 through SPEC-37 have repository implementations with different activation
+states and open external gates. SPEC-38 is currently ambiguous: the direct-child
+arrangement placeholder uses that number, while the latest migration, backend worker,
+and integration tests use SPEC-38 for shared contract Make delivery. Resolve that
+identifier collision before assigning a final status or starting another SPEC-38.
+No staged artifact authorizes production Solar data or production provider changes.

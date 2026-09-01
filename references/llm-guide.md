@@ -1,74 +1,68 @@
-# Llm Guide
+# LLM and Contributor Guide
 
-Status: 2026-05-04.
+Status: 2026-09-01.
 
-This guide defines what an AI llm, engineer, or programmer must review before touching code in OPEV-H.
+This guide is for engineers and coding agents working on the form-site
+repository. It describes the project documentation that exists in this checkout;
+do not assume that files from another project or template are present.
 
-## Main Rule
+## Main rule
 
-Do not modify runtime, tests, or contracts without following this flow:
+For a code or behavior change:
 
-Read context \-\> Write spec \-\> Write tests \-\> Implement \-\> Refactor \-\> Update docs \-\> Verify
+Read context -> confirm scope -> write or update the spec -> write tests -> implement -> update canonical docs -> verify
 
-## Minimum Read Before Coding
+Documentation-only changes may skip implementation tests, but they must be checked
+against the current source tree and pass `git diff --check`.
 
-For any code change:
+## Minimum reads
 
-1. Read [project-overview.md](http://../01-overview/project-overview.md) to understand the system map.  
-2. Read [architecture.md](http://../01-overview/architecture.md) to preserve the modular monolith.  
-3. Read [engineering-standards.md](http://./engineering-standards.md) for quality criteria.  
-4. Read [sdd-workflow.md](http://./sdd-workflow.md) to prepare the specification.  
-5. Read [tdd-workflow.md](http://./tdd-workflow.md) to turn the spec into tests.  
-6. Read [testing-strategy.md](http://../06-testing/testing-strategy.md) to choose the correct suite.  
-7. Read [spec-traceability.md](http://./spec-traceability.md) to link specs, tests, docs and closure evidence.  
-8. Review [technical-audit-register.md](http://../08-roadmap/technical-audit-register.md) if the task comes from technical debt, compliance, testing, or refactor work.  
-9. Review [backlog.md](http://../08-roadmap/backlog.md) if the task is functional or product/runtime work.
+1. [`docs/README.md`](../docs/README.md) for the documentation map.
+2. [`docs/01-overview/project-overview.md`](../docs/01-overview/project-overview.md) for purpose, boundaries, and runtime flow.
+3. [`docs/01-overview/architecture.md`](../docs/01-overview/architecture.md) for module and activation boundaries.
+4. [`docs/02-setup/environment.md`](../docs/02-setup/environment.md) for configuration and migration order.
+5. [`docs/06-testing/testing-strategy.md`](../docs/06-testing/testing-strategy.md) for the relevant verification suite.
+6. [`docs/07-development/engineering-standards.md`](../docs/07-development/engineering-standards.md) for implementation and documentation rules.
 
-## Area Reads
+For an operational or API change, also read [`docs/03-operation/usage.md`](../docs/03-operation/usage.md), [`docs/03-operation/spec32-integrations-outbox-runbook.md`](../docs/03-operation/spec32-integrations-outbox-runbook.md), and [`docs/05-integrations/api-contracts.md`](../docs/05-integrations/api-contracts.md).
 
-| If you will touch | Read first |
+For a new specification, read [`docs/09-roadmap/specs/README.md`](../docs/09-roadmap/specs/README.md). New specs are direct-child folders under `docs/09-roadmap/specs/` and contain a spec, task file or files, and `IMPLEMENTATION-GUIDE.md`.
+
+## Area reads
+
+| Area | Read first |
 | :---- | :---- |
-| CLI/runtime loop | [runtime-flow.md](http://../01-overview/runtime-flow.md), [cli-usage.md](http://../03-operation/cli-usage.md) |
-| Tools | [tool-calling-contract.md](http://../05-tools/tool-calling-contract.md), [tools-reference.md](http://../05-tools/tools-reference.md) |
-| Filesystem | [filesystem-tools.md](http://../05-tools/filesystem-tools.md), [runtime-files.md](http://../03-operation/runtime-files.md) |
-| Web search | [web-search.md](http://../05-tools/web-search.md), [providers.md](http://../02-setup/providers.md) |
-| Llms | [system-llms.md](http://../04-llms-and-memory/system-llms.md) |
-| Memory | [memory-system.md](http://../04-llms-and-memory/memory-system.md), [compaction.md](http://../04-llms-and-memory/compaction.md) |
-| Runtime persistence | [runtime-files.md](http://../03-operation/runtime-files.md), [usage-summary.md](http://../03-operation/usage-summary.md) |
-| Setup/providers | [installation.md](http://../02-setup/installation.md), [environment.md](http://../02-setup/environment.md), [providers.md](http://../02-setup/providers.md) |
-| Testing | [testing-strategy.md](http://../06-testing/testing-strategy.md), [testing-coverage.md](http://../06-testing/testing-coverage.md), [testing-roadmap.md](http://../06-testing/testing-roadmap.md) |
+| Property workflow | [`docs/prd.md`](../docs/prd.md), [`docs/03-operation/usage.md`](../docs/03-operation/usage.md) |
+| Contract Generation | [`docs/05-integrations/api-contracts.md`](../docs/05-integrations/api-contracts.md), current completed specs under [`docs/09-roadmap/specs/completed/`](../docs/09-roadmap/specs/completed/) |
+| Identity and organization context | [`docs/01-overview/architecture.md`](../docs/01-overview/architecture.md), [`docs/03-operation/usage.md`](../docs/03-operation/usage.md) |
+| Integrations and workers | [`docs/03-operation/spec32-integrations-outbox-runbook.md`](../docs/03-operation/spec32-integrations-outbox-runbook.md), [`docs/02-setup/external-services.md`](../docs/02-setup/external-services.md) |
+| Runtime artifacts | [`docs/03-operation/runtime-files.md`](../docs/03-operation/runtime-files.md) |
+| Tests and release gates | [`docs/06-testing/testing-strategy.md`](../docs/06-testing/testing-strategy.md), the relevant roadmap audit |
 
-## Checklist Before Editing
+## Editing checklist
 
-- Understand whether the task is a feature, bugfix, refactor, docs, or audit task.  
-- Review the working tree with `git status --short`.  
-- Identify changes from others and do not revert them.  
-- Read the real code in the affected modules.  
-- Write or confirm a spec with scope and acceptance criteria.  
-- Define required tests before implementing.  
-- Identify whether the change touches a visible contract. Visible contracts must use `snake_case` or `UPPER_SNAKE_CASE`; internal TypeScript implementation may keep normal camelCase/PascalCase naming.
+- Inspect `git status --short` and preserve changes that are already present.
+- Read the affected code, scripts, routes, migrations, and environment templates before changing claims.
+- Keep current behavior, disabled/staged behavior, and historical records clearly separated.
+- Do not change a visible API, persisted shape, migration, security boundary, or integration contract without updating its tests and canonical docs.
+- Keep secrets, tokens, signed URLs, private paths, provider responses, and customer payloads out of examples and logs.
+- Use the organization context supplied by the server; a slug, browser state, creator, or email address is not authorization.
+- For contract generation, preserve commit-then-outbox semantics and treat ambiguous provider calls as reconciliation work.
+- For documentation, use links that resolve within this repository.
 
-## Checklist During Implementation
+## Verification
 
-- Keep changes scoped to the spec objective.  
-- Prefer existing repo patterns.  
-- Do not move responsibilities between modules without justifying it in the spec.  
-- Do not modify visible contracts without contract tests and docs.  
-- Do not introduce camelCase names in tool names, tool arguments, public JSON, persisted JSON, runtime artifacts, environment variables, or public documentation examples.  
-- Do not use real APIs in tests by default.  
-- Do not write to real `llm_context/`, `llm_history/`, `memory/`, `usage/`, or `.fs_undo/` paths from tests.
+There is no root `npm run docs:check` script in this repository. For documentation
+changes, inspect changed links and paths, run `git diff --check`, and run the
+relevant project verification when behavior claims were changed:
 
-## Closing Checklist
+```bash
+npm --prefix backend run typecheck
+npm --prefix frontend run build
+npm --prefix backend test
+npm --prefix frontend test
+```
 
-- The spec is satisfied.  
-- Tests derived from the spec pass.  
-- [spec-traceability.md](http://./spec-traceability.md) has a row for completed audit/backlog work.  
-- `npm run docs:check` passes when documentation, roadmap, audit, or scaffolding files changed.  
-- `npm run typecheck` or the relevant verification was executed when applicable.  
-- `git diff --check` reports no errors.  
-- Canonical documentation was updated if behavior, contracts, setup, or architecture changed.  
-- The backlog or audit register was updated if task status changed.
-
-## Ambiguity
-
-If the task does not have enough detail to write a reasonable spec, stop and ask for precision. Do not fill contract, security, persistence, or architecture decisions with silent assumptions.  
+Use the smallest relevant commands when a full suite is not needed, and report any
+provider/database certification that was not performed. Static tests do not authorize
+production migrations, external provider changes, Solar data, or credential use.

@@ -1,5 +1,5 @@
 # Research Specs
 
-Status: 2026-08-06.
+Status: 2026-09-01.
 
-Use this folder for research and investigative documents that may inform future work.
+Use this legacy folder for research and investigative documents. Promote approved work into a direct-child spec folder under `docs/09-roadmap/specs/`.

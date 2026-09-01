@@ -1,13 +1,16 @@
 # Usage
 
-Status: 2026-08-18.
+Status: 2026-09-01.
 
 ## Frontend user flow
 
-- `/` — action selection page.
-- `/properties/new` — new property form page.
-- `/properties/success/:submissionId` — result page for the submission.
-- Contract Generation creates an entry card from `/`; hosted forms use `/contracts/:entryId/user` and `/contracts/:entryId/client`, and each administration link uses the stable `/contracts/admin/:entryId` path.
+- `/` — legacy/root action selection page.
+- `/login`, `/register`, `/auth/callback`, `/invitations/accept` — authentication and invitation entry points.
+- `/t/:organizationSlug` — organization-scoped action selection and context boundary.
+- `/t/:organizationSlug/properties/new` and `/t/:organizationSlug/properties/success/:submissionId` — tenant property flow.
+- `/t/:organizationSlug/contracts/admin` and `/t/:organizationSlug/contracts/admin/:entryId` — tenant contract administration.
+- `/contracts/:entryId/user` and `/contracts/:entryId/client` — public hosted role forms.
+- `/properties/*` and `/contracts/admin/*` — legacy frontend paths redirected to `/`.
 
 The main workflow is:
 
@@ -20,34 +23,36 @@ The main workflow is:
 The Contract Generation workflow is:
 
 1. Sign in with a pre-reviewed email/password or Google account. Open registration and automatic administrator grants are disabled.
-2. Select `Generar contrato` on `/`; opening the section does not create a database entry.
-3. From that passive section, `Administrar contratos` can open `/contracts/admin` without creating an entry.
+2. Select `Generar contrato` on the root or tenant action page; opening the section does not create a database entry.
+3. From that passive section, `Administrar contratos` opens `/t/:organizationSlug/contracts/admin` without creating an entry.
 4. To start a new contract, click `Generar nueva entrada para contrato` to make the authenticated create call.
 5. Open the hosted user form and copy the client link from the entry card.
 6. The client starts with one `Inquilino` and one `Garante`, may add/remove additional records, and may upload a complete Frente/Dorso DNI file pair (PDF or an accepted image type) for each record. Every guarantor also selects at least one salary-receipt or property-guarantee evidence file; each of the two receivers accepts at most two files.
 7. The user completes `Propietario` and `Contrato`. `Contrato` groups its duration fields under `Vigencia`, rent fields under `Canon`, and adjustment fields under `Ajuste`; `Formateada_1` and `Formateada_2` remain computed and read-only.
 8. Evidence selection does not upload in the background. On client `Guardar`, the form locks, the browser requests signed evidence upload URLs, uploads the files to private storage, and submits their stable references with the validated client fields. A failed final response retains those references for retry and refreshes server state to detect an already-committed submission.
 9. After the first submit, the entry waits for the other role; after the second, it becomes `complete` with a combined payload; administrators can later correct either role, set `generar_contrato`, archive the entry, or regenerate links.
-10. Administrators use `/contracts/admin/:entryId` links to inspect schema-ordered submissions and associated media, archive entries, or regenerate role links.
+10. Administrators use `/t/:organizationSlug/contracts/admin/:entryId` links to inspect schema-ordered submissions and associated media, archive entries, or regenerate role links.
 
 ## Backend endpoints
 
 - `GET /health` — health check.
-- `POST /properties/media/presign` and `POST /properties/submit` — require the reviewed application session and derive the actor from it.
-- `POST /api/contracts/create` — authenticated entry creation; returns one-time user and client URLs.
+- `POST /api/organizations/:organization/properties/legacy/media/presign` and `POST /api/organizations/:organization/properties/legacy/submit` — tenant-context property compatibility flow. The legacy `/properties/...` shapes remain mounted for compatibility.
+- `POST /api/organizations/:organization/contracts/create` — tenant-scoped entry creation; returns one-time user and client URLs plus the tenant admin URL. The global `/api/contracts/create` shape remains a legacy compatibility alias.
 - `GET /api/contracts/:entryId/schema?role=user|client` — token- or owner-authorized role schema and status.
 - `POST /api/contracts/:entryId/dni-uploads/presign?token=...` — client-token-authorized private signed URLs for front/back DNI image uploads.
 - `POST /api/contracts/:entryId/evidence-uploads/presign?token=...` — client-token-authorized private signed URLs for guarantor salary-receipt/property-guarantee files.
 - `POST /api/contracts/:entryId/submit?role=user|client` — validated role submission and atomic Supabase persistence.
-- `GET /api/contracts/admin/entries` and `GET /api/contracts/admin/entries/:entryId` — administrator list and database-backed, ordered inspection with short-lived media links.
-- `POST /api/contracts/admin/entries/:entryId/archive` — archive and close links.
-- `POST /api/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
-- `PATCH` or `PUT /api/contracts/admin/entries/:entryId/submissions/:role` — administrator correction of submitted role data while retaining history.
-- `POST /api/contracts/admin/entries/:entryId/status` — records lifecycle intent; `generar_contrato` returns deferred integration status and sends no fixed database webhook under SPEC-25.
+- `GET /api/organizations/:organization/contracts/admin/entries` and `GET /api/organizations/:organization/contracts/admin/entries/:entryId` — tenant administrator list and database-backed, ordered inspection with short-lived media links.
+- `POST /api/organizations/:organization/contracts/admin/entries/:entryId/archive` — tenant archive and close links.
+- `POST /api/organizations/:organization/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
+- `PATCH` or `PUT /api/organizations/:organization/contracts/admin/entries/:entryId/submissions/:role` — tenant administrator correction of submitted role data while retaining history. The global `/api/contracts/admin/...` shapes remain legacy compatibility endpoints.
+- `POST /api/contracts/admin/entries/:entryId/status` — legacy admin status path; tenant callers should use the organization-namespaced route, whose `generar_contrato` status commits outbox intent and returns queued/triggered worker information.
 - `POST /api/auth/register` — returns `403 REGISTRATION_CLOSED` outside the explicit local synthetic fixture.
 - `POST /api/auth/login` — reviewed allowlist login using a signed, versioned, HTTP-only session cookie.
 - `POST /api/auth/google/session` — exchange a verified Supabase Google session for the same administrator cookie.
 - `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the application session.
+- `GET /api/organizations/:organization/context` — resolve the authenticated organization context and capabilities.
+- `GET/POST/DELETE /api/organizations/:organizationId/api-keys...` — organization API-key management under governance authorization.
 
 Legacy SPEC-09 compatibility endpoints:
 
@@ -55,7 +60,10 @@ Legacy SPEC-09 compatibility endpoints:
 - `POST /api/contracts/submit` — authenticated JSON contract submission.
 - `GET /api/contracts/audits/:submissionId` — authenticated redacted audit record.
 
-Property endpoints are implemented in `backend/src/routes/properties.ts`; current Contract Generation endpoints are in `backend/src/routes/contractEntries.ts`; legacy SPEC-09 endpoints remain in `backend/src/routes/contracts.ts`.
+The tenant adapters are implemented in `backend/src/routes/tenantContractEntries.ts` and the
+compatibility property wrapper in `backend/src/routes/properties.ts`. Identity/context
+routes live in `backend/src/routes/identity.ts`; legacy Contract Generation endpoints
+remain in `backend/src/routes/contractEntries.ts` and `backend/src/routes/contracts.ts`.
 
 Legacy SPEC-09 submit and audit calls require a valid bearer API key, an explicitly enabled reviewed gateway `X-Authenticated-User-Id`, or `X-User-Id` with backend `NODE_ENV=development` exactly. No hosted override can enable the latter. `X-Request-Id` is optional and supports correlation.
 
@@ -85,10 +93,12 @@ For legacy SPEC-09 on a deployment with a persistent filesystem mount, set `CONT
 3. The backend validates request fields using `validatePropertyPayload`.
 4. The backend validates MIME types and total upload size.
 5. The backend creates a Drive folder.
-6. The backend uploads files.
+6. With the default `MEDIA_UPLOAD_PROVIDER=supabase`, media has already been
+   uploaded to private Supabase Storage through the presign flow; legacy Drive
+   upload remains available when explicitly configured.
 7. The backend appends a Sheets row.
-8. The backend sends the Make webhook payload.
-9. The backend persists a JSON log.
+8. The backend sends the property Make webhook payload.
+9. The backend persists a JSON log and returns separate integration outcomes.
 
 ## Response codes
 
@@ -121,23 +131,25 @@ The append operation is non-idempotent. Automatic transient retries and later UI
 - Contract media uploads go directly to private Supabase Storage through signed URLs and are not part of the property multipart payload.
 - New SPEC-31 flows reserve/count verified bytes through the organization usage ledger, use receiver-specific per-file/count limits, and persist only stable asset IDs. Numeric retention and production quota values remain policy-gated; operators must not infer them from the provider bucket ceiling.
 
-## SPEC-26 staged operation
+## Organization-scoped operation
 
-Organization API paths are reserved but not mounted. Do not use the legacy
-administrator cookie, `contract_admin_users`, a route slug, Auth metadata, or an
-email domain to simulate organization access. Platform provisioning waits for
-the SPEC-27 operator boundary; production Azar/Solar creation and backfill
-remain owned by SPEC-34.
+Identity/context, governance, tenant contract, and tenant property-compatibility
+routes are mounted. They require the signed application session, current membership
+context, capability checks, exact Origin/CSRF validation for mutations, and generic
+cross-organization not-found behavior. A route slug is a lookup key, not authority.
+Production remains Azar-contained; platform provisioning and any Azar/Solar creation
+or backfill remain gated by SPEC-34.
 
-## SPEC-32 staged delivery operation
+## SPEC-32 delivery operation
 
-New organization-aware flows return durable queued/delivery state and do not
-wait for Drive, Sheets, or Make in the business request. A stateless scheduled
-worker claims fairly with a lease, then records success, retry wait,
-reconciliation, blocked, or dead-letter state. Provider timeout is not proof of
-failure: reconcile the stable marker before any resend. The existing synchronous
-steps above remain Azar-only compatibility behavior until SPEC-34 certifies
-outbox parity and removes direct delivery.
+Tenant contract generation writes the domain status and outbox intent in one
+transaction. The status route then attempts one bounded claim/delivery pass; if no
+worker is configured or no active delivery is available, it reports `queued` and a
+scheduled `npm --prefix backend run worker:contract-make` pass can retry it. The Make
+adapter uses organization-scoped configuration, validates the destination, and sends
+fire-and-forget HTTP with stable event/idempotency headers. A timeout or HTTP dispatch
+result does not prove that the Make scenario completed. Property integration remains
+Azar-only synchronous compatibility behavior.
 
 ## SPEC-34 migration operation
 

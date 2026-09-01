@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: 2026-08-18.
+Status: 2026-09-01.
 
 ## Shared SPEC-28 API conventions
 
@@ -44,7 +44,14 @@ These conventions are implemented as shared backend primitives. Domain APIs
 adopt them in SPEC-27 and SPEC-29 through SPEC-32; current compatibility routes
 retain their documented response shapes until their owning cutover.
 
-## `POST /properties/submit`
+## Property compatibility API
+
+The current tenant UI uses the same handler through
+`/api/organizations/:organization/properties/legacy/media/presign` and
+`/api/organizations/:organization/properties/legacy/submit`. The original
+`/properties/...` mounts remain compatibility paths.
+
+### `POST /properties/submit`
 
 ### Purpose
 
@@ -73,9 +80,9 @@ The backend will:
 
 1. Validate form fields and uploaded files.
 2. Create a Google Drive folder.
-3. Upload media files.
+3. Persist media according to the configured strategy: private Supabase Storage is the current default; legacy Drive upload is available when explicitly enabled.
 4. Append a row to Google Sheets.
-5. Send the payload to the Make webhook.
+5. Send the property payload to the Make webhook.
 6. Persist a submission log; serverless console output contains only redacted identifiers/outcome.
 
 ### Response
@@ -105,13 +112,21 @@ Response body shape:
 - `413` for payload size violations.
 - `500` for backend failures.
 
-## SPEC-10 through SPEC-19 current contract entry API
+## Contract entry APIs: tenant current and legacy compatibility
 
-All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Entry creation uses the Supabase application session, trusted gateway, API-key, or explicitly enabled development identity boundary; an intentionally insecure preview can opt into caller-supplied agent IDs. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
+All responses below use `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`. Production requests must resolve as HTTPS. Current tenant entry creation and administrator routes require the signed application session, organization context, capability checks, and CSRF protection for mutations. Retained global compatibility routes may additionally use the reviewed gateway, API key, or exact-development identity boundary. Role reads, client upload preflights, and submits require the matching role token, except that an authenticated owner can use the user route without a token.
 
-### `POST /api/contracts/create`
+### `POST /api/organizations/:organization/contracts/create`
 
-Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optional. API-key callers also supply `createdBy`. Returns `201` with `{ entryId, userUrl, clientUrl, createdAt, status: "open" }`. The URLs contain raw tokens that are not stored or recoverable. The live UI calls this endpoint only after the operator clicks `Generar nueva entrada para contrato`; opening or rendering the contract section is passive.
+The current tenant UI sends `{ "schemaId": "rent-contract-v1", "Direccion": "..." }`
+with the application session and CSRF token. The server resolves the organization from
+current membership context, creates the scoped `contract_entries` row, and returns
+`201` with `entryId`, tenant admin URL, one-time user URL, client URL, `createdAt`,
+and `status: "open"`. Opening or rendering the contract section remains passive.
+
+### Legacy `POST /api/contracts/create`
+
+Authenticated request: `{ "schemaId": "rent-contract-v1" }`; `schemaId` is optional. API-key callers also supply `createdBy`. Returns `201` with `{ entryId, userUrl, clientUrl, createdAt, status: "open" }`. The URLs contain raw tokens that are not stored or recoverable. This route is retained for global compatibility; the live tenant UI uses the organization-namespaced route above.
 
 ### `GET /api/contracts/:entryId/schema?role=user|client&token=...`
 
@@ -201,7 +216,16 @@ The user payload must not contain `approve_contract`. `contract_selection`, when
 
 The server supplies entry, role, IP, user agent, and timestamps; caller-supplied metadata is not accepted. Success returns `{ submissionId, entryId, status, submittedAt }`. The transactional Supabase function writes `contract_submissions`, updates the role fields on `contract_entries`, and writes `combined_submission` when both roles are filled. Repeated role submissions use the correction path, append a new submission-history row, and return `200`; throttled attempts return `429` and `Retry-After`.
 
-### Administrator endpoints
+### Tenant administrator endpoints
+
+- `GET /api/organizations/:organization/contracts/admin/entries`
+- `GET /api/organizations/:organization/contracts/admin/entries/:entryId`
+- `POST /api/organizations/:organization/contracts/admin/entries/:entryId/archive`
+- `POST /api/organizations/:organization/contracts/admin/entries/:entryId/tokens/:role/regenerate`
+- `PATCH` or `PUT /api/organizations/:organization/contracts/admin/entries/:entryId/submissions/:role` — validate and replace a submitted role payload while retaining submission history.
+- `POST /api/organizations/:organization/contracts/admin/entries/:entryId/status` — update lifecycle state. `generar_contrato` commits outbox intent and attempts one bounded worker pass; the response reports `triggered` or `queued`, not downstream Make completion.
+
+### Legacy administrator endpoints
 
 - `GET /api/contracts/admin/entries`
 - `GET /api/contracts/admin/entries/:entryId`
@@ -480,13 +504,15 @@ Property API calls are implemented in `frontend/src/features/properties/services
 - `backend/src/mappers/makePayloadMapper.ts` builds the canonical Make JSON payload.
 - The backend contract registry owns contract field ordering, sensitivity, and private Sheet mapping.
 
-## SPEC-26 organization API contract (staged)
+## Organization API contract (mounted boundary)
 
-SPEC-26 reserves snake_case organization/profile, settings, public-branding,
-member, invitation, ownership-transfer, export, deletion-request, and platform
-lifecycle paths under `/api`. They are intentionally not mounted through the
-legacy global administrator cookie. SPEC-27 must provide the typed request
-context before activation.
+The SPEC-26/SPEC-27 organization, profile, settings, membership, invitation,
+ownership-transfer, and lifecycle paths are mounted under `/api` behind the typed
+application-session context. The slug is resolved to an immutable organization UUID
+and never acts as authority. Mutations require exact Origin and CSRF validation,
+capability checks, optimistic versions where applicable, and audit evidence. The
+production deployment remains Azar-contained; mounting these routes does not authorize
+Solar or a second production organization.
 
 Protected responses use `Cache-Control: no-store`, `Referrer-Policy:
 no-referrer`, and `X-Content-Type-Options: nosniff`. Cross-organization IDs
@@ -516,7 +542,7 @@ slug plus `context_refresh_required`. `POST /api/provider-webhooks/invitation-em
 uses a bounded raw JSON body and authenticated/deduplicated delivery evidence; it has
 no cookie, organization selector, or membership authority.
 
-## SPEC-31 private asset API contract (staged)
+## SPEC-31 private asset API contract (staged; not mounted)
 
 SPEC-31 reserves organization-scoped upload-session and asset routes under
 `/api/organizations/:organization_id`. Initialization accepts owner ID,
@@ -540,7 +566,7 @@ use `429`, and unverifiable Storage/detection uses `503`. These routes remain
 available only through the SPEC-27 trusted context boundary; provider activation
 and production cutover remain SPEC-32/SPEC-34 gates.
 
-## SPEC-32 integration and delivery API contract (staged)
+## SPEC-32 integration and delivery API contract
 
 Organization integration list/detail responses contain provider, purpose,
 state, configuration version, masked destination, safe health/error class,
@@ -554,9 +580,12 @@ delivery endpoints reserve list/detail/retry/reconcile under
 `integrations.read` or `integrations.manage`, optimistic version, step-up/rate
 policy where applicable, and audit. Cross-organization identifiers return a
 generic `404`; stale state/version returns `409`; suspension/disabled work uses
-`423`; limits use `429`; safe dependency failure uses `503`. Health tests are
-read-only/no-customer-payload. These routes are intentionally unmounted in the
-additive implementation.
+`423`; limits use `429`; safe dependency failure uses `503`. Health tests are read-only/no-customer-payload. The general integration-management
+endpoints remain unmounted in the additive implementation. The mounted exception is
+tenant contract generation: `POST /api/organizations/:organization/contracts/admin/entries/:entryId/status`
+with `status=generar_contrato` commits an outbox event and attempts one bounded
+worker pass. Its response reports `triggered` or `queued`; neither means the
+downstream Make scenario has completed.
 
 ## SPEC-34 migration and rollout contracts
 

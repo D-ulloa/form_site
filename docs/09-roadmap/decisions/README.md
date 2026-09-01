@@ -1,6 +1,6 @@
 # Decisions
 
-Status: 2026-08-06.
+Status: 2026-09-01.
 
 Use this folder for architecture decision records and durable design decisions.
 

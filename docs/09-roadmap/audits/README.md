@@ -1,8 +1,10 @@
 # Audits
 
-Status: 2026-08-19.
+Status: 2026-09-01.
 
-Use this folder for release readiness, security, or architecture audits.
+Use this folder for release readiness, security, architecture, and documentation-freshness audits.
+
+- `2026-09-01-documentation-freshness-audit.md` — repository-wide documentation review and unresolved SPEC-38 identifier collision.
 
 - `25-containment-inventory-baseline.md` — redacted repository evidence and protected inventory gate.
 - `25-acceptance-traceability.md` — acceptance-criterion implementation and external-evidence map.

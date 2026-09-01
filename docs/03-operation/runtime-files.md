@@ -1,6 +1,6 @@
 # Runtime Files
 
-Status: 2026-08-18.
+Status: 2026-09-01.
 
 ## Persisted runtime artifacts
 
@@ -11,10 +11,11 @@ Status: 2026-08-18.
 - Supabase Storage `contract-evidence` — default private SPEC-14 bucket for guarantor salary-receipt and property-guarantee evidence.
 - Supabase `audit_events` and `usage_events` — staged append-only SPEC-28 organization evidence.
 - Supabase organization/platform limiter buckets, quota snapshots/reservations, and `platform_jobs` — staged shared operational authority; never replaced by local files in a multi-tenant path.
+- Supabase `outbox_events`, integration deliveries, attempts, and external-resource receipts — organization-scoped delivery state for the current contract Make worker and future providers.
 - Supabase `deletion_tombstones` and `recovery_evidence` — restricted append-only restore gates.
 - Supabase `media_assets`, `asset_upload_sessions`, `asset_upload_intents`, owner associations, deletion receipts, and migration mappings — canonical SPEC-31 private-file authority. Bucket/path fields are internal only.
 
-- `backend/logs/` — default local JSON location for property submissions and successful contract appends.
+- `backend/logs/` — default local JSON location for property submissions and retained SPEC-09 compatibility audits; current tenant contract state and delivery evidence live in Supabase.
 - `CONTRACT_AUDIT_LOGS_DIR` — optional contract-only audit location. The logger resolves it at call time for both persistence and retrieval; blank or unset falls back to `backend/logs`.
 
 Legacy SPEC-09 contract audit names use `SUB-YYYY-MM-DD-<hex>.json`. A contract audit contains the schema and contract identifiers, redacted fields, a redacted mapped row, spreadsheet/tab metadata, appended range, submission/user/request identifiers, source IP, and timestamp. Fields marked `sensitive` are redacted by default in every audit representation, including the mapped row.
@@ -55,5 +56,6 @@ For an explicitly enabled reviewed gateway or exact-development authentication, 
 - Audit `ip` is the normalized Express `req.ip`. Configure `TRUST_PROXY_HOPS` only for known proxies; otherwise keep it at `0`.
 - Legacy frontend agent metadata may remain in localStorage via `AgentContext`, but no property/contract authorization or attribution reads it.
 - SPEC-28 export/backup artifacts must be encrypted, expiring, inventoried, and stored outside public buckets. Manifests contain checksums and encryption references, never plaintext secrets. Restored jobs and external intents remain paused until provider reconciliation.
+- `npm --prefix backend run worker:contract-make` does not use a local queue file; it claims durable Supabase deliveries and can be run by a scheduler.
 - SPEC-32 secret material is not a runtime file. Application persistence/backups contain only versioned opaque secret-store references and safe fingerprints; external key/secret recovery is separate. Outbox payloads are minimized, while delivery attempts store safe fingerprints/status/classes rather than raw requests or provider bodies.
 - SPEC-34 manifests and result artifacts are restricted evidence, not application runtime files. Keep them outside the repository and public buckets; include sanitized references/fingerprints only. Migration checkpoints are durable database state, never process-local files.

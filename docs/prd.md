@@ -1,4 +1,11 @@
-Perfect — with those decisions locked, the MVP can now be defined as a single-purpose internal React web app for **creating new properties only**, where every successful submission always creates the property assets in Drive and always triggers both Google Sheets and Make. Because this is an internal admin-style workflow, the product should favor compact screens, clear labels, visible submission states, and predictable navigation over a marketing-style site. [perplexity](https://www.perplexity.ai/search/cc32b125-dc4a-422b-98d2-9009e48c9d21)
+Status: 2026-09-01.
+
+This is the original property-workflow PRD and remains canonical for the create-only
+property slice. The current implementation still creates a Drive folder and attempts
+Google Sheets and Make compatibility delivery, but media storage is configurable:
+private Supabase Storage is the default and legacy Drive upload is an explicit fallback.
+The internal admin workflow should favor compact screens, clear labels, visible
+submission states, and predictable navigation.
 
 ## Document scope
 
@@ -9,11 +16,12 @@ This file is the original property-workflow PRD and remains canonical for the pr
 The initial product is a React-based internal web application with an action-selection landing page and the original property action, **Agregar nueva propiedad**. Contract Generation is an additional implemented workflow documented separately in SPEC-10 through SPEC-19. The interface should stay compact, label-first, and operationally clear, which matches recommended web app patterns for admin tools and data-entry flows. [perplexity](https://www.perplexity.ai/search/cc32b125-dc4a-422b-98d2-9009e48c9d21)
 
 Locked product rules:
-- Sheets update: always runs.
-- Make webhook: always runs.
+- Sheets update: the backend attempts the configured property append after validation and Drive setup.
+- Make webhook: the backend attempts the configured property compatibility dispatch after Sheets; the response reports its outcome.
 - Property lifecycle in MVP: create only, no edit mode.
-- Upload limit: hard cap of 1 GB total per submission in business rules, with the current deployment capped at approximately 3.8 MB due to platform payload limits.
-- Media count: no fixed file-count limit as long as the submission remains under the total cap.
+- Upload limit: each file is constrained by server policy; the current multipart deployment cap is approximately 3.8 MB, while the historical business cap is 1 GB.
+- Media count: at most 20 files in the current backend configuration, subject to the payload cap.
+- Media strategy: client-direct private Supabase Storage by default; legacy Drive upload only when explicitly configured.
 - Folder naming convention: `OP-{localidad}-{tipo_de_inmueble}-{calle_sanitizada}-{YYYYMMDD-HHmm}`.
 
 Notes: the implementation lowercases and strips accents/special chars (spaces → hyphens) when sanitizing `calle`. The timestamp format is `YYYYMMDD-HHmm` (date + hour and minute).
@@ -25,26 +33,24 @@ Recommended example:
 
 The app should use a simple route structure so the workflow is always obvious: landing page, new-property form, and result state. In a web app, the main action should be explicit, the URL should reflect the current view, and loading/error states should be shown clearly instead of hidden behind ambiguous UI. [perplexity](https://www.perplexity.ai/search/cc32b125-dc4a-422b-98d2-9009e48c9d21)
 
-### MVP flow
-1. User lands on `/`.
+### Current flow
+1. User opens `/` or the tenant entry point `/t/:organizationSlug`.
 2. User selects `Agregar nueva propiedad`.
-3. User completes the property form on `/properties/new`.
-4. User uploads images/videos.
-5. User submits the form.
-6. Backend validates data and files.
-7. Backend creates the Google Drive folder.
-8. Backend uploads all files to that folder.
-9. Backend appends the row in Google Sheets.
-10. Backend sends the JSON payload to Make.
-11. App shows success or failure on `/properties/success/:submissionId` or inline error state.
+3. User completes the form on the tenant route `.../properties/new`.
+4. The browser uploads selected media directly to private Supabase Storage by default, or uses the explicit legacy Drive mode.
+5. The backend validates the signed session, form data, and media references.
+6. The backend creates the property Drive folder and records the configured media strategy.
+7. The backend appends the row in Google Sheets.
+8. The backend attempts the property Make compatibility webhook.
+9. The app shows separate Drive, upload, Sheets, and Make outcomes on the tenant result route.
 
 ### Required screens
 
 | Route | Screen | Purpose |
 |---|---|---|
-| `/` | Action selection | Show one active option: Agregar nueva propiedad |
-| `/properties/new` | New property form | Main data-entry screen |
-| `/properties/success/:submissionId` | Result screen | Show submission outcome, Drive folder link, and processing status |
+| `/` or `/t/:organizationSlug` | Action selection | Choose the property or Contract Generation workflow |
+| `/t/:organizationSlug/properties/new` | New property form | Main tenant-scoped data-entry screen |
+| `/t/:organizationSlug/properties/success/:submissionId` | Result screen | Show separate integration outcomes and the Drive folder projection |
 | Modal/inline state | Error and retry | Show validation, upload, Sheets, or Make errors without losing form data |
 
 ## Data structure
@@ -224,7 +230,6 @@ src/
     Checkbox.tsx
     MultiSelectChips.tsx
     FileDropzone.tsx
-    UploadProgressList.tsx
     AlertInline.tsx
     AgentModal.tsx
 ```
@@ -237,15 +242,16 @@ Notes / actual implementation details:
 ### Backend modules
 ```text
 backend/
-  routes/
-    properties.ts
-  services/
-    validatePropertyPayload.ts
-    buildFolderName.ts
-    googleDriveService.ts
-    googleSheetsService.ts
-    makeWebhookService.ts
-    submissionLogger.ts
+  src/
+    routes/
+      properties.ts
+    services/
+      validatePropertyPayload.ts
+      buildFolderName.ts
+      googleDriveService.ts
+      googleSheetsService.ts
+      makeWebhookService.ts
+      submissionLogger.ts
   mappers/
     sheetRowMapper.ts
     makePayloadMapper.ts
@@ -264,7 +270,7 @@ A good admin web app should surface every important system state, especially dur
 - Numeric fields must reject invalid numbers.
 - Boolean fields default to `false`.
 - Array fields default to `[]`.
-- Total upload size must not exceed 1 GB in business rules, with the current deployment capped at approximately 3.8 MB due to platform payload limits.
+- Current property requests are capped at approximately 3.8 MB for the multipart deployment path; the historical business cap is 1 GB and the backend also enforces a maximum of 20 media files.
 - Allowed media types must be whitelisted.
 - Dangerous filename characters must be sanitized.
 - Folder name generation must be deterministic.
@@ -342,21 +348,25 @@ Sticky submit bar (bottom): file count / total size, `Enviar propiedad` button (
   - Files uploaded via `MediaUploadSection` map to `media.files` in Make payload and `cover_file_name` is included in the form fields.
 
 Notes:
-- The canonical Make payload and sheet row are assembled server-side (see `backend/src/mappers/makePayloadMapper.ts` and `backend/src/mappers/sheetRowMapper.ts`). The frontend sends form fields + files via multipart/form-data to `/properties/submit`.
+- The canonical Make payload and sheet row are assembled server-side (see
+`backend/src/mappers/makePayloadMapper.ts` and `backend/src/mappers/sheetRowMapper.ts`).
+The tenant frontend uses the organization-namespaced compatibility endpoints. With
+the default upload strategy, media is uploaded to private Supabase Storage before
+submit and the backend validates stable references; the legacy Drive mode sends
+files through the multipart compatibility path.
 - `Tipo de contrato` is available across frontend and backend schemas and will be sent in the Make payload and appended to Sheets.
 
 ### Submission orchestration
-The backend flow should run in this exact order:
-1. Validate payload.
-2. Generate `property_id` and `submission_id`.
-3. Generate Drive folder name.
-4. Create Drive folder.
-5. Upload media files.
-6. Build canonical property payload.
-7. Append row to Google Sheets.
-8. Send payload to Make.
-9. Persist submission log.
-10. Return final result to frontend.
+The current flow is:
+1. Authenticate the application session and validate the property payload.
+2. For the default Supabase strategy, verify the client-authorized media references; for legacy Drive mode, parse and validate multipart files.
+3. Generate `property_id`, `submission_id`, and the deterministic Drive folder name.
+4. Create the private Drive folder and record the selected media strategy.
+5. Build the canonical property payload.
+6. Append the property row to Google Sheets.
+7. Attempt the property Make compatibility webhook.
+8. Persist the redacted submission log.
+9. Return separate step outcomes to the frontend.
 
 ### Failure policy
 - If Drive folder creation fails, stop the process.
@@ -370,12 +380,12 @@ Note: `SubmissionSuccessPage` expects the `SubmissionResult` object to be passed
 ### MVP acceptance criteria
 - User can reach the add-property flow from the landing page.
 - User can submit all required property data.
-- User can upload media up to 1 GB total in business rules, with the current deployment capped at approximately 3.8 MB for payloads.
-- App creates one Drive folder per property.
-- App stores all uploaded files in that folder.
-- App appends a correctly mapped row in Google Sheets.
-- App sends the payload to Make every time.
+- User can upload media within the current per-file, 20-file, and approximately 3.8 MB multipart limits.
+- App creates one private Drive folder per property.
+- App stores media in the configured private Supabase Storage strategy or explicit legacy Drive strategy and returns the strategy/outcome.
+- App appends a correctly mapped row in Google Sheets when configured.
+- App attempts the property Make compatibility payload and reports success, failure, or partial failure.
 - App returns a visible success, failure, or partial-failure state.
 - App does not include edit functionality in v1.
 
-The next strongest deliverable would be a field-by-field wireframe and component map for `/properties/new`.
+Future property changes should update the tenant route/API documentation and the upload strategy together; use `docs/03-operation/usage.md` and `docs/05-integrations/api-contracts.md` as the current behavior references.

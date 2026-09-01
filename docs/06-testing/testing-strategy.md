@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Status: 2026-08-19.
+Status: 2026-09-01.
 
 SPEC-27 adds `spec27-identity.test.ts` and
 `spec27-migration-contract.test.ts` for 256-bit opaque credentials, independent
@@ -189,9 +189,25 @@ transactional resend/revoke invalidation, webhook non-authority, and bounded mas
 lists. Frontend integration coverage proves immediate fragment removal, server handoff,
 token-free resolve/accept, non-owner role UI, and truthful governance states.
 
-Before production enablement, apply through migration 24 to disposable Postgres and run
+Before production enablement, apply through the current migration head (32, including
+post-SPEC-37 fixes and shared Make delivery) to disposable Postgres and run
 accept/resend/revoke/suspension races, direct browser-role denial, cross-tenant attacks,
 and handoff expiry/replay/fixation tests. Then certify Resend sandbox delivery,
 authenticated duplicate/bounce/complaint webhooks, password and Google return, existing
 and new identities, and distinct Azar/Solar recipients. Static/mock tests do not certify
 the database, provider, DNS, mail reputation, or operational approvals.
+
+
+## Current contract Make-delivery coverage
+
+`spec38-shared-make-contract-delivery.test.ts` covers the organization-scoped
+contract-generation payload loader, migration trigger/materialization contract,
+fire-and-forget Make adapter, HTTPS/DNS destination guard, worker claim and
+transition behavior, and safe queued/ambiguous outcomes. It is named SPEC-38 in
+the implementation, which currently collides with the separate direct-child SPEC-38
+arrangement placeholder; resolve that identifier collision before adding dependent
+tests or declaring either workstream complete.
+
+The mounted status route commits the domain status and outbox intent before the
+opportunistic worker pass. A dispatch response does not certify downstream Make
+processing, and a timeout or thrown provider call requires reconciliation.

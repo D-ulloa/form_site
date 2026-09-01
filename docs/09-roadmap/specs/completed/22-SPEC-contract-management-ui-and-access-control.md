@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-11  
 **Priority:** high  
-**Status:** pending
+**Status:** implemented; historical record. Current tenant ownership and route behavior are documented in `docs/01-overview/architecture.md` and `docs/03-operation/usage.md`.
 
 ---
 
@@ -92,4 +92,4 @@ Excludes:
 
 ---
 
-Status: pending review. Author: redacted.
+Historical record retained for traceability; its pre-tenant visibility assumptions do not define current organization authorization.

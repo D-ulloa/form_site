@@ -1,7 +1,7 @@
 # SPEC-09 Contract Generation (Google Form → Site → Google Sheet)
 
-**Date:** 2026-07-20  
-**Priority Order:** 9  
+**Date:** 2026-07-20
+**Priority Order:** 9
 **Status:** superseded by SPEC-10
 
 ---
@@ -10,7 +10,7 @@
 
 Add a new UI section (peer to the existing Property Submission flow) named **Contract Generation**. The flow: user clicks the Contract Generation action → UI prompts a Google Form site link to copy → after copying, the UI opens a second in-site form (hosted in the app) whose fields are described by a JSON schema displayed to the user → user fills fields and presses `Send` → backend validates and forwards the submission to a target Google Sheet. This SPEC defines UI behavior, JSON field schema, Google Form/Sheet mapping, security/privacy constraints, failure modes, and acceptance criteria.
 
-> This SPEC is modeled stylistically on `docs/09-SPEC-provider-prompt-cache-optimization-cost-accounting.md` but is independent in scope and implementation.
+> This SPEC is modeled stylistically on `references/documentation-structure-guide.md` but is independent in scope and implementation.
 
 ## Context
 
@@ -20,51 +20,51 @@ The product currently supports a `Property Submission` workflow. Customers also 
 
 Provide a robust, auditable, and minimally-privileged Contract Generation flow that:
 
-- Presents an external Google Form link for users to copy (for record or partner use).  
-- Displays an in-app JSON-described form whose fields are configurable and visible to the user before they fill.  
-- Sends validated form responses to a designated Google Sheet on `Send`.  
+- Presents an external Google Form link for users to copy (for record or partner use).
+- Displays an in-app JSON-described form whose fields are configurable and visible to the user before they fill.
+- Sends validated form responses to a designated Google Sheet on `Send`.
 - Records an immutable submission receipt for audit and troubleshooting.
 
 ## Scope
 
 Includes:
 
-- UI additions: `Contract Generation` entry in the submissions menu and a two-step modal flow.  
-- JSON field schema definition format for describing in-site form fields.  
-- Backend validation and mapping layer that transforms JSON-form submission into a Google Sheets append request.  
-- Minimal Google API integration surface: `Forms` (only for the public link provided by the admin) and `Sheets` for appending rows.  
+- UI additions: `Contract Generation` entry in the submissions menu and a two-step modal flow.
+- JSON field schema definition format for describing in-site form fields.
+- Backend validation and mapping layer that transforms JSON-form submission into a Google Sheets append request.
+- Minimal Google API integration surface: `Forms` (only for the public link provided by the admin) and `Sheets` for appending rows.
 - Audit logs and submission receipts recorded in the existing `logs/` folder structure.
 
 Excludes:
 
-- Implementing a full Google Forms editor inside the app.  
-- Storing or managing Google OAuth refresh tokens beyond existing external-service patterns (see `docs/02-setup/external-services.md`).  
+- Implementing a full Google Forms editor inside the app.
+- Storing or managing Google OAuth refresh tokens beyond existing external-service patterns (see `docs/02-setup/external-services.md`).
 - Performing complex merges or backfills into historical spreadsheets; only append operations are in scope.
 
 Non-Goals
 
-1. Not a replacement for Property Submission — this is an independent complementary workflow.  
-2. Not implementing two-way sync between Google Forms and in-app JSON schema.  
-3. Not providing arbitrary advanced Sheet transforms (no formulas injection, no script execution).  
+1. Not a replacement for Property Submission — this is an independent complementary workflow.
+2. Not implementing two-way sync between Google Forms and in-app JSON schema.
+3. Not providing arbitrary advanced Sheet transforms (no formulas injection, no script execution).
 
 ## User Story / UI Flow
 
-1. User navigates to the site section and clicks **Contract Generation**.  
-2. Modal step A (External Link): shows a short explanation and a single-line `Google Form` public link with a `Copy` button. The link is provided by the product admin (not editable by end-users).  
-3. When user clicks `Copy`, UI marks the link copied and proceeds to Modal step B (In-Site Form).  
+1. User navigates to the site section and clicks **Contract Generation**.
+2. Modal step A (External Link): shows a short explanation and a single-line `Google Form` public link with a `Copy` button. The link is provided by the product admin (not editable by end-users).
+3. When user clicks `Copy`, UI marks the link copied and proceeds to Modal step B (In-Site Form).
 4. Modal step B displays:
-   - A rendered form built from a JSON field schema (see "Field Schema").  
-   - A read-only JSON view panel showing the exact field names and constraints.  
-   - `Send` and `Cancel` buttons.  
-5. User fills the in-site form and clicks `Send`.  
-6. Client performs client-side validation, then calls backend `POST /api/contracts/submit` with normalized payload.  
-7. Backend validates, maps fields to the configured Google Sheet columns, appends a row to the target sheet, and returns a receipt object.  
+   - A rendered form built from a JSON field schema (see "Field Schema").
+   - A read-only JSON view panel showing the exact field names and constraints.
+   - `Send` and `Cancel` buttons.
+5. User fills the in-site form and clicks `Send`.
+6. Client performs client-side validation, then calls backend `POST /api/contracts/submit` with normalized payload.
+7. Backend validates, maps fields to the configured Google Sheet columns, appends a row to the target sheet, and returns a receipt object.
 8. UI displays success with the receipt and a per-submission link to the audit JSON stored on the server.
 
 UX Notes
 
-- Step A is informational: the external Google Form link is shown and can be copied; copying does not mean the server will receive data from that form — it is a convenience for the user/partner.  
-- Step B is the canonical submission path for the app; only Step B causes data to be appended to the configured Google Sheet.  
+- Step A is informational: the external Google Form link is shown and can be copied; copying does not mean the server will receive data from that form — it is a convenience for the user/partner.
+- Step B is the canonical submission path for the app; only Step B causes data to be appended to the configured Google Sheet.
 - The JSON field schema must be visible and human-readable; the rendered form should follow accessible markup and be keyboard-navigable.
 
 ## Data Model / JSON Field Schema
@@ -222,61 +222,61 @@ Request body (client -> server):
 
 Server responsibilities:
 
-- Authenticate & authorize the request (user session or API key).  
-- Verify `schemaId` and load schema config.  
-- Run server-side validation using schema rules.  
-- Sanitize fields to prevent Sheets injection (see Security).  
-- Map `fields` to sheet columns using `sheet.columnMap`.  
-- Append a row via Google Sheets API `spreadsheets.values.append` using the service account configured for the product.  
-- On success, create an audit JSON blob (submission payload, final mapped row, timestamp, userId, submissionId) and store it under `logs/` with a `SUB-YYYY-MM-DD-<hex>.json` name.  
+- Authenticate & authorize the request (user session or API key).
+- Verify `schemaId` and load schema config.
+- Run server-side validation using schema rules.
+- Sanitize fields to prevent Sheets injection (see Security).
+- Map `fields` to sheet columns using `sheet.columnMap`.
+- Append a row via Google Sheets API `spreadsheets.values.append` using the service account configured for the product.
+- On success, create an audit JSON blob (submission payload, final mapped row, timestamp, userId, submissionId) and store it under `logs/` with a `SUB-YYYY-MM-DD-<hex>.json` name.
 - Return `200 { receipt: { submissionId, timestamp, sheetUrl, appendedRange } }` or an appropriate error code.
 
 Failure modes and responses:
 
-- Validation error: `400` with `errors` list.  
-- Authentication/Authorization: `401` or `403`.  
-- Google Sheets append error: `502` or `503` with a retriable flag.  
+- Validation error: `400` with `errors` list.
+- Authentication/Authorization: `401` or `403`.
+- Google Sheets append error: `502` or `503` with a retriable flag.
 - Mapping error (column missing): `500` with guided admin remediation message.
 
 ## Google Integration Details
 
-- Google Form: only public link shown in Step A. The app does not need to programmatically read from that form in this initial SPEC.  
-- Google Sheets: append-only writes performed by a server-side service account; permissions are restricted to the destination spreadsheet(s). Use existing `external-services` patterns for storing service-account credentials (see `docs/02-setup/external-services.md`).  
+- Google Form: only public link shown in Step A. The app does not need to programmatically read from that form in this initial SPEC.
+- Google Sheets: append-only writes performed by a server-side service account; permissions are restricted to the destination spreadsheet(s). Use existing `external-services` patterns for storing service-account credentials (see `docs/02-setup/external-services.md`).
 - Use `spreadsheets.values.append` with `valueInputOption=RAW` and provide the exact column mapping order.
 
 Security & Sanitization
 
-- Treat all user-submitted values as untrusted.  
-- Sanitize values that look like formulas (e.g., leading `=` or `+`, `-`, `@`) before writing to Sheets to avoid formula injection. Preference: prefix with an apostrophe `'` or use the Sheets API `raw` option and explicitly escape formula-starting characters.  
-- Do not store raw service-account keys in logs. Only store metadata (spreadsheetId, sheetName).  
-- Ensure audit logs do not expose admin credentials.  
+- Treat all user-submitted values as untrusted.
+- Sanitize values that look like formulas (e.g., leading `=` or `+`, `-`, `@`) before writing to Sheets to avoid formula injection. Preference: prefix with an apostrophe `'` or use the Sheets API `raw` option and explicitly escape formula-starting characters.
+- Do not store raw service-account keys in logs. Only store metadata (spreadsheetId, sheetName).
+- Ensure audit logs do not expose admin credentials.
 - Enforce principle of least privilege: the Sheets service account must only have `Editor` on the target sheet(s) and nothing else.
 
 Privacy
 
-- If contract fields may contain PII or sensitive data, mark them in the schema with `sensitive: true`. Audit logs must redact sensitive fields unless the request is explicitly flagged by an admin for full retention.  
+- If contract fields may contain PII or sensitive data, mark them in the schema with `sensitive: true`. Audit logs must redact sensitive fields unless the request is explicitly flagged by an admin for full retention.
 - Record `userId`, `submissionId`, and IP in audit JSON for compliance purposes.
 
 Audit & Observability
 
-- Each successful append must produce an audit file in `logs/` named `SUB-YYYY-MM-DD-<hex>.json` containing: `schemaId`, `contractType`, `fields` (redacted per sensitivity), `mappedRow`, `spreadsheetId`, `sheetName`, `appendedRange`, `submissionId`, `userId`, `timestamp`, and `requestId`.  
+- Each successful append must produce an audit file in `logs/` named `SUB-YYYY-MM-DD-<hex>.json` containing: `schemaId`, `contractType`, `fields` (redacted per sensitivity), `mappedRow`, `spreadsheetId`, `sheetName`, `appendedRange`, `submissionId`, `userId`, `timestamp`, and `requestId`.
 - Metrics: `contracts.submissions.total`, `contracts.submissions.success`, `contracts.submissions.failure`, `contracts.submissions.latency_ms`.
 
 Acceptance Criteria
 
-1. UI presents the two-step modal (copyable Google Form link; in-site JSON-rendered form).  
-2. JSON schema can render all supported field types and validation rules.  
-3. `POST /api/contracts/submit` validates, maps, and appends a row to the configured Google Sheet.  
-4. An audit JSON file is written to `logs/` for every successful submission.  
-5. Sensitive fields in logs are redacted by default.  
-6. Error modes return clear, actionable messages for users and admins.  
+1. UI presents the two-step modal (copyable Google Form link; in-site JSON-rendered form).
+2. JSON schema can render all supported field types and validation rules.
+3. `POST /api/contracts/submit` validates, maps, and appends a row to the configured Google Sheet.
+4. An audit JSON file is written to `logs/` for every successful submission.
+5. Sensitive fields in logs are redacted by default.
+6. Error modes return clear, actionable messages for users and admins.
 7. No service-account secrets are written to logs or client responses.
 
 Testing
 
-- Unit tests for schema validation, field mapping, and Sheets request formation.  
-- Integration test (mocked Google APIs) verifying `spreadsheets.values.append` call parameters and correct error handling.  
-- End-to-end test with a sandbox spreadsheet (optional manual or CI-provisioned resource) to verify full append path.  
+- Unit tests for schema validation, field mapping, and Sheets request formation.
+- Integration test (mocked Google APIs) verifying `spreadsheets.values.append` call parameters and correct error handling.
+- End-to-end test with a sandbox spreadsheet (optional manual or CI-provisioned resource) to verify full append path.
 - Accessibility tests for the in-site form rendering.
 
 Implementation Phases
@@ -293,24 +293,24 @@ Phase 5 — Deploy & Monitor: release to staging, run end-to-end tests, monitor 
 
 Risks & Mitigations
 
-- Formula injection risk (high): mitigate by sanitizing values before writing to Sheets.  
-- Data leakage in audit logs (medium): redact sensitive fields; allow admin opt-in for full retention only under strict controls.  
-- Mis-mapping columns (medium): validate `columnMap` at config time and fail-fast on deployment when columns mismatch.  
+- Formula injection risk (high): mitigate by sanitizing values before writing to Sheets.
+- Data leakage in audit logs (medium): redact sensitive fields; allow admin opt-in for full retention only under strict controls.
+- Mis-mapping columns (medium): validate `columnMap` at config time and fail-fast on deployment when columns mismatch.
 - Google API quota/availability (low-medium): implement retries with exponential backoff and surface retriable errors to users.
 
 Open Questions
 
-1. Should the app support multiple `sheetName` targets per `contractType` (e.g., regional sheets)? Recommend yes — configuration should support an array mapping by region.  
-2. Who administers the Google Form public link? Admin UI required to set the link and spreadsheet IDs.  
+1. Should the app support multiple `sheetName` targets per `contractType` (e.g., regional sheets)? Recommend yes — configuration should support an array mapping by region.
+2. Who administers the Google Form public link? Admin UI required to set the link and spreadsheet IDs.
 3. Will we support mapping nested structures (e.g., arrays) to multiple columns? For v1, restrict to flat fields only.
 
 ## Next Steps
 
-1. Review this draft with stakeholders and finalize the JSON schema subset and admin configuration shape.  
-2. Create config storage for `contractType` schemas and admin UI to register `googleFormLink` and `sheet` mapping.  
+1. Review this draft with stakeholders and finalize the JSON schema subset and admin configuration shape.
+2. Create config storage for `contractType` schemas and admin UI to register `googleFormLink` and `sheet` mapping.
 3. Implement Phase 2 and Phase 3 per the implementation plan.
 
 ---
 
-**Author:** Drafted by product engineering  
-**Related docs:** [docs/02-setup/external-services.md](docs/02-setup/external-services.md) — Google integration patterns.  
+**Author:** Drafted by product engineering
+**Related docs:** [docs/02-setup/external-services.md](../../../02-setup/external-services.md) — Google integration patterns.

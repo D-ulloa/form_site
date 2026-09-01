@@ -1,6 +1,6 @@
 # External Services
 
-Status: 2026-08-25.
+Status: 2026-09-01.
 
 ## Supabase contract persistence
 
@@ -57,17 +57,29 @@ Contract header reads and row appends authenticate only with `GOOGLE_SERVICE_ACC
 
 ## Make
 
-The backend sends a JSON webhook payload to the Make webhook URL configured in `MAKE_WEBHOOK_URL`.
+Property submissions still use the contained compatibility adapter and send their
+JSON payload to the Make webhook configured in `MAKE_WEBHOOK_URL`. This is an
+Azar-only synchronous path; the value must never select a second organization. The
+current default property media lives in private Supabase Storage, while the payload
+may include the resulting server-generated download references and the Drive folder
+projection.
 
-The historical contract webhook literal is compromised evidence. Revoke it and
-disable its scenario externally before applying the SPEC-25 forward migration,
-which removes the database trigger/function. Contract status changes must not be
-presented as delivered while that path is unavailable. The process-global
-property hook is temporary Azar-only configuration and must be disabled unless
-its ownership and secrecy are proven.
+Tenant contract generation uses a different path. The mounted status route records
+`contract.generation.requested` in the organization-scoped outbox, materializes a
+delivery for an active `make_webhook`/`contract_generation` integration, and attempts
+one bounded worker pass after commit. Run the same pass durably with
+`npm --prefix backend run worker:contract-make`. The adapter loads a scoped
+legacy-compatible contract envelope, validates HTTPS/DNS destination safety, and
+sends fire-and-forget HTTP with event and idempotency headers. A dispatch response
+does not prove that the Make scenario processed the payload; ambiguous outcomes require
+reconciliation before retry.
 
-- Payload mapping is implemented in `backend/src/mappers/makePayloadMapper.ts`.
-- The webhook receives full submission metadata, folder information, agent data, and media details.
+The historical fixed contract database trigger and compromised literal are not the
+current delivery mechanism. Revoke any external copy and keep that scenario disabled.
+
+- Property payload mapping is implemented in `backend/src/mappers/makePayloadMapper.ts`.
+- Contract delivery is implemented under `backend/src/integrations/` and uses the
+  organization integration record rather than `MAKE_WEBHOOK_URL`.
 
 ## Property Google auth modes
 

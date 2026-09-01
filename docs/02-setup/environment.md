@@ -1,6 +1,6 @@
 # Environment
 
-Status: 2026-08-18.
+Status: 2026-09-01.
 
 ## Backend environment variables
 
@@ -39,6 +39,8 @@ Contract Generation values:
 - `CONTRACT_DNI_UPLOADS_REQUIRED` — set to `true` to require both Frontal and Dorso DNI uploads for every visible DNI receiver; production environments enforce this policy regardless of the variable.
 - `CONTRACT_EVIDENCE_STORAGE_BUCKET` — separate private Supabase Storage bucket for SPEC-14 guarantor evidence (default `contract-evidence`).
 - `CONTRACT_EVIDENCE_MAX_FILE_BYTES` — maximum size of one salary-receipt or property-guarantee file (default `10485760`, 10 MB). Keep this aligned with the evidence bucket object limit.
+- `CONTRACT_MAKE_WORKER_LIMIT` — optional bounded contract Make-worker batch size; values from 1 through 50 are accepted and the default is `10`.
+- `CONTRACT_MAKE_WORKER_ID` — optional standalone worker identity override; otherwise the command derives one from its process ID.
 
 Staged SPEC-28 platform values (required before activating multi-tenant paths):
 
@@ -105,16 +107,33 @@ The currently linked Supabase project has already received these migrations manu
 19. `supabase/migrations/20260819200000_spec32_multitenant_integration_outbox.sql`
 20. `supabase/migrations/20260819300000_spec33_commercial_extension_framework.sql`
 21. `supabase/migrations/20260819400000_spec34_migration_certification_control_plane.sql`
-22. `supabase/migrations/20260825120000_spec35_identity_profile_provisioning.sql`
-23. `supabase/migrations/20260825160000_spec36_organization_provisioning.sql`
-24. `supabase/migrations/20260825200000_spec37_invitation_delivery_handoff.sql`
+22. `supabase/migrations/20260820120000_spec29_tenant_contract_http_cutover.sql`
+23. `supabase/migrations/20260820123000_spec29_contract_created_actor_uuid.sql`
+24. `supabase/migrations/20260825120000_spec35_identity_profile_provisioning.sql`
+25. `supabase/migrations/20260825160000_spec36_organization_provisioning.sql`
+26. `supabase/migrations/20260825200000_spec37_invitation_delivery_handoff.sql`
+27. `supabase/migrations/20260826120000_spec37_manual_invitation_links.sql`
+28. `supabase/migrations/20260827130000_spec28_rate_limit_conflict_fix.sql`
+29. `supabase/migrations/20260827140000_spec37_manual_invitation_event_fix.sql`
+30. `supabase/migrations/20260827150000_spec37_list_projection_ambiguity_fix.sql`
+31. `supabase/migrations/20260827160000_spec37_handoff_digest_schema_fix.sql`
+32. `supabase/migrations/20260901000000_spec38_shared_make_contract_delivery.sql`
 
-Migrations 14 and 15 create no organizations or business rows. They add identity and shared
-backend-only control tables/functions with forced RLS and revoked browser
-grants. Apply and certify it first in a disposable project; do not enable a
-second production organization based on static migration tests.
+Migrations 14 and 15 create no organizations or business rows. They add identity and
+shared backend-only control tables/functions with forced RLS and revoked browser
+grants. Migrations 24 through 31 include the SPEC-35/36/37 releases and post-SPEC-37
+corrective migrations; migration 32 adds the current shared contract Make-delivery
+trigger/materialization and scoped payload/claim functions. Apply and certify the complete chain in a disposable project;
+do not enable a second production organization based on static migration tests.
 
-The first migration enables RLS and grants the atomic submission function only to `service_role`; the second provisions the default private DNI bucket; the third provisions the default private evidence bucket with the SPEC-14 MIME allowlist; the fourth adds the durable `Direccion` identifier and update RPC; the fifth enables PDF DNI objects while preserving the private bucket policy; the sixth provisions the SPEC-19 administrator-grant table and signup trigger; the eighth repairs missing administrator grants for existing main-page accounts and reasserts the signup trigger. The seventh adds the `generar_contrato` status, the ninth adds its durable trigger flag, and the tenth installs the configured Supabase-to-Make webhook trigger. Browsers never write database tables directly and receive Storage upload access only through server-issued signed URLs after client-token authorization.
+The initial contract migrations establish the private buckets, role submissions,
+computed fields, administrator access, and lifecycle status. The historical fixed
+Supabase-to-Make trigger is removed by SPEC-25. The current migration
+`20260901000000_spec38_shared_make_contract_delivery.sql` instead materializes
+organization-scoped `contract.generation.requested` deliveries from the outbox and
+provides the scoped payload/claim functions used by the backend worker. Browsers
+never write database tables directly and receive Storage access only through
+server-issued signed URLs after role authorization.
 
 If either storage bucket setting changes from its default, provision an equivalent private bucket with the matching size and MIME restrictions. The migrations create only `contract-dni` and `contract-evidence`.
 
@@ -195,11 +214,13 @@ documented before cleanup/scanning workers are enabled.
 
 ## Integration and worker configuration
 
-SPEC-32 does not add an environment variable for customer routing. Destination
-folder/spreadsheet/endpoint IDs and credential references belong to the owning
-`organization_integrations` record. Legacy `GOOGLE_*`, `CONTRACT_GOOGLE_*`, and
-`MAKE_WEBHOOK_URL` values remain contained Azar-only compatibility inputs and
-must never resolve a second organization.
+The general SPEC-32 path does not add an environment variable for customer routing.
+Destination folder/spreadsheet/endpoint IDs and credential references belong to the
+owning `organization_integrations` record. Legacy `GOOGLE_*`, `CONTRACT_GOOGLE_*`,
+and property-flow `MAKE_WEBHOOK_URL` values remain contained Azar-only compatibility
+inputs and must never resolve a second organization. The mounted tenant contract
+worker uses the active organization integration plus `CONTRACT_MAKE_WORKER_LIMIT`;
+`CONTRACT_MAKE_WORKER_ID` is only a standalone worker identity override.
 
 Production secret material belongs in an approved external secret manager. If
 the envelope option is approved, its 32-byte key-encryption key is supplied by

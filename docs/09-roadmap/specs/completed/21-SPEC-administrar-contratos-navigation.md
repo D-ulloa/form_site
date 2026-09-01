@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-10  
 **Priority:** medium  
-**Status:** implemented
+**Status:** implemented; historical record. Current tenant routes are documented in `docs/03-operation/usage.md`.
 
 ---
 
@@ -89,4 +89,4 @@ Used completed specs and historical guidance for tone and structure:
 
 ---
 
-Status: pending review. Author: redacted.
+Historical record retained for traceability; current navigation uses the organization-scoped routes documented in the canonical operation guide.

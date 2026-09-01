@@ -8,7 +8,7 @@
 
 ## Summary
 
-This spec extends `docs/10-SPEC-contract-generation-reworked.md` with the next contract-generation iteration for the client-side intake form. It defines enhancements to the `Inquilino` and `Garantes` sections, adds DNI front/back file support for each tenant and guarantor, removes the `Aprobar Contrato` field from both backend and frontend, and codifies computed `Formateada_1` and `Formateada_2` field behavior.
+This spec extends `docs/09-roadmap/specs/completed/10-SPEC-contract-generation-reworked.md` with the next contract-generation iteration for the client-side intake form. It defines enhancements to the `Inquilino` and `Garantes` sections, adds DNI front/back file support for each tenant and guarantor, removes the `Aprobar Contrato` field from both backend and frontend, and codifies computed `Formateada_1` and `Formateada_2` field behavior.
 
 ## Motivation
 
@@ -207,5 +207,5 @@ Example payload fragment:
 
 ## Notes
 
-- This spec is built on top of `docs/10-SPEC-contract-generation-reworked.md` and is intended as a client-side enhancement layer.
+- This spec is built on top of `docs/09-roadmap/specs/completed/10-SPEC-contract-generation-reworked.md` and is intended as a client-side enhancement layer.
 - The change should preserve the existing two-party workflow while making the client intake form more flexible and better aligned with real rental contract scenarios.
