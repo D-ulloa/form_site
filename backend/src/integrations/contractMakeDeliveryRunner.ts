@@ -26,7 +26,7 @@ export function createContractMakeDeliveryRunner(
   const worker = createIntegrationWorker({
     repository: createSupabaseContractMakeDeliveryRepository(client),
     adapters: {
-      make_webhook: createMakeWebhookAdapter({ payloads: createContractGenerationPayloadLoader(client) }),
+      make_webhook: createMakeWebhookAdapter({ payloads: createContractGenerationPayloadLoader(client), environment }),
       google_drive: { async deliver() { return { kind: 'permanent_failure', error_code: 'UNSUPPORTED_PROVIDER' } as const; },
         async reconcile() { return { kind: 'ambiguous', error_code: 'UNSUPPORTED_PROVIDER' } as const; } },
       google_sheets: { async deliver() { return { kind: 'permanent_failure', error_code: 'UNSUPPORTED_PROVIDER' } as const; },

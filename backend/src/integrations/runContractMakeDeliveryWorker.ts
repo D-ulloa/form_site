@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import { createContractMakeDeliveryRunner } from './contractMakeDeliveryRunner.js';
+
+dotenv.config();
 
 const url = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

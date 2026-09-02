@@ -52,8 +52,9 @@ function entryId(delivery: LeasedDelivery): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-function endpoint(context: IntegrationExecutionContext): string | null {
+function endpoint(context: IntegrationExecutionContext, environment: NodeJS.ProcessEnv): string | null {
   const value = context.configuration.endpoint_origin;
+  if (value === 'shared://make') return environment.MAKE_CONTRACT_GENERATION_WEBHOOK_URL?.trim() || null;
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
@@ -79,6 +80,7 @@ export function createMakeWebhookAdapter(dependencies: {
   readonly payloads: ContractGenerationPayloadLoader;
   readonly resolve?: (hostname: string) => Promise<readonly string[]>;
   readonly poster?: FireAndForgetWebhookPoster;
+  readonly environment?: NodeJS.ProcessEnv;
 }) {
   const resolve = dependencies.resolve ?? (async (hostname: string) =>
     (await lookup(hostname, { all: true })).map((address) => address.address));
@@ -92,9 +94,10 @@ export function createMakeWebhookAdapter(dependencies: {
           || delivery.event.event_type !== 'contract.generation.requested') {
           return { kind: 'permanent_failure', error_code: 'UNSUPPORTED_MAKE_EVENT' };
         }
-        const target = endpoint(context);
+        const target = endpoint(context, dependencies.environment ?? process.env);
         const contractEntryId = entryId(delivery);
-        if (!target || !contractEntryId) return { kind: 'permanent_failure', error_code: 'INVALID_MAKE_DELIVERY' };
+        if (!target) return { kind: 'permanent_failure', error_code: 'CONTRACT_MAKE_WEBHOOK_URL_NOT_CONFIGURED' };
+        if (!contractEntryId) return { kind: 'permanent_failure', error_code: 'INVALID_MAKE_DELIVERY' };
 
         const payload = await dependencies.payloads.load(delivery.organization_id, contractEntryId);
         if (!payload) return { kind: 'permanent_failure', error_code: 'CONTRACT_ENTRY_NOT_FOUND' };

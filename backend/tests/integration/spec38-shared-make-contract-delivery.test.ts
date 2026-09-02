@@ -29,7 +29,7 @@ function context(organizationId = azar): IntegrationExecutionContext {
   return {
     scope: createOrganizationScope(organizationId), integration_id: integrationId, provider: 'make_webhook',
     purpose: 'contract_generation', configuration_version: 1, credential_version: 1,
-    configuration: { endpoint_origin: 'https://hooks.example.test/shared-make' },
+    configuration: { endpoint_origin: 'shared://make' },
   };
 }
 
@@ -55,6 +55,7 @@ test('SPEC-38 sends each organization to the same Make destination without waiti
     } },
     async resolve() { return ['8.8.8.8']; },
     poster: { post(url, headers, body) { calls.push({ url: String(url), headers, body }); } },
+    environment: { MAKE_CONTRACT_GENERATION_WEBHOOK_URL: 'https://hooks.example.test/shared-make' },
   });
 
   assert.equal((await adapter.deliver(context(azar), delivery(azar))).kind, 'succeeded');
@@ -66,6 +67,28 @@ test('SPEC-38 sends each organization to the same Make destination without waiti
   const body = JSON.parse(String(calls[0]?.body)) as Record<string, unknown>;
   assert.deepEqual(Object.keys(body).sort(), ['record', 'schema', 'table', 'type']);
   assert.doesNotMatch(JSON.stringify(body), /token_hash/u);
+});
+
+test('SPEC-38 does not fall back to the property-submission Make webhook', async () => {
+  const adapter = createMakeWebhookAdapter({
+    payloads: { async load() {
+      return { type: 'UPDATE', table: 'contract_entries', schema: 'public', record: { id: entryId } };
+    } },
+    environment: { MAKE_WEBHOOK_URL: 'https://hooks.example.test/property-only' },
+  });
+
+  assert.deepEqual(await adapter.deliver(context(), delivery()), {
+    kind: 'permanent_failure', error_code: 'CONTRACT_MAKE_WEBHOOK_URL_NOT_CONFIGURED',
+  });
+});
+
+test('SPEC-38 repair migration provisions the shared Make integration and materializes pending events', async () => {
+  const migration = await readFile(new URL('../../../supabase/migrations/20260902100000_spec38_shared_make_delivery_repair.sql', import.meta.url), 'utf8');
+  assert.match(migration, /organizations_shared_make_contract_integration/u);
+  assert.match(migration, /'shared:\/\/make'/u);
+  assert.match(migration, /contract_generation_outbox_to_delivery/u);
+  assert.match(migration, /fanout_state = 'pending'/u);
+  assert.doesNotMatch(migration, /net\.http|http_post/u);
 });
 
 test('SPEC-38 payload loader is organization-scoped and rejects malformed database results', async () => {

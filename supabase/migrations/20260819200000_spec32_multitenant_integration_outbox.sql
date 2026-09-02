@@ -222,7 +222,7 @@ begin
     insert into public.integration_deliveries (organization_id,outbox_event_id,integration_id,provider,purpose,
       idempotency_key,credential_version,configuration_version)
     values (p_organization_id,p_event_id,v_integration.id,v_integration.provider,v_integration.purpose,
-      encode(public.digest(p_event_id::text||':'||v_integration.id::text||':'||v_integration.purpose,'sha256'),'hex'),
+      encode(extensions.digest(p_event_id::text||':'||v_integration.id::text||':'||v_integration.purpose,'sha256'),'hex'),
       v_integration.credential_version,v_integration.configuration_version)
     on conflict (organization_id,integration_id,outbox_event_id,purpose) do update set updated_at=public.integration_deliveries.updated_at
     returning * into v_delivery; return next v_delivery;
@@ -253,7 +253,7 @@ begin
     where d.state in ('pending','retry_wait')
     order by f.tenant_rank,d.organization_id,d.id limit p_limit for update of d skip locked
   )
-  update public.integration_deliveries d set state='leased',lease_owner=p_worker_id,lease_token=public.gen_random_uuid(),
+  update public.integration_deliveries d set state='leased',lease_owner=p_worker_id,lease_token=extensions.gen_random_uuid(),
     lease_acquired_at=clock_timestamp(),lease_expires_at=clock_timestamp()+make_interval(secs=>p_lease_seconds),
     attempt_count=d.attempt_count+1,updated_at=clock_timestamp(),version=d.version+1
   from picked p where d.id=p.id and d.organization_id=p.organization_id returning d.*;

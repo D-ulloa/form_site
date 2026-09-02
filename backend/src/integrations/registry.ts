@@ -8,7 +8,7 @@ const schemas = {
   google_drive: base.extend({ parent_folder_id: opaqueId, shared_drive_id: opaqueId.optional() }).strict(),
   google_sheets: base.extend({ spreadsheet_id: opaqueId, tab_name: z.string().trim().min(1).max(100),
     schema_version: z.string().regex(/^[A-Za-z0-9._-]{1,64}$/u) }).strict(),
-  make_webhook: base.extend({ endpoint_origin: z.string().url().max(2048),
+  make_webhook: base.extend({ endpoint_origin: z.union([z.string().url().max(2048), z.literal('shared://make')]),
     supports_idempotency: z.boolean(), receipt_endpoint_origin: z.string().url().max(2048).optional() }).strict(),
 } satisfies Record<IntegrationProvider, z.ZodType>;
 

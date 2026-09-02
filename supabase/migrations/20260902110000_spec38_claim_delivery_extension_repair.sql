@@ -1,109 +1,13 @@
--- SPEC-38: materialize tenant contract-generation events for the shared Make
--- transport. Provider delivery remains outside the database transaction.
-
-create or replace function public.spec38_contract_generation_make_payload(
-  p_organization_id uuid,
-  p_entry_id uuid
-) returns jsonb
-language plpgsql
-security definer
-set search_path = pg_catalog, public
-as $$
-declare
-  v_entry public.contract_entries%rowtype;
-begin
-  select * into v_entry
-  from public.contract_entries
-  where id = p_entry_id
-    and organization_id = p_organization_id;
-
-  if not found then
-    raise exception 'NOT_FOUND';
-  end if;
-
-  -- Preserve the legacy Make envelope while making the exported schema explicit.
-  -- Authentication material is intentionally not part of the external contract.
-  return jsonb_build_object(
-    'type', 'UPDATE',
-    'table', 'contract_entries',
-    'schema', 'public',
-    'record', jsonb_build_object(
-      'id', v_entry.id,
-      'organization_id', v_entry.organization_id,
-      'schema_id', v_entry.schema_id,
-      'direccion', v_entry.direccion,
-      'created_by', v_entry.created_by,
-      'created_by_user_id', v_entry.created_by_user_id,
-      'created_at', v_entry.created_at,
-      'updated_at', v_entry.updated_at,
-      'updated_by_user_id', v_entry.updated_by_user_id,
-      'user_filled', v_entry.user_filled,
-      'client_filled', v_entry.client_filled,
-      'user_submitted_at', v_entry.user_submitted_at,
-      'client_submitted_at', v_entry.client_submitted_at,
-      'user_submission', v_entry.user_submission,
-      'client_submission', v_entry.client_submission,
-      'combined_submission', v_entry.combined_submission,
-      'status', v_entry.status,
-      'archived_at', v_entry.archived_at,
-      'generar_contrato_trigger', v_entry.generar_contrato_trigger,
-      'human_code', v_entry.human_code,
-      'template_version_id', v_entry.template_version_id,
-      'global_template_version_id', v_entry.global_template_version_id,
-      'assigned_to_user_id', v_entry.assigned_to_user_id,
-      'current_user_revision_id', v_entry.current_user_revision_id,
-      'current_client_revision_id', v_entry.current_client_revision_id,
-      'branding_snapshot', v_entry.branding_snapshot,
-      'generation_state', v_entry.generation_state,
-      'version', v_entry.version
-    )
-  );
-end;
-$$;
-
-create or replace function public.spec38_materialize_contract_generation_delivery()
-returns trigger
-language plpgsql
-security definer
-set search_path = pg_catalog, public
-as $$
-begin
-  if new.aggregate_type = 'contract'
-    and new.event_type = 'contract.generation.requested' then
-    perform public.spec32_materialize_deliveries(new.organization_id, new.id);
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists contract_generation_outbox_to_delivery on public.outbox_events;
-create trigger contract_generation_outbox_to_delivery
-  after insert on public.outbox_events
-  for each row
-  when (
-    new.aggregate_type = 'contract'
-    and new.event_type = 'contract.generation.requested'
-  )
-  execute function public.spec38_materialize_contract_generation_delivery();
+-- SPEC-38 repair: pgcrypto functions are installed in the extensions schema.
 
 create or replace function public.spec38_claim_contract_generation_deliveries(
   p_worker_id text,
   p_limit integer,
   p_lease_seconds integer
 ) returns table (
-  id uuid,
-  organization_id uuid,
-  outbox_event_id uuid,
-  integration_id uuid,
-  provider text,
-  purpose text,
-  state text,
-  lease_token uuid,
-  lease_expires_at timestamptz,
-  attempt_count integer,
-  idempotency_key text,
-  version integer,
-  event jsonb
+  id uuid, organization_id uuid, outbox_event_id uuid, integration_id uuid,
+  provider text, purpose text, state text, lease_token uuid, lease_expires_at timestamptz,
+  attempt_count integer, idempotency_key text, version integer, event jsonb
 )
 language plpgsql
 security definer
@@ -187,8 +91,5 @@ begin
 end;
 $$;
 
-revoke all on function public.spec38_contract_generation_make_payload(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.spec38_materialize_contract_generation_delivery() from public, anon, authenticated;
 revoke all on function public.spec38_claim_contract_generation_deliveries(text, integer, integer) from public, anon, authenticated;
-grant execute on function public.spec38_contract_generation_make_payload(uuid, uuid) to service_role;
 grant execute on function public.spec38_claim_contract_generation_deliveries(text, integer, integer) to service_role;
