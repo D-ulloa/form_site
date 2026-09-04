@@ -19,6 +19,7 @@ new direct-child spec folder.
 ## Current direct-child specs
 
 - [`SPEC-38-gestion-de-arreglos-placeholder-navigation`](SPEC-38-gestion-de-arreglos-placeholder-navigation/) — arrangement placeholder and navigation task; pending review.
+- [`SPEC-41-registro-autoservicio-y-creacion-de-organizacion`](SPEC-41-registro-autoservicio-y-creacion-de-organizacion/) — self-service registration and initial-owner organization bootstrap; pending.
 
 ## Identifier note
 
