@@ -72,7 +72,7 @@ export function InvitationAcceptPage() {
     } catch (caught) {
       const error = caught as AdminAuthError;
       setAuthError(authMode === 'register'
-        ? 'No se pudo crear la cuenta. Si ya tenés una cuenta, iniciá sesión o usá Google.'
+        ? error.message || 'No se pudo completar la activación de la cuenta.'
         : error.message || 'No se pudo iniciar sesión con esos datos.');
     } finally { setAuthPending(false); }
   }

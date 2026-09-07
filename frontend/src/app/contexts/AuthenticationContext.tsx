@@ -1,7 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { fetchAdminSession, logoutAdmin, type AdminSession } from '../../features/contracts/services/adminAuthApi';
+import {
+  fetchAdminSession, logoutAdmin, recoverSelfServiceRegistration, SELF_SERVICE_OPERATION_STORAGE_KEY,
+  type AdminSession,
+} from '../../features/contracts/services/adminAuthApi';
 
 interface AuthenticationContextValue {
   readonly status: 'loading' | 'authenticated' | 'anonymous' | 'unavailable';
@@ -20,7 +23,16 @@ export function AuthenticationProvider({ children }: { readonly children: ReactN
 
   const refresh = useCallback(async () => {
     try {
-      const next = await fetchAdminSession();
+      let next = await fetchAdminSession();
+      const operationId = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(SELF_SERVICE_OPERATION_STORAGE_KEY);
+      if (next && (next.memberships ?? []).length === 0 && operationId) {
+        try {
+          next = await recoverSelfServiceRegistration(operationId);
+          sessionStorage.removeItem(SELF_SERVICE_OPERATION_STORAGE_KEY);
+        } catch {
+          // A stale or rejected intent must never block an otherwise valid login.
+        }
+      }
       setSession(next); setStatus(next ? 'authenticated' : 'anonymous');
     } catch { setSession(null); setStatus('unavailable'); }
   }, []);

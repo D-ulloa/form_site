@@ -100,7 +100,7 @@ For Contract Generation, the service account is required rather than a fallback.
 
 ## Supabase administrator authentication
 
-Supabase Auth provides password and Google login for pre-reviewed Azar accounts. Open real-data registration is closed, and neither password registration nor Google handoff writes `contract_admin_users`. The browser receives a signed, versioned HttpOnly application cookie; the service-role key is never sent to the browser.
+Supabase Auth provides password and Google login plus the SPEC-41 new-customer onboarding flow. A self-service registration is feature-gated, creates an organization owner rather than a global administrator, and never writes `contract_admin_users`. Existing identities remain login-only. The browser receives a signed, versioned HttpOnly application cookie; the service-role key is never sent to the browser.
 
 ## Transactional invitation email
 

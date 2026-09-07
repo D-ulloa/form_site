@@ -36,6 +36,8 @@ import { validateIdentityProvisioningEnvironment } from './identity/identityProv
 import { createDistributedRateLimiter } from './platform/rateLimit.js';
 import { createPlatformRepository } from './platform/platformRepository.js';
 import { createContractMakeDeliveryRunner } from './integrations/contractMakeDeliveryRunner.js';
+import { createSelfServiceOnboardingRepository } from './onboarding/selfServiceOnboardingRepository.js';
+import { SelfServiceOnboardingService } from './onboarding/selfServiceOnboardingService.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
@@ -87,9 +89,15 @@ const identityRepository = createIdentityRepository(process.env);
 const sessionService = new SessionService(identityRepository, process.env);
 const contextResolver = createOrganizationRouteContextResolver(sessionService);
 const governanceRepository = createOrganizationGovernanceRepository(process.env);
-const invitationAdmin = createSupabaseAdminAdapter(process.env);
+const identityAdmin = createSupabaseAdminAdapter(process.env);
 const invitationIdentity = new IdentityProvisioningService(createIdentityProvisioningRepository(process.env),
-  invitationAdmin, process.env);
+  identityAdmin, process.env);
+const selfServiceOnboarding = new SelfServiceOnboardingService(
+  createSelfServiceOnboardingRepository(process.env), identityAdmin, process.env,
+);
+const selfServiceRegistrationRateLimiter = process.env.SELF_SERVICE_REGISTRATION_ENABLED === 'true'
+  ? createDistributedRateLimiter(createPlatformRepository(undefined, process.env), process.env.PLATFORM_RATE_LIMIT_PEPPER ?? '')
+  : undefined;
 const governanceServices = {
   organizations: new OrganizationService(governanceRepository, undefined, invitationWorkflow, invitationIdentity),
   memberships: new MembershipService(createMembershipMutationRepository(process.env)),
@@ -102,6 +110,7 @@ const governanceServices = {
 
 app.use('/api/auth', createIdentityRouter(
   sessionService, createSupabaseIdentityProvider(process.env), process.env,
+  selfServiceOnboarding, selfServiceRegistrationRateLimiter,
 ));
 app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
 app.use('/api/organizations/:organization/contracts',

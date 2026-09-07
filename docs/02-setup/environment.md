@@ -76,6 +76,14 @@ SPEC-35 provisioning values (mandatory in production, even while disabled):
 - `IDENTITY_PROVISIONING_EMAIL_PEPPER` — independent secret-manager value of at least 32 bytes used to HMAC canonical emails in restricted evidence.
 - `APP_AUTH_ACTIVATION_REDIRECT_URL` — activation callback whose origin exactly matches `APP_ALLOWED_ORIGINS`.
 
+SPEC-41 self-service registration values:
+
+- `SELF_SERVICE_REGISTRATION_ENABLED` — explicit kill switch for new public registrations. Deploy `false`; it does not affect login, invitations, or the restricted organization command.
+- `SELF_SERVICE_ONBOARDING_EMAIL_PEPPER` — independent 32+ byte HMAC secret for pending-registration email fingerprints. `IDENTITY_PROVISIONING_EMAIL_PEPPER` is accepted temporarily only when this value is absent.
+- `SELF_SERVICE_ONBOARDING_DEFAULT_LOCALE`, `SELF_SERVICE_ONBOARDING_DEFAULT_TIME_ZONE`, and `SELF_SERVICE_TERMS_VERSION` — server-owned defaults; the browser cannot select plan, locale, timezone, role, source, or organization ID.
+
+Disable Supabase Auth's **Confirm email** requirement for this approved flow. Password identities are created only by the backend service-role adapter with `email_confirm: true`; no verification screen may block the initial organization session. Google remains an alternative registration method and is bound to a pre-OAuth onboarding intent whose email must match the returned Google identity.
+
 The operator command is server-only and accepts no password, UUID selection, role,
 membership, verification state, provider metadata, token, or action link. Invoke it
 with `npm --prefix backend run spec35:provision-identity --` and the reviewed flags
@@ -167,7 +175,7 @@ The frontend uses Vite and sets the API prefix in `frontend/src/features/propert
 
 No contract secret is configured in the frontend. The frontend sends same-origin credentials to the application authentication API; email/password and Google OAuth both resolve to the same HttpOnly session cookie. Property, contract creation, and administration use that session; property requests omit browser agent identity.
 
-Google OAuth, which remains an alternate administrator login, requires these public Vite variables in
+Google OAuth, which supports both normal login and the pre-intent SPEC-41 registration flow, requires these public Vite variables in
 `frontend/.env.local` (or the frontend deployment environment):
 
 - `VITE_SUPABASE_URL` — the linked Supabase project URL.
@@ -177,8 +185,7 @@ Google OAuth, which remains an alternate administrator login, requires these pub
 The Google button uses Supabase Auth's PKCE flow and returns to
 `/auth/callback`; the callback exchanges the Supabase session for the existing
 HttpOnly application cookie. Reviewed password login uses the backend Supabase
-service client directly; real-data password registration is closed. Configure Google in Supabase Auth before using
-it:
+service client directly. Self-service password registration remains server-only and is controlled by `SELF_SERVICE_REGISTRATION_ENABLED`. Configure Google in Supabase Auth before using it:
 
 1. Enable Google under Authentication → Providers and enter the Google OAuth
    client ID and secret.
@@ -189,7 +196,7 @@ it:
    example `http://localhost:5173/auth/callback` and
    `https://<production-host>/auth/callback`.
 
-`VITE_ALLOW_SYNTHETIC_REGISTRATION=true` may expose the registration fixture only in a local Vite development build paired with an isolated synthetic backend. It must never be present in a real-data build.
+`VITE_ALLOW_SYNTHETIC_REGISTRATION` is legacy-only and no longer controls the product registration path. Do not set it in a real-data build.
 
 ## Example
 

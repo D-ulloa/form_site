@@ -41,7 +41,22 @@ export async function acceptInvitation(): Promise<{ organization_id: string; org
 }
 
 export async function registerInvitationAccount(input: { readonly display_name: string; readonly password: string }): Promise<void> {
-  await api.post('/invitations/register', input);
+  try {
+    await api.post('/invitations/register', input);
+  } catch (error) {
+    const code = axios.isAxiosError(error) ? error.response?.data?.error : undefined;
+    const messages: Record<string, string> = {
+      PASSWORD_POLICY_REJECTED: 'La contraseña no cumple la política de seguridad. Elegí una contraseña más fuerte y diferente.',
+      ACCOUNT_ALREADY_ACTIVATED: 'Tu cuenta ya está activada. Iniciá sesión con tu contraseña para continuar con la invitación.',
+      INVITATION_INVALID: 'La invitación o su sesión ya no está disponible. Volvé a abrir el enlace original.',
+      INVALID_REQUEST: 'Ingresá un nombre de 2 a 120 caracteres y una contraseña de al menos 12 caracteres.',
+      RATE_LIMITED: 'Hubo demasiados intentos. Esperá antes de volver a intentarlo.',
+      SESSION_LIMIT_REACHED: 'Alcanzaste el límite de sesiones activas. Cerrá una sesión antes de continuar.',
+    };
+    // The Axios error retains the submitted password in its request configuration.
+    // eslint-disable-next-line preserve-caught-error
+    throw new Error(messages[code] ?? 'No se pudo completar la activación de la cuenta. Intentá nuevamente en unos minutos.');
+  }
 }
 
 export async function resendOrganizationInvitation(organizationId: string, invitationId: string) {

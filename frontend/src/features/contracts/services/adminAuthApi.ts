@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const AUTH_API_PATH = `${API_PREFIX}/api/auth`;
+export const SELF_SERVICE_OPERATION_STORAGE_KEY = 'form_site_self_service_operation';
 
 export interface AdminSession {
   readonly authenticated: true;
@@ -41,9 +42,27 @@ export interface PasswordAuthInput {
 }
 
 export interface RegistrationInput extends PasswordAuthInput {
-  readonly name: string;
-  readonly company?: string;
-  readonly role?: string;
+  readonly operationId: string;
+  readonly fullName: string;
+  readonly organizationName: string;
+  readonly passwordConfirmation: string;
+  readonly termsAccepted: boolean;
+}
+
+export interface GoogleRegistrationIntentInput {
+  readonly operationId: string;
+  readonly fullName: string;
+  readonly email: string;
+  readonly organizationName: string;
+  readonly termsAccepted: boolean;
+}
+
+export interface SelfServiceSession extends AdminSession {
+  readonly onboarding: {
+    readonly operation_id: string;
+    readonly organization_slug: string;
+    readonly email_verification_required: false;
+  };
 }
 
 export interface GoogleAuthInput {
@@ -97,13 +116,15 @@ function getSupabaseAuthClient(): SupabaseClient {
   return supabaseAuthClient;
 }
 
-export async function startGoogleLogin(returnTo = '/'): Promise<void> {
+export async function startGoogleLogin(returnTo = '/', selfServiceOperationId?: string): Promise<void> {
   try {
+    const callback = new URL('/auth/callback', window.location.origin);
+    if (returnTo === '/invitations/accept') callback.searchParams.set('return_to', returnTo);
+    if (selfServiceOperationId) callback.searchParams.set('self_service_operation', selfServiceOperationId);
     const { error } = await getSupabaseAuthClient().auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: new URL(returnTo === '/invitations/accept'
-          ? '/auth/callback?return_to=/invitations/accept' : '/auth/callback', window.location.origin).toString(),
+        redirectTo: callback.toString(),
       },
     });
     if (error) throw new AdminAuthError(error.message);
@@ -114,7 +135,7 @@ export async function startGoogleLogin(returnTo = '/'): Promise<void> {
 
 export async function completeGoogleLogin(
   rememberMe = true,
-): Promise<AdminSession> {
+): Promise<AdminSession | SelfServiceSession> {
   const code = new URLSearchParams(window.location.search).get('code');
   if (!code) {
     const message = new URLSearchParams(window.location.search)
@@ -129,10 +150,10 @@ export async function completeGoogleLogin(
     if (error || !data.session?.access_token) {
       throw new AdminAuthError(error?.message ?? 'No se pudo validar la cuenta de Google.');
     }
-    const session = await establishGoogleSession({
-      accessToken: data.session.access_token,
-      rememberMe,
-    });
+    const operationId = new URLSearchParams(window.location.search).get('self_service_operation');
+    const session = operationId
+      ? await establishGoogleRegistration({ accessToken: data.session.access_token, operationId, rememberMe })
+      : await establishGoogleSession({ accessToken: data.session.access_token, rememberMe });
     await getSupabaseAuthClient().auth.signOut();
     return session;
   } catch (error) {
@@ -174,16 +195,33 @@ export async function loginAdmin(input: PasswordAuthInput): Promise<AdminSession
   }
 }
 
-export async function registerAdmin(input: RegistrationInput): Promise<AdminSession> {
+export async function registerAdmin(input: RegistrationInput): Promise<SelfServiceSession> {
   try {
-    const response = await axios.post<AdminSession>(
+    const response = await axios.post<SelfServiceSession>(
       `${AUTH_API_PATH}/register`,
-      input,
+      {
+        operation_id: input.operationId, full_name: input.fullName, email: input.email,
+        organization_name: input.organizationName, password: input.password,
+        password_confirmation: input.passwordConfirmation, terms_accepted: input.termsAccepted,
+        remember_me: input.rememberMe,
+      },
       { withCredentials: true },
     );
     return response.data;
   } catch (error) {
     throw authError(error, 'No se pudo crear la cuenta.');
+  }
+}
+
+export async function startGoogleRegistration(input: GoogleRegistrationIntentInput): Promise<void> {
+  try {
+    const response = await axios.post<{ operation_id: string }>(`${AUTH_API_PATH}/register/google/intent`, {
+      operation_id: input.operationId, full_name: input.fullName, email: input.email,
+      organization_name: input.organizationName, terms_accepted: input.termsAccepted,
+    }, { withCredentials: true });
+    await startGoogleLogin('/', response.data.operation_id);
+  } catch (error) {
+    throw authError(error, 'No se pudo iniciar el registro con Google.');
   }
 }
 
@@ -197,6 +235,29 @@ export async function establishGoogleSession(input: GoogleAuthInput): Promise<Ad
     return response.data;
   } catch (error) {
     throw authError(error, 'No se pudo completar el acceso con Google.');
+  }
+}
+
+async function establishGoogleRegistration(input: GoogleAuthInput & { readonly operationId: string }): Promise<SelfServiceSession> {
+  try {
+    const response = await axios.post<SelfServiceSession>(`${AUTH_API_PATH}/google/register`, {
+      access_token: input.accessToken, operation_id: input.operationId, remember_me: input.rememberMe,
+    }, { withCredentials: true });
+    return response.data;
+  } catch (error) {
+    throw authError(error, 'No se pudo completar el registro con Google.');
+  }
+}
+
+export async function recoverSelfServiceRegistration(operationId: string): Promise<SelfServiceSession> {
+  try {
+    const response = await axios.post<SelfServiceSession>(
+      `${AUTH_API_PATH}/register/operations/${encodeURIComponent(operationId)}/recover`, {},
+      { withCredentials: true, headers: { 'X-CSRF-Token': readCookie('form_site_csrf') } },
+    );
+    return response.data;
+  } catch (error) {
+    throw authError(error, 'No se pudo recuperar el registro pendiente.');
   }
 }
 

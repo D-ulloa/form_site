@@ -299,7 +299,9 @@ The server validates each stored evidence reference before signing it. Evidence 
 
 ## Authentication endpoints
 
-- `POST /api/auth/register` — returns `403 REGISTRATION_CLOSED`; synthetic accounts are created only through isolated test fixtures, never this runtime route.
+- `POST /api/auth/register` — creates one password Auth identity, profile, `standard` organization, settings, active `owner` membership, and opaque application session for a new email only. It accepts `operation_id`, `full_name`, `email`, `password`, `password_confirmation`, `organization_name`, and `terms_accepted`; it never accepts role, plan, organization ID, actor, or creation source. Existing emails receive a generic login-oriented `409 REGISTRATION_UNAVAILABLE` response.
+- `POST /api/auth/register/google/intent` — records a passwordless, origin-protected registration intent before Google OAuth. `POST /api/auth/google/register` completes that intent only when the returned Google identity has the same HMACed email. Existing Google identities use normal login and cannot create another organization.
+- Both registration routes are feature-gated, origin-protected, distributed-rate-limited by HMACed IP/email/operation, service-role-only below the HTTP boundary, and return `no-store`. Supabase email confirmation is intentionally non-blocking for this flow.
 - `POST /api/auth/login` — validates Supabase identity without granting organization authority and creates a server-side revocable opaque session.
 - `POST /api/auth/google/session` — validates a Google token and creates the same opaque application-session boundary without automatic membership.
 - `GET /api/auth/session` — returns safe user, device-session, and current membership summaries with `no-store`; it returns no cookie, token hash, role assertion, or secret.

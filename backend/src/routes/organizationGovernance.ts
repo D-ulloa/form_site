@@ -14,7 +14,8 @@ import type {
   OrganizationRole,
 } from '../organizations/types.js';
 import type { SessionService } from '../identity/sessionService.js';
-import type { IdentityProvider } from '../identity/supabaseIdentityProvider.js';
+import { InvitationActivationError, type IdentityProvider } from '../identity/supabaseIdentityProvider.js';
+import { IdentityAccessError } from '../identity/sessionSecurity.js';
 import { serializeSessionCookies } from '../identity/sessionSecurity.js';
 import { validateDisplayName } from '../organizations/validation.js';
 
@@ -147,24 +148,41 @@ export function createOrganizationGovernanceRouter(
       const displayName = validateDisplayName(rawDisplayName, 120);
       const registration = await services.invitations.registrationContext(material[0], material[1], origin);
       if (!registration?.registration_permitted) throw new OrganizationDomainError('INVITATION_INVALID');
+      let stage = 'activate_account';
       try {
         await services.identityProvider.activateInvitationUser(registration.auth_user_id,
           registration.email_normalized, password, displayName);
+        stage = 'password_login';
         const identity = await services.identityProvider.password(registration.email_normalized, password);
         if (identity.user_id !== registration.auth_user_id
           || identity.email.trim().toLowerCase() !== registration.email_normalized) {
           throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
         }
+        stage = 'complete_registration';
         await services.invitations.completeRegistration(material[0], material[1], origin, identity.user_id,
           displayName, String(response.locals.request_id ?? ''));
+        stage = 'create_session';
         const created = await services.sessions.create(identity, true, request);
+        stage = 'load_memberships';
+        const memberships = await services.sessions.memberships(identity.user_id);
         response.set('Set-Cookie', [...serializeSessionCookies(created.material, services.environment,
           created.session.remembered, created.max_age_seconds)]);
         response.status(201).json({ authenticated: true,
           user: { id: identity.user_id, email: identity.email, name: displayName },
-          memberships: await services.sessions.memberships(identity.user_id) });
-      } catch {
-        throw new OrganizationDomainError('INVITATION_INVALID');
+          memberships });
+      } catch (error) {
+        const code = error instanceof InvitationActivationError ? error.code
+          : error instanceof OrganizationDomainError ? error.code
+          : error instanceof IdentityAccessError ? error.code : 'AUTH_DEPENDENCY_UNAVAILABLE';
+        console.warn('invitation_registration_failed', { stage, code,
+          request_id: String(response.locals.request_id ?? ''),
+          ...(error instanceof InvitationActivationError ? { provider_code: error.providerCode } : {}),
+        });
+        if (error instanceof OrganizationDomainError) throw error;
+        const status = error instanceof InvitationActivationError
+          ? error.code === 'PASSWORD_POLICY_REJECTED' ? 422 : error.code === 'ACCOUNT_ALREADY_ACTIVATED' ? 409 : 503
+          : error instanceof IdentityAccessError ? error.status : 503;
+        response.status(status).json({ error: code, request_id: String(response.locals.request_id ?? '') });
       }
     } catch (error) { sendError(response, error); }
   });

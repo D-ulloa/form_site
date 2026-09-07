@@ -47,9 +47,9 @@ The Contract Generation workflow is:
 - `POST /api/organizations/:organization/contracts/admin/entries/:entryId/tokens/:role/regenerate` — replace one role token and return its new URL once.
 - `PATCH` or `PUT /api/organizations/:organization/contracts/admin/entries/:entryId/submissions/:role` — tenant administrator correction of submitted role data while retaining history. The global `/api/contracts/admin/...` shapes remain legacy compatibility endpoints.
 - `POST /api/contracts/admin/entries/:entryId/status` — legacy admin status path; tenant callers should use the organization-namespaced route, whose `generar_contrato` status commits outbox intent and returns queued/triggered worker information.
-- `POST /api/auth/register` — returns `403 REGISTRATION_CLOSED` outside the explicit local synthetic fixture.
-- `POST /api/auth/login` — reviewed allowlist login using a signed, versioned, HTTP-only session cookie.
-- `POST /api/auth/google/session` — exchange a verified Supabase Google session for the same administrator cookie.
+- `POST /api/auth/register` — runs the feature-gated SPEC-41 self-service onboarding flow for a new identity and returns the normal tenant-scoped application session. When disabled, it returns `REGISTRATION_DISABLED`; it never falls back to synthetic or legacy registration.
+- `POST /api/auth/login` — validates an existing password identity and creates a signed, versioned, HTTP-only application session; organization authority still comes only from memberships.
+- `POST /api/auth/google/session` — exchanges a verified existing Supabase Google session for the same application cookie.
 - `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the application session.
 - `GET /api/organizations/:organization/context` — resolve the authenticated organization context and capabilities.
 - `GET/POST/DELETE /api/organizations/:organizationId/api-keys...` — organization API-key management under governance authorization.

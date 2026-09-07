@@ -14,9 +14,10 @@ email fingerprints.
 
 Configure the documented neutral profile defaults, an independent email-fingerprint
 pepper, and an activation redirect on an exact allowed origin. Verify the service-role
-key exists only in the backend secret boundary. Confirm public `/api/auth/register`
-still returns `REGISTRATION_CLOSED`, browser roles cannot insert `user_profiles`, and
-the new evidence tables have forced RLS and no `anon`/`authenticated` grants.
+key exists only in the backend secret boundary. Before SPEC-41 is enabled, confirm public
+`/api/auth/register` returns `REGISTRATION_DISABLED`; after enablement, it must use only the
+dedicated SPEC-41 service-role path. Browser roles cannot insert `user_profiles`, and the
+SPEC-35 evidence tables retain forced RLS and no `anon`/`authenticated` grants.
 
 Before enabling, certify zero/one/multiple-user resolution, concurrent same-email
 requests, provider timeout reconciliation, Auth-create/profile-write recovery,

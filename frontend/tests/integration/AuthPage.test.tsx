@@ -10,7 +10,9 @@ import {
   fetchAdminSession,
   loginAdmin,
   registerAdmin,
+  recoverSelfServiceRegistration,
   startGoogleLogin,
+  startGoogleRegistration,
 } from '../../src/features/contracts/services/adminAuthApi.ts';
 import { ActionSelectionPage } from '../../src/pages/ActionSelectionPage.tsx';
 import { AuthPage } from '../../src/pages/AuthPage.tsx';
@@ -21,6 +23,9 @@ vi.mock('../../src/features/contracts/services/adminAuthApi.ts', () => ({
   loginAdmin: vi.fn(),
   registerAdmin: vi.fn(),
   startGoogleLogin: vi.fn(),
+  startGoogleRegistration: vi.fn(),
+  recoverSelfServiceRegistration: vi.fn(),
+  SELF_SERVICE_OPERATION_STORAGE_KEY: 'form_site_self_service_operation',
   logoutAdmin: vi.fn(),
 }));
 
@@ -28,11 +33,11 @@ function renderAuth(path: '/login' | '/register') {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
-        <Routes>
+        <AuthenticationProvider><Routes>
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
           <Route path="/" element={<p>Sesión iniciada</p>} />
-        </Routes>
+        </Routes></AuthenticationProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -47,8 +52,16 @@ beforeEach(() => {
   vi.mocked(registerAdmin).mockResolvedValue({
     authenticated: true,
     user: { id: 'user-id', email: 'admin@example.test', name: 'Admin' },
+    onboarding: { operation_id: '00000000-0000-4000-8000-000000000001', organization_slug: 'admin-example',
+      email_verification_required: false },
   });
   vi.mocked(startGoogleLogin).mockResolvedValue(undefined);
+  vi.mocked(recoverSelfServiceRegistration).mockResolvedValue({
+    authenticated: true,
+    user: { id: 'user-id', email: 'admin@example.test', name: 'Admin' },
+    onboarding: { operation_id: '00000000-0000-4000-8000-000000000001', organization_slug: 'admin-example',
+      email_verification_required: false },
+  });
 });
 
 afterEach(() => {
@@ -69,10 +82,11 @@ describe('SPEC-19 authentication screens', () => {
     expect(container.querySelector('main')?.className).toContain('bg-[var(--bg-base)]');
   });
 
-  it('closes direct registration without calling the account API', () => {
+  it('renders the self-service registration fields without a role selector', () => {
     renderAuth('/register');
-    expect(screen.getByRole('heading', { name: 'El registro está cerrado' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Ir a iniciar sesión' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Creá tu cuenta' })).toBeTruthy();
+    expect(screen.getByLabelText(/Nombre de la organización/u)).toBeTruthy();
+    expect(screen.queryByLabelText(/Cargo o rol/u)).toBeNull();
     expect(registerAdmin).not.toHaveBeenCalled();
   });
 
@@ -97,6 +111,24 @@ describe('SPEC-19 authentication screens', () => {
     expect(await screen.findByText('Sesión iniciada')).toBeTruthy();
   });
 
+  it('submits an owner-only organization registration and uses the returned slug', async () => {
+    renderAuth('/register');
+    fireEvent.change(screen.getByLabelText(/Nombre completo/u), { target: { value: 'Ana Pérez' } });
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/u), { target: { value: 'ana@example.test' } });
+    fireEvent.change(screen.getByLabelText(/Nombre de la organización/u), { target: { value: 'Horizonte' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/u), { target: { value: 'a-valid-password' } });
+    fireEvent.change(screen.getByLabelText(/Confirmar contraseña/u), { target: { value: 'a-valid-password' } });
+    fireEvent.click(screen.getByLabelText(/Acepto los términos/u));
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrarse' }).closest('form')!);
+
+    await waitFor(() => {
+      expect(registerAdmin).toHaveBeenCalledWith(expect.objectContaining({
+        fullName: 'Ana Pérez', email: 'ana@example.test', organizationName: 'Horizonte',
+        password: 'a-valid-password', passwordConfirmation: 'a-valid-password', termsAccepted: true,
+      }));
+    });
+  });
+
   it('starts Google OAuth from the login screen', async () => {
     renderAuth('/login');
     fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
@@ -105,10 +137,25 @@ describe('SPEC-19 authentication screens', () => {
       expect(startGoogleLogin).toHaveBeenCalledOnce();
     });
   });
+
+  it('starts a bound Google registration intent from the registration screen', async () => {
+    renderAuth('/register');
+    fireEvent.change(screen.getByLabelText(/Nombre completo/u), { target: { value: 'Ana Pérez' } });
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/u), { target: { value: 'ana@example.test' } });
+    fireEvent.change(screen.getByLabelText(/Nombre de la organización/u), { target: { value: 'Horizonte' } });
+    fireEvent.click(screen.getByLabelText(/Acepto los términos/u));
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
+
+    await waitFor(() => {
+      expect(startGoogleRegistration).toHaveBeenCalledWith(expect.objectContaining({
+        fullName: 'Ana Pérez', email: 'ana@example.test', organizationName: 'Horizonte', termsAccepted: true,
+      }));
+    });
+  });
 });
 
 describe('SPEC-19 main entry', () => {
-  it('offers only reviewed-account login without agent setup', async () => {
+  it('offers login and self-service registration without agent setup', async () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AgentProvider>
@@ -118,7 +165,7 @@ describe('SPEC-19 main entry', () => {
     );
 
     expect(await screen.findByRole('link', { name: 'Iniciar sesión' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Registrarse' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Crear una organización' })).toBeTruthy();
     expect(screen.queryByText(/Google/iu)).toBeNull();
     expect(screen.queryByText(/Configurar agente/iu)).toBeNull();
     expect(screen.queryByText(/OPEV-H/iu)).toBeNull();

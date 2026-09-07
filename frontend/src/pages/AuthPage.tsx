@@ -9,11 +9,15 @@ import {
   loginAdmin,
   registerAdmin,
   startGoogleLogin,
+  startGoogleRegistration,
+  SELF_SERVICE_OPERATION_STORAGE_KEY,
   type AdminAuthError,
 } from '../features/contracts/services/adminAuthApi.ts';
 import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
+import { useAuthentication } from '../app/contexts/AuthenticationContext.tsx';
 
 type AuthMode = 'login' | 'register';
+const OPERATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 interface AuthPageProps {
   mode: AuthMode;
@@ -53,20 +57,31 @@ function GoogleMark() {
   );
 }
 
+function initialRegistrationOperationId(): string {
+  try {
+    const saved = sessionStorage.getItem(SELF_SERVICE_OPERATION_STORAGE_KEY);
+    if (saved && OPERATION_ID.test(saved)) return saved;
+  } catch {
+    // Storage is a recovery convenience; registration remains usable without it.
+  }
+  return crypto.randomUUID();
+}
+
 export function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get('return_to') === '/invitations/accept' ? '/invitations/accept' : '/';
   const queryClient = useQueryClient();
+  const authentication = useAuthentication();
   const isRegister = mode === 'register';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [company, setCompany] = useState('');
-  const [role, setRole] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [registrationOperationId] = useState(initialRegistrationOperationId);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [isGooglePending, setIsGooglePending] = useState(false);
@@ -87,34 +102,6 @@ export function AuthPage({ mode }: AuthPageProps) {
     return () => { active = false; };
   }, [navigate, returnTo]);
 
-  const syntheticRegistrationEnabled = import.meta.env.DEV
-    && import.meta.env.VITE_ALLOW_SYNTHETIC_REGISTRATION === 'true';
-
-  if (isRegister && !syntheticRegistrationEnabled) {
-    return (
-      <main className="relative flex min-h-dvh items-center justify-center bg-[var(--bg-base)] px-4 py-10 sm:px-6">
-        <section className="surface-elevated w-full max-w-[470px] rounded-2xl px-6 py-8 text-center shadow-2xl shadow-black/30 sm:px-8">
-          <ProductMark />
-          <p className="mt-7 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-400">
-            Acceso por invitación
-          </p>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-100">
-            El registro está cerrado
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-400">
-            Solicitá una cuenta autorizada al administrador de Azar. No se crean cuentas desde este formulario.
-          </p>
-          <Link
-            to="/login"
-            className="mt-7 inline-flex rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
-          >
-            Ir a iniciar sesión
-          </Link>
-        </section>
-      </main>
-    );
-  }
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -125,11 +112,26 @@ export function AuthPage({ mode }: AuthPageProps) {
     setIsPending(true);
     try {
       if (isRegister) {
-        await registerAdmin({ name, email, password, company, role });
+        if (!termsAccepted) {
+          setError('Aceptá los términos para continuar.');
+          return;
+        }
+        sessionStorage.setItem(SELF_SERVICE_OPERATION_STORAGE_KEY, registrationOperationId);
+        const result = await registerAdmin({
+          operationId: registrationOperationId, fullName: name, email, organizationName,
+          password, passwordConfirmation, termsAccepted, rememberMe,
+        });
+        clearContractAdminQueryCache(queryClient);
+        sessionStorage.removeItem(SELF_SERVICE_OPERATION_STORAGE_KEY);
+        await authentication.refresh();
+        window.dispatchEvent(new Event('form-site-auth-refresh'));
+        navigate(`/t/${encodeURIComponent(result.onboarding.organization_slug)}`, { replace: true });
+        return;
       } else {
         await loginAdmin({ email, password, rememberMe });
       }
       clearContractAdminQueryCache(queryClient);
+      await authentication.refresh();
       window.dispatchEvent(new Event('form-site-auth-refresh'));
       navigate(returnTo, { replace: true });
     } catch (caughtError) {
@@ -148,7 +150,18 @@ export function AuthPage({ mode }: AuthPageProps) {
     }
     setIsGooglePending(true);
     try {
-      await startGoogleLogin(returnTo);
+      if (isRegister) {
+        if (!name.trim() || !email.trim() || !organizationName.trim()) {
+          setError('Completá nombre, correo y nombre de organización para continuar con Google.');
+          return;
+        }
+        sessionStorage.setItem(SELF_SERVICE_OPERATION_STORAGE_KEY, registrationOperationId);
+        await startGoogleRegistration({
+          operationId: registrationOperationId, fullName: name, email, organizationName, termsAccepted,
+        });
+      } else {
+        await startGoogleLogin(returnTo);
+      }
     } catch (caughtError) {
       const authError = caughtError as AdminAuthError;
       setError(authError.message || 'No se pudo iniciar el acceso con Google.');
@@ -213,26 +226,16 @@ export function AuthPage({ mode }: AuthPageProps) {
           />
 
           {isRegister && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input
-                label="Empresa"
-                id="auth-company"
-                value={company}
-                onChange={(event) => setCompany(event.target.value)}
-                placeholder="Nombre de empresa"
-                maxLength={256}
-                autoComplete="organization"
-              />
-              <Input
-                label="Cargo o rol"
-                id="auth-role"
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                placeholder="Ej.: Administrador"
-                maxLength={256}
-                autoComplete="organization-title"
-              />
-            </div>
+            <Input
+              label="Nombre de la organización"
+              id="auth-organization-name"
+              value={organizationName}
+              onChange={(event) => setOrganizationName(event.target.value)}
+              placeholder="Ej.: Inmobiliaria Horizonte"
+              required
+              maxLength={160}
+              autoComplete="organization"
+            />
           )}
 
           <Input
@@ -241,9 +244,9 @@ export function AuthPage({ mode }: AuthPageProps) {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Mínimo 8 caracteres"
-            required
-            minLength={8}
+              placeholder="Mínimo 12 caracteres"
+              required
+              minLength={12}
             maxLength={1024}
             autoComplete={isRegister ? 'new-password' : 'current-password'}
           />
@@ -257,7 +260,7 @@ export function AuthPage({ mode }: AuthPageProps) {
               onChange={(event) => setPasswordConfirmation(event.target.value)}
               placeholder="Repetí tu contraseña"
               required
-              minLength={8}
+              minLength={12}
               maxLength={1024}
               autoComplete="new-password"
             />
@@ -284,7 +287,7 @@ export function AuthPage({ mode }: AuthPageProps) {
                 required
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 accent-indigo-500"
               />
-              Acepto crear una cuenta para acceder a las herramientas de gestión.
+              Acepto los términos para crear mi organización y acceder a las herramientas de gestión.
             </label>
           )}
 

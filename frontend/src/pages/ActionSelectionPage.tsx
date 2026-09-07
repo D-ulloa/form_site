@@ -26,7 +26,7 @@ function AuthEntry() {
           Gestioná propiedades y contratos
         </h1>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
-          Iniciá sesión con una cuenta autorizada para acceder a las herramientas de gestión.
+          Iniciá sesión o creá tu organización para acceder a las herramientas de gestión.
         </p>
         <div className="mt-7 grid gap-3">
           <Link
@@ -34,6 +34,12 @@ function AuthEntry() {
             className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-700/25 transition-colors hover:bg-indigo-500"
           >
             Iniciar sesión
+          </Link>
+          <Link
+            to="/register"
+            className="rounded-xl border border-indigo-400/50 px-4 py-3 text-sm font-semibold text-indigo-200 transition-colors hover:border-indigo-300 hover:text-white"
+          >
+            Crear una organización
           </Link>
         </div>
       </section>
