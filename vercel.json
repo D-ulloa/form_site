@@ -3,6 +3,7 @@
         "frontend": {
             "root": "frontend",
             "framework": "vite",
+            "buildCommand": "NODE_ENV=production npm run build",
             "rewrites": [
                 { "source": "/(.*)", "destination": "/index.html" }
             ]

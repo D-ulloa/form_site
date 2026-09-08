@@ -7,11 +7,14 @@ untouched and are not assigned to new organizations by registration.
 The operator explicitly selected `NODE_ENV=development` for this release after
 reviewing the development authentication, cookie, CORS, and startup-validation risks.
 Vercel Production remains the deployment target. This is a temporary runtime choice.
+The frontend build explicitly uses production mode so Vite retains the hosted API
+prefix and optimized browser bundle. The backend runtime stays in development mode.
 
 Production variables are imported from the local backend environment only when the
 key is absent from Production. Public origins and callbacks use the production URL;
 database passwords and local Vercel tokens are excluded. Existing variable values
-are preserved. `SELF_SERVICE_REGISTRATION_ENABLED=true` and manual invitation links
+are preserved except for the explicitly requested `NODE_ENV=development` setting.
+`SELF_SERVICE_REGISTRATION_ENABLED=true` and manual invitation links
 are enabled. Supabase Auth auto-confirms password registrations for this flow.
 
 The migration `20260817190000_retire_legacy_contract_webhook.sql` must run before
