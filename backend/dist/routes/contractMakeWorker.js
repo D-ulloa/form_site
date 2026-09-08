@@ -13,7 +13,7 @@ export function createContractMakeWorkerRouter(runner, environment) {
         }
         try {
             const claimed = await runner.run(`cron:${Date.now()}`);
-            response.json({ claimed });
+            response.json({ claimed, runtime_mode: environment.NODE_ENV });
         }
         catch {
             response.status(503).json({ error: 'WORKER_UNAVAILABLE' });
