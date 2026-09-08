@@ -1,0 +1,18 @@
+# Credentials and machine-local environment files are supplied by Vercel.
+.env
+.env.*
+**/.env
+**/.env.*
+.git/
+.vercel/
+**/.vercel/
+.supabase/
+supabase/.temp/
+
+# Rebuild application output remotely; exclude local dependencies and records.
+**/node_modules/
+frontend/dist/
+backend/dist/
+backend/logs/
+frontend/test-results/
+frontend/playwright-report/

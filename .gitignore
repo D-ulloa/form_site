@@ -1,6 +1,9 @@
 # Dependencies installed locally
 node_modules/
 
+# Vercel CLI project links, environments, and build output
+.vercel/
+
 # Local backend configuration
 backend/.env
 

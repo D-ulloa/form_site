@@ -164,6 +164,51 @@ No hosted opt-in exists for the agent-ID header. Deprecated insecure flags cause
 
 For Vercel, scope `CONTRACT_PUBLIC_BASE_URL` to Production only. `VERCEL_ENV=preview` and `VERCEL_URL` are supplied automatically by Vercel; the backend uses them to generate links back to the same preview deployment. Do not copy the production URL into the Preview scope.
 
+### Preview and Development configuration
+
+The `multi-tenant` Preview branch uses Supabase development project
+`kcobkbtieyowdmsvtsvv`. Its Vercel environment variables are branch overrides,
+so existing variables shared with Production retain their values and scopes.
+Other Preview branches do not inherit these overrides. Vercel Development uses
+the same Supabase development project with localhost origins.
+
+The stable Preview origin is
+`https://form-site-git-multi-tenant-candel343s-projects.vercel.app`.
+`APP_ALLOWED_ORIGINS` and `INVITATION_PUBLIC_BASE_URL` use that origin;
+`APP_PASSWORD_RESET_REDIRECT_URL` and `APP_AUTH_ACTIVATION_REDIRECT_URL` append
+`/auth/reset` and `/auth/callback`, respectively. On Vercel Preview only, the
+backend also accepts the exact system-provided `VERCEL_URL` and
+`VERCEL_BRANCH_URL` origins, allowing generated deployment links to work without
+an application-wide wildcard. Production and local origin allowlists are unchanged.
+Reads without an `Origin` header receive no CORS headers and can reach their
+normal authorization checks; mutations still require an approved origin.
+
+`vercel.json` uses explicit service rewrites, routing `/_/backend/(.*)` to
+Express before the Vite catch-all, with an SPA fallback for frontend routes.
+The catch-all uses `/(.*)` so the generated route matches `/` and paths ending
+in `/`; the previous `/:path*` pattern missed those requests.
+The backend runs `npm run typecheck` and uses `src/index.ts` as its entrypoint.
+Its `outputDirectory` is `.` so Vercel bundles the source instead of flattening
+the local `dist` output away from its package metadata and dependencies.
+`.vercelignore` excludes local environment
+files, Supabase link metadata, and generated audit records from CLI uploads.
+
+Hosted Preview uses `NODE_ENV=production` for startup validation and secure
+cookies; this does not select a production deployment or database. Identity
+provisioning, self-service registration, and manual invitation links are enabled
+for development testing. Synthetic identity, trusted gateway, support access,
+organization provisioning commands, and restore mode remain disabled.
+
+The Supabase development branch permits the project's Preview Auth redirects
+and `http://localhost:5173/**` / `http://127.0.0.1:5173/**`. Its email confirmation
+requirement is disabled for the documented backend-owned registration flow.
+Production Supabase configuration is managed separately.
+
+Do not overwrite local environment files when reviewing hosted settings. Pull
+into a private temporary directory and remove the files afterward. Vercel
+sensitive values are redacted in pulls; an empty pulled value does not prove
+that the deployed secret is missing.
+
 Set `TRUST_PROXY_HOPS` to the exact number of known reverse-proxy hops between the client and Express. Leaving it at `0` ignores forwarded addresses for `req.ip`; setting it too high can let an untrusted caller influence the IP stored in contract audits.
 
 ## Frontend environment configuration

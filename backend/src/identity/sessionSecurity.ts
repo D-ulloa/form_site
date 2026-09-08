@@ -96,7 +96,15 @@ export function approvedOrigins(environment: NodeJS.ProcessEnv): ReadonlySet<str
   if (environment.NODE_ENV === 'production' && values.length === 0) {
     throw new IdentityConfigurationError('APP_ALLOWED_ORIGINS is required in production.');
   }
-  return new Set(values.map((value) => new URL(value).origin));
+  const origins = new Set(values.map((value) => new URL(value).origin));
+  // Vercel supplies these exact hosts for this deployment. Keep preview cookies
+  // and mutations working on both its immutable URL and its Git branch alias.
+  if (environment.VERCEL === '1' && environment.VERCEL_ENV === 'preview') {
+    for (const host of [environment.VERCEL_URL, environment.VERCEL_BRANCH_URL]) {
+      if (host?.trim()) origins.add(new URL(`https://${host.trim()}`).origin);
+    }
+  }
+  return origins;
 }
 
 export function assertMutationOrigin(request: Request, environment: NodeJS.ProcessEnv): void {

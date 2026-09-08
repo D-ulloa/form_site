@@ -27,6 +27,7 @@ import {
   createIdentityRouter, createOrganizationContextRouter, createTenantMutationSecurity,
 } from './routes/identity.js';
 import {
+  createCorsOriginValidator,
   parseTrustProxyHops,
   validateContainmentEnvironment,
 } from './utils/serverConfig.js';
@@ -50,10 +51,7 @@ const PORT = process.env.PORT ?? 3001;
 const trustProxyHops = parseTrustProxyHops(process.env.TRUST_PROXY_HOPS);
 const allowedOrigins = approvedOrigins(process.env);
 const corsOrigin = process.env.NODE_ENV === 'production'
-  ? (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
-      if (!origin || !allowedOrigins.has(origin)) callback(new Error('CORS origin denied.'));
-      else callback(null, true);
-    }
+  ? createCorsOriginValidator(allowedOrigins)
   : true;
 
 if (trustProxyHops > 0) {
@@ -72,7 +70,7 @@ app.use('/api/provider-webhooks/invitation-email', express.raw({ type: 'applicat
   createInvitationWebhookRouter(invitationWorkflow, process.env, invitationRateLimiter));
 app.use(express.json({ limit: '256kb' }));
 
-// Strip Vercel's experimentalServices route prefix if present
+// Service rewrites preserve the original request path; strip the public prefix.
 app.use((req, _res, next) => {
   if (req.url.startsWith('/_/backend')) {
     req.url = req.url.replace('/_/backend', '');
