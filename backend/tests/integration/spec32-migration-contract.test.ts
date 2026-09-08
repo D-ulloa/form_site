@@ -40,7 +40,7 @@ test('SPEC-32 supplies atomic enqueue, deterministic fanout, fair leases, and to
     assert.match(sql, new RegExp(`revoke all on function public\\.${fn}[\\s\\S]+from public,anon,authenticated`, 'u'));
   }
   assert.match(sql, /row_number\(\) over\(partition by d\.organization_id/u);
-  assert.match(sql, /for update of d skip locked/u); assert.match(sql, /lease_token=public\.gen_random_uuid/u);
+  assert.match(sql, /for update of d skip locked/u); assert.match(sql, /lease_token=extensions\.gen_random_uuid/u);
   assert.match(sql, /v_delivery\.lease_token is distinct from p_lease_token/u);
   assert.match(sql, /organization_id=p_organization_id/u);
   assert.match(sql, /property_events_to_outbox after insert/u);

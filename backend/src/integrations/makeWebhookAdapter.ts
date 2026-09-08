@@ -58,33 +58,35 @@ function endpoint(context: IntegrationExecutionContext, environment: NodeJS.Proc
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-export interface FireAndForgetWebhookPoster {
-  post(destination: URL, headers: Readonly<Record<string, string>>, body: string): void;
+export interface WebhookPoster {
+  post(destination: URL, headers: Readonly<Record<string, string>>, body: string): Promise<number>;
 }
 
-function postWithoutWaiting(destination: URL, headers: Readonly<Record<string, string>>, body: string): void {
-  const request = httpsRequest(destination, {
-    method: 'POST',
-    headers: { ...headers, 'Content-Length': String(Buffer.byteLength(body)) },
-  }, (response) => {
-    // The request has already been recorded as sent. Discard any Make response.
-    response.resume();
+function postAndAcknowledge(destination: URL, headers: Readonly<Record<string, string>>, body: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(destination, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Length': String(Buffer.byteLength(body)) },
+    }, (response) => {
+      response.resume();
+      clearTimeout(deadline);
+      resolve(response.statusCode ?? 0);
+    });
+    const deadline = setTimeout(() => request.destroy(new Error('MAKE_TIMEOUT')), 10_000);
+    request.once('error', (error) => { clearTimeout(deadline); reject(error); });
+    request.end(body);
   });
-  // A connection failure after request.end() cannot be reflected in this
-  // fire-and-forget contract, but the listener prevents an unhandled error.
-  request.once('error', () => undefined);
-  request.end(body);
 }
 
 export function createMakeWebhookAdapter(dependencies: {
   readonly payloads: ContractGenerationPayloadLoader;
   readonly resolve?: (hostname: string) => Promise<readonly string[]>;
-  readonly poster?: FireAndForgetWebhookPoster;
+  readonly poster?: WebhookPoster;
   readonly environment?: NodeJS.ProcessEnv;
 }) {
   const resolve = dependencies.resolve ?? (async (hostname: string) =>
     (await lookup(hostname, { all: true })).map((address) => address.address));
-  const poster = dependencies.poster ?? { post: postWithoutWaiting };
+  const poster = dependencies.poster ?? { post: postAndAcknowledge };
 
   return {
     async deliver(context: IntegrationExecutionContext, delivery: LeasedDelivery): Promise<ProviderOutcome> {
@@ -103,12 +105,18 @@ export function createMakeWebhookAdapter(dependencies: {
         if (!payload) return { kind: 'permanent_failure', error_code: 'CONTRACT_ENTRY_NOT_FOUND' };
 
         const destination = await validateWebhookDestination(target, resolve);
-        poster.post(destination, {
+        const status = await poster.post(destination, {
           'Content-Type': 'application/json',
           'Idempotency-Key': delivery.idempotency_key,
           'X-Event-Id': delivery.event.event_id,
           'X-Organization-Id': delivery.organization_id,
         }, JSON.stringify(payload));
+        if (status < 200 || status >= 300) {
+          // A timeout/server error cannot prove that Make did not accept the event.
+          return status >= 400 && status < 500 && status !== 408 && status !== 429
+            ? { kind: 'permanent_failure', error_code: 'MAKE_DELIVERY_REJECTED' }
+            : { kind: 'ambiguous', error_code: 'MAKE_DELIVERY_UNKNOWN' };
+        }
         return { kind: 'succeeded', external_id: delivery.id };
       } catch (error) {
         if (error instanceof Error && /INTEGRATION_SCOPE_MISMATCH|UNSAFE_DESTINATION/u.test(error.message)) {

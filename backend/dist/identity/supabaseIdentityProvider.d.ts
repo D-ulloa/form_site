@@ -1,4 +1,9 @@
 import type { AuthMethod, SessionIdentity } from './types.js';
+export declare class InvitationActivationError extends Error {
+    readonly code: 'PASSWORD_POLICY_REJECTED' | 'ACCOUNT_ALREADY_ACTIVATED' | 'AUTH_DEPENDENCY_UNAVAILABLE';
+    readonly providerCode: string;
+    constructor(code: 'PASSWORD_POLICY_REJECTED' | 'ACCOUNT_ALREADY_ACTIVATED' | 'AUTH_DEPENDENCY_UNAVAILABLE', providerCode?: string);
+}
 export interface IdentityProvider {
     password(email: string, password: string): Promise<SessionIdentity>;
     accessToken(accessToken: string, expectedMethod: AuthMethod): Promise<SessionIdentity>;

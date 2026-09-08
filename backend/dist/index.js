@@ -21,12 +21,16 @@ import { createSupabaseAdminAdapter } from './identity/supabaseAdminAdapter.js';
 import { OrganizationSettingsService } from './organizations/organizationSettingsService.js';
 import { createInvitationWebhookRouter, createOrganizationGovernanceRouter } from './routes/organizationGovernance.js';
 import { createIdentityRouter, createOrganizationContextRouter, createTenantMutationSecurity, } from './routes/identity.js';
-import { parseTrustProxyHops, validateContainmentEnvironment, } from './utils/serverConfig.js';
+import { createCorsOriginValidator, resolveTrustProxyHops, validateContainmentEnvironment, } from './utils/serverConfig.js';
 import { requestIdMiddleware } from './platform/requestId.js';
 import { createTenantContractEntriesRouter } from './routes/tenantContractEntries.js';
 import { validateIdentityProvisioningEnvironment } from './identity/identityProvisioningConfig.js';
 import { createDistributedRateLimiter } from './platform/rateLimit.js';
 import { createPlatformRepository } from './platform/platformRepository.js';
+import { createContractMakeDeliveryRunner } from './integrations/contractMakeDeliveryRunner.js';
+import { createSelfServiceOnboardingRepository } from './onboarding/selfServiceOnboardingRepository.js';
+import { SelfServiceOnboardingService } from './onboarding/selfServiceOnboardingService.js';
+import { createContractMakeWorkerRouter } from './routes/contractMakeWorker.js';
 dotenv.config();
 validateContainmentEnvironment(process.env);
 validateIdentityEnvironment(process.env);
@@ -34,21 +38,22 @@ validateIdentityProvisioningEnvironment(process.env);
 const invitationConfig = invitationDeliveryConfiguration(process.env);
 const app = express();
 const PORT = process.env.PORT ?? 3001;
-const trustProxyHops = parseTrustProxyHops(process.env.TRUST_PROXY_HOPS);
+const trustProxyHops = resolveTrustProxyHops(process.env);
 const allowedOrigins = approvedOrigins(process.env);
 const corsOrigin = process.env.NODE_ENV === 'production'
-    ? (origin, callback) => {
-        if (!origin || !allowedOrigins.has(origin))
-            callback(new Error('CORS origin denied.'));
-        else
-            callback(null, true);
-    }
+    ? createCorsOriginValidator(allowedOrigins)
     : true;
 if (trustProxyHops > 0) {
     app.set('trust proxy', trustProxyHops);
 }
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(requestIdMiddleware);
+// Normalize service paths before every route, including raw provider webhooks.
+app.use((req, _res, next) => {
+    if (req.url.startsWith('/_/backend/'))
+        req.url = req.url.slice('/_/backend'.length);
+    next();
+});
 app.use(cors({ origin: corsOrigin, credentials: true }));
 const invitationWorkflow = new InvitationWorkflowService(createInvitationWorkflowRepository(process.env), createInvitationDeliveryAdapter(process.env), invitationConfig);
 const invitationRateLimiter = invitationConfig.enabled
@@ -56,23 +61,21 @@ const invitationRateLimiter = invitationConfig.enabled
     : undefined;
 app.use('/api/provider-webhooks/invitation-email', express.raw({ type: 'application/json', limit: '64kb' }), createInvitationWebhookRouter(invitationWorkflow, process.env, invitationRateLimiter));
 app.use(express.json({ limit: '256kb' }));
-// Strip Vercel's experimentalServices route prefix if present
-app.use((req, _res, next) => {
-    if (req.url.startsWith('/_/backend')) {
-        req.url = req.url.replace('/_/backend', '');
-    }
-    next();
-});
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
     res.status(200).json({ status: 'ok' });
 });
+app.use('/api/cron', createContractMakeWorkerRouter(createContractMakeDeliveryRunner(process.env), process.env));
 const identityRepository = createIdentityRepository(process.env);
 const sessionService = new SessionService(identityRepository, process.env);
 const contextResolver = createOrganizationRouteContextResolver(sessionService);
 const governanceRepository = createOrganizationGovernanceRepository(process.env);
-const invitationAdmin = createSupabaseAdminAdapter(process.env);
-const invitationIdentity = new IdentityProvisioningService(createIdentityProvisioningRepository(process.env), invitationAdmin, process.env);
+const identityAdmin = createSupabaseAdminAdapter(process.env);
+const invitationIdentity = new IdentityProvisioningService(createIdentityProvisioningRepository(process.env), identityAdmin, process.env);
+const selfServiceOnboarding = new SelfServiceOnboardingService(createSelfServiceOnboardingRepository(process.env), identityAdmin, process.env);
+const selfServiceRegistrationRateLimiter = process.env.SELF_SERVICE_REGISTRATION_ENABLED === 'true'
+    ? createDistributedRateLimiter(createPlatformRepository(undefined, process.env), process.env.PLATFORM_RATE_LIMIT_PEPPER ?? '')
+    : undefined;
 const governanceServices = {
     organizations: new OrganizationService(governanceRepository, undefined, invitationWorkflow, invitationIdentity),
     memberships: new MembershipService(createMembershipMutationRepository(process.env)),
@@ -82,9 +85,9 @@ const governanceServices = {
     identityProvider: createSupabaseIdentityProvider(process.env),
     environment: process.env,
 };
-app.use('/api/auth', createIdentityRouter(sessionService, createSupabaseIdentityProvider(process.env), process.env));
+app.use('/api/auth', createIdentityRouter(sessionService, createSupabaseIdentityProvider(process.env), process.env, selfServiceOnboarding, selfServiceRegistrationRateLimiter));
 app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
-app.use('/api/organizations/:organization/contracts', createTenantContractEntriesRouter(sessionService, undefined, process.env));
+app.use('/api/organizations/:organization/contracts', createTenantContractEntriesRouter(sessionService, undefined, process.env, createContractMakeDeliveryRunner(process.env)));
 app.use('/api/organizations/:organization/properties/legacy', createTenantPropertyCompatibilityRouter(sessionService, process.env));
 app.use('/api', createTenantMutationSecurity(sessionService, process.env), createOrganizationGovernanceRouter(contextResolver, governanceServices, invitationConfig.public_base_url || 'https://invalid.example', invitationRateLimiter));
 app.use('/properties', propertiesRouter);

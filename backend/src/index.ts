@@ -39,6 +39,7 @@ import { createPlatformRepository } from './platform/platformRepository.js';
 import { createContractMakeDeliveryRunner } from './integrations/contractMakeDeliveryRunner.js';
 import { createSelfServiceOnboardingRepository } from './onboarding/selfServiceOnboardingRepository.js';
 import { SelfServiceOnboardingService } from './onboarding/selfServiceOnboardingService.js';
+import { createContractMakeWorkerRouter } from './routes/contractMakeWorker.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
@@ -60,6 +61,11 @@ if (trustProxyHops > 0) {
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(requestIdMiddleware);
+// Normalize service paths before every route, including raw provider webhooks.
+app.use((req, _res, next) => {
+  if (req.url.startsWith('/_/backend/')) req.url = req.url.slice('/_/backend'.length);
+  next();
+});
 app.use(cors({ origin: corsOrigin, credentials: true }));
 const invitationWorkflow = new InvitationWorkflowService(createInvitationWorkflowRepository(process.env),
   createInvitationDeliveryAdapter(process.env), invitationConfig);
@@ -70,18 +76,11 @@ app.use('/api/provider-webhooks/invitation-email', express.raw({ type: 'applicat
   createInvitationWebhookRouter(invitationWorkflow, process.env, invitationRateLimiter));
 app.use(express.json({ limit: '256kb' }));
 
-// Service rewrites preserve the original request path; strip the public prefix.
-app.use((req, _res, next) => {
-  if (req.url.startsWith('/_/backend')) {
-    req.url = req.url.replace('/_/backend', '');
-  }
-  next();
-});
-
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+app.use('/api/cron', createContractMakeWorkerRouter(createContractMakeDeliveryRunner(process.env), process.env));
 
 const identityRepository = createIdentityRepository(process.env);
 const sessionService = new SessionService(identityRepository, process.env);

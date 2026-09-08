@@ -1,4 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
+export class InvitationActivationError extends Error {
+    code;
+    providerCode;
+    constructor(code, providerCode = 'unknown') {
+        super(code);
+        this.code = code;
+        this.providerCode = providerCode;
+        this.name = 'InvitationActivationError';
+    }
+}
+function activationProviderError(error) {
+    const code = error.code;
+    // Never include the provider's message, response body, or submitted credentials.
+    const safeCode = ['weak_password', 'same_password', 'over_request_rate_limit', 'unexpected_failure',
+        'user_not_found', 'not_admin', 'bad_jwt'].includes(code ?? '') ? code : 'unknown';
+    return new InvitationActivationError(code === 'weak_password' || code === 'same_password'
+        ? 'PASSWORD_POLICY_REJECTED' : 'AUTH_DEPENDENCY_UNAVAILABLE', safeCode);
+}
 function assuranceFromToken(token) {
     try {
         const payload = JSON.parse(Buffer.from(token?.split('.')[1] ?? '', 'base64url').toString('utf8'));
@@ -54,15 +72,19 @@ export function createSupabaseIdentityProvider(environment = process.env) {
             const admin = fresh();
             const { data, error } = await admin.auth.admin.getUserById(userId);
             const user = data.user;
-            if (error || !user?.email || user.email.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()
-                || user.email_confirmed_at || user.confirmed_at || user.last_sign_in_at) {
-                throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
+            if (error)
+                throw activationProviderError(error);
+            if (!user?.email || user.email.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()) {
+                throw new InvitationActivationError('AUTH_DEPENDENCY_UNAVAILABLE');
+            }
+            if (user.email_confirmed_at || user.confirmed_at || user.last_sign_in_at) {
+                throw new InvitationActivationError('ACCOUNT_ALREADY_ACTIVATED');
             }
             const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
                 password, email_confirm: true, user_metadata: { ...user.user_metadata, full_name: displayName },
             });
             if (updateError)
-                throw new Error('INVITATION_REGISTRATION_UNAVAILABLE');
+                throw activationProviderError(updateError);
         },
     };
 }

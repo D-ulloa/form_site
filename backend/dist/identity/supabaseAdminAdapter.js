@@ -17,6 +17,19 @@ function project(user) {
         eligible: (!user.banned_until || new Date(user.banned_until).getTime() <= Date.now()) && !extra.deleted_at,
     };
 }
+function sessionIdentity(user, method) {
+    const projected = project(user);
+    if (!projected)
+        throw new IdentityProviderUnavailableError();
+    const fullName = user.user_metadata?.full_name;
+    return {
+        user_id: projected.id,
+        email: projected.email_normalized,
+        display_name: typeof fullName === 'string' && fullName.trim() ? fullName.trim().slice(0, 256) : projected.email_normalized,
+        auth_method: method,
+        assurance_level: 'aal1',
+    };
+}
 /** The only Auth Admin surface exposed to provisioning code. */
 export function createSupabaseAdminAdapter(environment = process.env) {
     const client = createPlatformServiceRoleClient(environment);
@@ -49,6 +62,25 @@ export function createSupabaseAdminAdapter(environment = process.env) {
             if (error || !user)
                 throw new IdentityProviderAmbiguousError();
             return user;
+        },
+        async createPassword(emailNormalized, password, displayName) {
+            const { data, error } = await client.auth.admin.createUser({
+                email: emailNormalized,
+                password,
+                // SPEC-41 explicitly makes verification informative rather than a login gate.
+                email_confirm: true,
+                user_metadata: { full_name: displayName },
+                app_metadata: {},
+            });
+            if (error || !data.user)
+                throw new IdentityProviderAmbiguousError();
+            return sessionIdentity(data.user, 'password');
+        },
+        async sessionIdentity(userId, method) {
+            const { data, error } = await client.auth.admin.getUserById(userId);
+            if (error || !data.user)
+                throw new IdentityProviderUnavailableError();
+            return sessionIdentity(data.user, method);
         },
     };
 }

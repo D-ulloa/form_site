@@ -15,6 +15,9 @@
             "outputDirectory": "."
         }
     },
+    "crons": [
+        { "path": "/_/backend/api/cron/contract-make", "schedule": "0 8 * * *" }
+    ],
     "rewrites": [
         { "source": "/_/backend/(.*)", "destination": { "service": "backend" } },
         { "source": "/(.*)", "destination": { "service": "frontend" } }

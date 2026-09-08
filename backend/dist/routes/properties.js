@@ -105,6 +105,16 @@ export function createTenantPropertyCompatibilityRouter(sessions, environment = 
             if (context.user_id !== authenticated.identity.id) {
                 throw new IdentityAccessError('AUTHENTICATION_REQUIRED', 401);
             }
+            // Global legacy destinations are authorized only for explicitly configured organizations.
+            if (environment.VERCEL_ENV === 'production') {
+                const allowed = new Set((environment.LEGACY_PROPERTY_ORGANIZATION_IDS ?? '')
+                    .split(',').map((value) => value.trim()).filter(Boolean));
+                if (!allowed.has(context.organization.id)) {
+                    res.status(503).json({ error: 'PROPERTY_INTEGRATION_NOT_CONFIGURED',
+                        details: 'La integración de propiedades todavía no está configurada para esta organización.' });
+                    return;
+                }
+            }
             res.locals.propertySession = {
                 userId: authenticated.identity.id,
                 email: authenticated.identity.email,

@@ -48,6 +48,7 @@ export interface LeasedDelivery {
     readonly lease_expires_at: string;
     readonly attempt_count: number;
     readonly idempotency_key: string;
+    readonly version: number;
     readonly event: OutboxEnvelope;
 }
 export type ProviderOutcome = {

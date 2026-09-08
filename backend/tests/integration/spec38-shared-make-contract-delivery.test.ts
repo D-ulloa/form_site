@@ -45,7 +45,7 @@ test('SPEC-38 forward migration materializes only contract generation outbox eve
   assert.doesNotMatch(migration, /user_token_hash|client_token_hash|net\.http|http_post/u);
 });
 
-test('SPEC-38 sends each organization to the same Make destination without waiting for a response', async () => {
+test('SPEC-38 sends each organization to the same Make destination and awaits acknowledgement', async () => {
   const calls: { readonly url: string; readonly headers: Readonly<Record<string, string>>; readonly body: string }[] = [];
   const adapter = createMakeWebhookAdapter({
     payloads: { async load(organizationId, loadedEntryId) {
@@ -54,7 +54,7 @@ test('SPEC-38 sends each organization to the same Make destination without waiti
       } };
     } },
     async resolve() { return ['8.8.8.8']; },
-    poster: { post(url, headers, body) { calls.push({ url: String(url), headers, body }); } },
+    poster: { async post(url, headers, body) { calls.push({ url: String(url), headers, body }); return 202; } },
     environment: { MAKE_CONTRACT_GENERATION_WEBHOOK_URL: 'https://hooks.example.test/shared-make' },
   });
 
@@ -80,6 +80,22 @@ test('SPEC-38 does not fall back to the property-submission Make webhook', async
   assert.deepEqual(await adapter.deliver(context(), delivery()), {
     kind: 'permanent_failure', error_code: 'CONTRACT_MAKE_WEBHOOK_URL_NOT_CONFIGURED',
   });
+});
+
+test('SPEC-38 never records success before acknowledgement or after an ambiguous transport failure', async () => {
+  let acknowledge!: (status: number) => void;
+  const adapter = createMakeWebhookAdapter({
+    payloads: { async load() { return { type: 'UPDATE', table: 'contract_entries', schema: 'public', record: { id: entryId } }; } },
+    async resolve() { return ['8.8.8.8']; },
+    poster: { post() { return new Promise<number>((resolve) => { acknowledge = resolve; }); } },
+    environment: { MAKE_CONTRACT_GENERATION_WEBHOOK_URL: 'https://hooks.example.test/shared-make' },
+  });
+  let settled = false;
+  const pending = adapter.deliver(context(), delivery()).then((value) => { settled = true; return value; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, false);
+  acknowledge(503);
+  assert.equal((await pending).kind, 'ambiguous');
 });
 
 test('SPEC-38 repair migration provisions the shared Make integration and materializes pending events', async () => {

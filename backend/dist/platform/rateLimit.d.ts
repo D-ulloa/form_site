@@ -5,6 +5,11 @@ export declare const RATE_LIMIT_POLICIES: {
         readonly limit: 10;
         readonly sensitive: true;
     };
+    readonly 'auth.self_service_registration': {
+        readonly window_seconds: 3600;
+        readonly limit: 8;
+        readonly sensitive: true;
+    };
     readonly 'auth.google_handoff': {
         readonly window_seconds: 300;
         readonly limit: 20;

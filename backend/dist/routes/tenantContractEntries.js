@@ -66,7 +66,7 @@ function sendError(response, error) {
     const envelope = safeErrorEnvelope(error, requestId(response));
     response.status(envelope.status).json(envelope.body);
 }
-export function createTenantContractEntriesRouter(sessions, repository = createTenantContractHttpRepository(), environment = process.env) {
+export function createTenantContractEntriesRouter(sessions, repository = createTenantContractHttpRepository(), environment = process.env, contractMakeDeliveryRunner) {
     const router = Router({ mergeParams: true });
     router.use((_request, response, next) => { privateHeaders(response); next(); });
     router.post('/create', async (request, response) => {
@@ -153,8 +153,22 @@ export function createTenantContractEntriesRouter(sessions, repository = createT
                 user_id: context.user_id, membership_id: context.membership.id,
                 request_id: requestId(response),
             }, entryId, current.version ?? 1, status);
-            response.json({ entry: toContractEntrySummary(entry), ...(status === 'generar_contrato'
-                    ? { integration: { delivery: 'deferred', reason: 'SPEC25_CONTAINMENT' } } : {}) });
+            let integration;
+            if (status === 'generar_contrato') {
+                try {
+                    const claimed = contractMakeDeliveryRunner
+                        ? await contractMakeDeliveryRunner.run(requestId(response))
+                        : 0;
+                    integration = claimed > 0
+                        ? { delivery: 'triggered', claimed }
+                        : { delivery: 'queued', reason: contractMakeDeliveryRunner ? 'NO_ACTIVE_DELIVERY' : 'WORKER_NOT_CONFIGURED' };
+                }
+                catch {
+                    // The status/outbox transaction has committed. A scheduled worker can retry it.
+                    integration = { delivery: 'queued', reason: 'WORKER_TRIGGER_FAILED' };
+                }
+            }
+            response.json({ entry: toContractEntrySummary(entry), ...(integration ? { integration } : {}) });
         }
         catch (error) {
             sendError(response, error);

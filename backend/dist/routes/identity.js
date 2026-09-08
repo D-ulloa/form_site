@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { SessionService } from '../identity/sessionService.js';
 import { IdentityAccessError, IdentityConfigurationError, assertCsrf, assertMutationOrigin, clearSessionCookies, serializeSessionCookies, } from '../identity/sessionSecurity.js';
+import { SelfServiceOnboardingError } from '../onboarding/selfServiceOnboardingTypes.js';
+import { normalizeOrganizationEmail } from '../organizations/validation.js';
+import { PlatformError } from '../platform/errors.js';
 function privateHeaders(response) {
     response.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer', 'Cross-Origin-Resource-Policy': 'same-origin' });
@@ -19,6 +22,29 @@ function safeError(response, error) {
         ? 'INVALID_CREDENTIALS' : 'AUTH_DEPENDENCY_UNAVAILABLE';
     response.status(code === 'INVALID_CREDENTIALS' ? 401 : 503).json({ error: code, retriable: code !== 'INVALID_CREDENTIALS' });
 }
+function safeSelfServiceError(response, error) {
+    privateHeaders(response);
+    if (error instanceof PlatformError) {
+        if (error.retry_after_seconds !== undefined)
+            response.set('Retry-After', String(error.retry_after_seconds));
+        response.status(error.status).json({
+            error: error.code,
+            retriable: error.code === 'RATE_LIMITED' || error.code === 'LIMITER_UNAVAILABLE',
+            ...(error.retry_after_seconds === undefined ? {} : { retry_after_seconds: error.retry_after_seconds }),
+        });
+        return;
+    }
+    if (error instanceof SelfServiceOnboardingError) {
+        const generic = error.code === 'EXISTING_ACCOUNT';
+        response.status(generic ? 409 : error.status).json({
+            error: generic ? 'REGISTRATION_UNAVAILABLE' : error.code,
+            retriable: error.code === 'AUTH_DEPENDENCY_UNAVAILABLE' || error.code === 'ONBOARDING_RECOVERY_REQUIRED',
+            ...(generic ? { message: 'No se pudo completar el registro. Si ya tenés una cuenta, iniciá sesión.' } : {}),
+        });
+        return;
+    }
+    safeError(response, error);
+}
 function bodyRecord(request) {
     return request.body && typeof request.body === 'object' ? request.body : {};
 }
@@ -31,11 +57,137 @@ function publicSession(session, memberships) {
             idle_expires_at: session.session.idle_expires_at, remembered: session.session.remembered,
         }, memberships };
 }
-export function createIdentityRouter(service, provider, environment = process.env) {
+function registrationInput(request, authMethod) {
+    const body = bodyRecord(request);
+    return {
+        operation_id: typeof body.operation_id === 'string' ? body.operation_id : '',
+        full_name: typeof body.full_name === 'string' ? body.full_name : typeof body.name === 'string' ? body.name : '',
+        email: typeof body.email === 'string' ? body.email : '',
+        organization_name: typeof body.organization_name === 'string' ? body.organization_name : '',
+        terms_accepted: body.terms_accepted === true,
+        auth_method: authMethod,
+    };
+}
+async function rejectActiveSession(service, request) {
+    try {
+        await service.authenticate(request, false);
+    }
+    catch (error) {
+        if (error instanceof IdentityAccessError && error.status === 401)
+            return;
+        throw error;
+    }
+    throw new SelfServiceOnboardingError('FORBIDDEN');
+}
+async function limitRegistration(limiter, request, email, operationId) {
+    if (!limiter)
+        return;
+    let canonicalEmail;
+    try {
+        canonicalEmail = normalizeOrganizationEmail(email);
+    }
+    catch {
+        throw new SelfServiceOnboardingError('INVALID_REQUEST');
+    }
+    await Promise.all([
+        limiter.consume({ policy_key: 'auth.self_service_registration', principal_type: 'signup_ip',
+            principal_id: request.ip || 'unknown', ...(request.ip ? { client_ip: request.ip } : {}) }),
+        limiter.consume({ policy_key: 'auth.self_service_registration', principal_type: 'signup_email',
+            principal_id: canonicalEmail, target_id: canonicalEmail }),
+        limiter.consume({ policy_key: 'auth.self_service_registration', principal_type: 'signup_operation',
+            principal_id: operationId, target_id: canonicalEmail }),
+    ]);
+}
+export function createIdentityRouter(service, provider, environment = process.env, onboarding, registrationRateLimiter) {
     const router = Router();
     router.use((_request, response, next) => { privateHeaders(response); next(); });
-    router.post('/register', (_request, response) => {
-        response.status(403).json({ error: 'REGISTRATION_CLOSED', retriable: false });
+    router.post('/register', async (request, response) => {
+        try {
+            assertMutationOrigin(request, environment);
+            if (!onboarding)
+                throw new SelfServiceOnboardingError('REGISTRATION_DISABLED');
+            await rejectActiveSession(service, request);
+            const input = registrationInput(request, 'password');
+            await limitRegistration(registrationRateLimiter, request, input.email, input.operation_id);
+            const body = bodyRecord(request);
+            const result = await onboarding.registerPassword({
+                ...input, password: typeof body.password === 'string' ? body.password : '',
+                password_confirmation: typeof body.password_confirmation === 'string' ? body.password_confirmation : '',
+                remember_me: body.remember_me === true || body.rememberMe === true,
+            }, String(request.res?.locals.request_id ?? ''));
+            const created = await service.create(result.identity, body.remember_me === true || body.rememberMe === true, request);
+            response.status(201).set('Set-Cookie', [...serializeSessionCookies(created.material, environment, created.session.remembered, created.max_age_seconds)]).json({
+                ...publicSession({ session: created.session, identity: { id: result.identity.user_id,
+                        email: result.identity.email, display_name: result.identity.display_name } }, await service.memberships(result.identity.user_id)),
+                onboarding: { operation_id: result.operation.operation_id, organization_slug: result.operation.organization_slug,
+                    email_verification_required: false },
+            });
+        }
+        catch (error) {
+            safeSelfServiceError(response, error);
+        }
+    });
+    router.post('/register/google/intent', async (request, response) => {
+        try {
+            assertMutationOrigin(request, environment);
+            if (!onboarding)
+                throw new SelfServiceOnboardingError('REGISTRATION_DISABLED');
+            await rejectActiveSession(service, request);
+            const input = registrationInput(request, 'google');
+            await limitRegistration(registrationRateLimiter, request, input.email, input.operation_id);
+            const operation = await onboarding.startGoogle(input, String(request.res?.locals.request_id ?? ''));
+            response.status(201).json({ operation_id: operation.operation_id, state: operation.state });
+        }
+        catch (error) {
+            safeSelfServiceError(response, error);
+        }
+    });
+    router.post('/google/register', async (request, response) => {
+        try {
+            assertMutationOrigin(request, environment);
+            if (!onboarding)
+                throw new SelfServiceOnboardingError('REGISTRATION_DISABLED');
+            await rejectActiveSession(service, request);
+            const body = bodyRecord(request);
+            const token = typeof body.access_token === 'string' ? body.access_token : typeof body.accessToken === 'string' ? body.accessToken : '';
+            const operationId = typeof body.operation_id === 'string' ? body.operation_id : '';
+            if (!token || token.length > 16384)
+                throw new SelfServiceOnboardingError('INVALID_REQUEST');
+            const identity = await provider.accessToken(token, 'google');
+            await limitRegistration(registrationRateLimiter, request, identity.email, operationId);
+            const result = await onboarding.completeGoogle(operationId, identity, String(request.res?.locals.request_id ?? ''));
+            const created = await service.create(result.identity, body.remember_me !== false && body.rememberMe !== false, request);
+            response.status(201).set('Set-Cookie', [...serializeSessionCookies(created.material, environment, created.session.remembered, created.max_age_seconds)]).json({
+                ...publicSession({ session: created.session, identity: { id: result.identity.user_id,
+                        email: result.identity.email, display_name: result.identity.display_name } }, await service.memberships(result.identity.user_id)),
+                onboarding: { operation_id: result.operation.operation_id, organization_slug: result.operation.organization_slug,
+                    email_verification_required: false },
+            });
+        }
+        catch (error) {
+            safeSelfServiceError(response, error);
+        }
+    });
+    router.post('/register/operations/:operationId/recover', async (request, response) => {
+        try {
+            if (!onboarding)
+                throw new SelfServiceOnboardingError('REGISTRATION_DISABLED');
+            const authenticated = await service.authenticate(request, false);
+            assertCsrf(request, authenticated.session.csrf_token_hash, environment);
+            const result = await onboarding.recover(String(request.params.operationId ?? ''), {
+                user_id: authenticated.identity.id, email: authenticated.identity.email,
+                display_name: authenticated.identity.display_name, auth_method: authenticated.session.auth_method,
+                assurance_level: authenticated.session.assurance_level,
+            }, String(request.res?.locals.request_id ?? ''));
+            response.json({
+                ...publicSession(authenticated, await service.memberships(result.identity.user_id)),
+                onboarding: { operation_id: result.operation.operation_id, organization_slug: result.operation.organization_slug,
+                    email_verification_required: false },
+            });
+        }
+        catch (error) {
+            safeSelfServiceError(response, error);
+        }
     });
     router.post('/password/reset/request', async (request, response) => {
         try {
@@ -261,9 +413,13 @@ export function createOrganizationContextRouter(service, repository, environment
 }
 export function createTenantMutationSecurity(service, environment = process.env) {
     return (request, response, next) => {
+        const usesContractAccessToken = typeof request.query.token === 'string'
+            && request.path.startsWith('/contracts/')
+            && ['/submit', '/dni-uploads/presign', '/evidence-uploads/presign']
+                .some((suffix) => request.path.endsWith(suffix));
         if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS'
             || request.path === '/invitations/resolve' || request.path === '/invitations/handoff'
-            || request.path === '/invitations/register') {
+            || request.path === '/invitations/register' || usesContractAccessToken) {
             next();
             return;
         }
