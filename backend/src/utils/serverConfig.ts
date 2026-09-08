@@ -16,6 +16,15 @@ export function parseTrustProxyHops(rawValue: string | undefined): number {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+export function resolveTrustProxyHops(environment: NodeJS.ProcessEnv): number {
+  const configured = parseTrustProxyHops(environment.TRUST_PROXY_HOPS);
+  // Hosted Vercel requests always arrive through its TLS-terminating proxy.
+  // Keep that hop trusted even when a copied local environment specifies 0.
+  return environment.VERCEL === '1' && environment.NODE_ENV === 'production'
+    ? Math.max(1, configured)
+    : configured;
+}
+
 export function validateContainmentEnvironment(environment: NodeJS.ProcessEnv): void {
   if (
     environment.NODE_ENV !== 'development'

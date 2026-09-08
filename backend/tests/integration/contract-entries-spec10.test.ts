@@ -21,6 +21,7 @@ import {
   verifyContractAccessToken,
 } from '../../src/services/contractTokenService.js';
 import { serializeContractPasswordSessionCookie } from '../../src/services/contractPasswordAuth.js';
+import { resolveTrustProxyHops } from '../../src/utils/serverConfig.js';
 
 const ENVIRONMENT: NodeJS.ProcessEnv = {
   NODE_ENV: 'development',
@@ -179,6 +180,7 @@ function createApp(
   environment: NodeJS.ProcessEnv = ENVIRONMENT,
 ) {
   const app = express();
+  app.set('trust proxy', resolveTrustProxyHops(environment));
   app.use(express.json());
   app.use('/api/contracts', createContractEntriesRouter({
     environment,
@@ -218,6 +220,37 @@ test('SPEC-19 signed administrator sessions authorize the contract admin routes'
     .get('/api/contracts/admin/entries')
     .set('Cookie', nonAdminCookie ?? '')
     .expect(403);
+});
+
+test('Vercel HTTPS loads both role forms while plain HTTP remains rejected', async () => {
+  const environment = { ...ENVIRONMENT, NODE_ENV: 'production', VERCEL: '1', TRUST_PROXY_HOPS: '0' };
+  const repository = new MemoryContractRepository();
+  const token = 'a'.repeat(43);
+  const entry = await repository.createEntry({
+    id: '11111111-1111-4111-8111-111111111111',
+    schemaId: 'rent-contract-v1',
+    direccion: 'Test address',
+    createdBy: 'agent-001',
+    createdAt: '2026-07-24T12:00:00.000Z',
+    userTokenHash: hashContractAccessToken(token, environment),
+    clientTokenHash: hashContractAccessToken(token, environment),
+  });
+  const app = createApp(repository, environment);
+  for (const role of ['user', 'client']) {
+    const path = `/api/contracts/${entry.id}/schema`;
+    const response = await request(app).get(path).query({ role, token })
+      .set('X-Forwarded-Proto', 'https').expect(200);
+    assert.equal(response.body.role, role);
+    assert.ok(response.body.sections.length > 0);
+    await request(app).get(path).query({ role, token }).expect(426);
+    await request(app).get(path).query({ role, token })
+      .set('X-Forwarded-Proto', 'http').expect(426);
+    await request(app).get(path).query({ role, token: 'invalid' })
+      .set('X-Forwarded-Proto', 'https').expect(403);
+  }
+  const directApp = createApp(repository, { ...environment, VERCEL: undefined });
+  await request(directApp).get(`/api/contracts/${entry.id}/schema`)
+    .query({ role: 'client', token }).set('X-Forwarded-Proto', 'https').expect(426);
 });
 
 test('role schemas enforce the SPEC-10 section split', () => {

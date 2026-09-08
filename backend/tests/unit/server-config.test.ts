@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   parseTrustProxyHops,
+  resolveTrustProxyHops,
   validateContainmentEnvironment,
 } from '../../src/utils/serverConfig.js';
 
@@ -15,6 +16,18 @@ test('TRUST_PROXY_HOPS accepts only safe nonnegative integers', () => {
   assert.equal(parseTrustProxyHops('1.5'), 0);
   assert.equal(parseTrustProxyHops('not-a-number'), 0);
   assert.equal(parseTrustProxyHops(String(Number.MAX_SAFE_INTEGER + 1)), 0);
+});
+
+test('hosted Vercel trusts its ingress even with a copied local zero setting', () => {
+  for (const value of [undefined, '', '0', 'invalid']) {
+    assert.equal(resolveTrustProxyHops({
+      NODE_ENV: 'production', VERCEL: '1', TRUST_PROXY_HOPS: value,
+    }), 1);
+  }
+  assert.equal(resolveTrustProxyHops({ NODE_ENV: 'production', VERCEL: '1', TRUST_PROXY_HOPS: '2' }), 2);
+  assert.equal(resolveTrustProxyHops({ NODE_ENV: 'production' }), 0);
+  assert.equal(resolveTrustProxyHops({ NODE_ENV: 'development', VERCEL: '1' }), 0);
+  assert.equal(resolveTrustProxyHops({ NODE_ENV: 'production', TRUST_PROXY_HOPS: '2' }), 2);
 });
 
 test('SPEC-25 rejects insecure compatibility switches outside development', () => {

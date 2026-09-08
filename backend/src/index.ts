@@ -28,7 +28,7 @@ import {
 } from './routes/identity.js';
 import {
   createCorsOriginValidator,
-  parseTrustProxyHops,
+  resolveTrustProxyHops,
   validateContainmentEnvironment,
 } from './utils/serverConfig.js';
 import { requestIdMiddleware } from './platform/requestId.js';
@@ -48,7 +48,7 @@ const invitationConfig = invitationDeliveryConfiguration(process.env);
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
-const trustProxyHops = parseTrustProxyHops(process.env.TRUST_PROXY_HOPS);
+const trustProxyHops = resolveTrustProxyHops(process.env);
 const allowedOrigins = approvedOrigins(process.env);
 const corsOrigin = process.env.NODE_ENV === 'production'
   ? createCorsOriginValidator(allowedOrigins)

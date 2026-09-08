@@ -457,6 +457,17 @@ export function ContractFormPage() {
     enabled: Boolean(entryId && role),
     retry: false,
   });
+  useEffect(() => {
+    if (!schemaQuery.isError) return;
+    // Do not log the request or URL: contract access tokens are credentials.
+    console.error('[contract-form] schema load failed', {
+      role,
+      errorType: schemaQuery.error.name,
+      status: schemaQuery.error instanceof ContractRequestError
+        ? schemaQuery.error.status
+        : undefined,
+    });
+  }, [role, schemaQuery.error, schemaQuery.isError]);
   const submission = useMutation({
     mutationFn: (fields: Record<string, unknown>) =>
       submitContractRole(entryId, role as ContractRole, token, fields, undefined),
@@ -709,7 +720,7 @@ export function ContractFormPage() {
         {schemaQuery.isError && (
           <div className="mx-auto max-w-xl">
             <AlertInline variant="error" title="No se pudo abrir el formulario">
-              Verificá el enlace e intentá nuevamente.
+              {schemaQuery.error.message || 'Verificá el enlace e intentá nuevamente.'}
             </AlertInline>
           </div>
         )}
@@ -936,4 +947,3 @@ export function ContractFormPage() {
     </div>
   );
 }
-

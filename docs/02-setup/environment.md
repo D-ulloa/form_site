@@ -10,7 +10,7 @@ Required / recommended values:
 
 - `NODE_ENV` — backend runtime mode. The `X-User-Id` development authentication path is enabled when this value is exactly `development`; `npm run dev` sets it explicitly.
 - `PORT` — HTTP port for the backend (default `3001`).
-- `TRUST_PROXY_HOPS` — number of trusted reverse-proxy hops used by Express when resolving `req.ip` for audits (default `0`, disabled). Only a nonnegative safe integer is accepted; invalid values become `0`.
+- `TRUST_PROXY_HOPS` — number of trusted reverse-proxy hops used by Express for HTTPS detection and `req.ip` audits (default `0`, disabled). Only a nonnegative safe integer is accepted; invalid values become `0`. Hosted Vercel (`VERCEL=1`, `NODE_ENV=production`, including Preview) enforces a minimum of `1` because its ingress terminates TLS; otherwise secure contract requests incorrectly return `426 HTTPS_REQUIRED`.
 - `GOOGLE_CLIENT_ID` — OAuth client ID for Google API user authentication.
 - `GOOGLE_CLIENT_SECRET` — OAuth client secret for Google API user authentication.
 - `GOOGLE_REFRESH_TOKEN` — OAuth refresh token for the Google account used to upload files and access Sheets.
@@ -209,7 +209,7 @@ into a private temporary directory and remove the files afterward. Vercel
 sensitive values are redacted in pulls; an empty pulled value does not prove
 that the deployed secret is missing.
 
-Set `TRUST_PROXY_HOPS` to the exact number of known reverse-proxy hops between the client and Express. Leaving it at `0` ignores forwarded addresses for `req.ip`; setting it too high can let an untrusted caller influence the IP stored in contract audits.
+Set `TRUST_PROXY_HOPS` to the exact number of known reverse-proxy hops between the client and Express. Outside hosted Vercel, leaving it at `0` ignores forwarded addresses for `req.ip`; hosted Vercel enforces a minimum of `1` for its TLS-terminating ingress. Setting it too high can let an untrusted caller influence the IP stored in contract audits.
 
 ## Frontend environment configuration
 

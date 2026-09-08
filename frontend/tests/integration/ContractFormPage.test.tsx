@@ -157,6 +157,21 @@ afterEach(() => {
 });
 
 describe('SPEC-12 hosted contract forms', () => {
+  it('shows the loading failure and logs diagnostics without the access token', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      vi.mocked(fetchContractRoleSchema).mockRejectedValueOnce(new Error('El servidor no está disponible.'));
+      renderPage(`/contracts/${entry.entryId}/client?token=private-access-token`);
+      expect(await screen.findByText('El servidor no está disponible.')).toBeTruthy();
+      expect(log).toHaveBeenCalledWith('[contract-form] schema load failed', {
+        role: 'client', errorType: 'Error', status: undefined,
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain('private-access-token');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it('shows Propietario and Guardar without exposing the JSON schema', async () => {
     vi.mocked(fetchContractRoleSchema).mockResolvedValue({
       schemaId: 'rent-contract-v1',
