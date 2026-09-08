@@ -3,7 +3,7 @@ import type { IdentityRepository } from '../identity/identityRepository.js';
 import { SessionService } from '../identity/sessionService.js';
 import {
   IdentityAccessError, IdentityConfigurationError, assertCsrf, assertMutationOrigin,
-  clearSessionCookies, serializeSessionCookies,
+  clearSessionCookies, serializeSessionCookies, invitationHandoffCookiePath,
 } from '../identity/sessionSecurity.js';
 import type { IdentityProvider } from '../identity/supabaseIdentityProvider.js';
 import type { SelfServiceOnboardingService } from '../onboarding/selfServiceOnboardingService.js';
@@ -326,11 +326,11 @@ export function createIdentityRouter(
       assertCsrf(request, session.csrf_token_hash, environment);
       await service.logout(request);
       response.set('Set-Cookie', [...clearSessionCookies(environment),
-        `form_site_invitation_handoff=; Path=/api/invitations; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${environment.NODE_ENV === 'production' ? '; Secure' : ''}`]);
+        `form_site_invitation_handoff=; Path=${invitationHandoffCookiePath(environment)}; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${environment.NODE_ENV === 'production' ? '; Secure' : ''}`]);
       response.status(204).end();
     } catch (error) {
       response.set('Set-Cookie', [...clearSessionCookies(environment),
-        `form_site_invitation_handoff=; Path=/api/invitations; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${environment.NODE_ENV === 'production' ? '; Secure' : ''}`]);
+        `form_site_invitation_handoff=; Path=${invitationHandoffCookiePath(environment)}; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${environment.NODE_ENV === 'production' ? '; Secure' : ''}`]);
       if (error instanceof IdentityAccessError && error.status === 401) { response.status(204).end(); return; }
       safeError(response, error);
     }

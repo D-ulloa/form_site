@@ -13,6 +13,7 @@ export declare function hashCsrfToken(raw: string, environment: NodeJS.ProcessEn
 export declare function secretMatches(actualRaw: string, expectedHash: string, hash: (value: string) => string): boolean;
 export declare function createSessionTokenMaterial(environment: NodeJS.ProcessEnv): SessionTokenMaterial;
 export declare function cookieName(environment: NodeJS.ProcessEnv): string;
+export declare function invitationHandoffCookiePath(environment: NodeJS.ProcessEnv): string;
 export declare function parseCookies(request: Request): ReadonlyMap<string, string>;
 export declare function sessionTokenFromRequest(request: Request, environment: NodeJS.ProcessEnv): string | null;
 export declare function serializeSessionCookies(material: SessionTokenMaterial, environment: NodeJS.ProcessEnv, remembered: boolean, maxAgeSeconds: number): readonly string[];

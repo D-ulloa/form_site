@@ -5,7 +5,7 @@ import { PlatformError } from '../platform/errors.js';
 import { createOrganizationScope } from '../platform/scope.js';
 import { InvitationActivationError } from '../identity/supabaseIdentityProvider.js';
 import { IdentityAccessError } from '../identity/sessionSecurity.js';
-import { serializeSessionCookies } from '../identity/sessionSecurity.js';
+import { serializeSessionCookies, invitationHandoffCookiePath } from '../identity/sessionSecurity.js';
 import { validateDisplayName } from '../organizations/validation.js';
 function valueAt(value) {
     return Array.isArray(value) ? value[0] ?? '' : value ?? '';
@@ -45,6 +45,7 @@ async function scopedActor(request, resolver) {
 export function createOrganizationGovernanceRouter(resolver, services, publicBaseUrl, rateLimiter) {
     const router = Router();
     const handoffCookie = 'form_site_invitation_handoff';
+    const handoffPath = invitationHandoffCookiePath(services.environment);
     const cookieValue = (request) => {
         const raw = request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${handoffCookie}=`))
             ?.slice(handoffCookie.length + 1) ?? '';
@@ -60,7 +61,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
             throw new OrganizationDomainError('INVITATION_INVALID');
         return origin;
     };
-    const clearHandoff = `${handoffCookie}=; Path=/api/invitations; HttpOnly${secureAttribute}; SameSite=Strict; Max-Age=0`;
+    const clearHandoff = `${handoffCookie}=; Path=${handoffPath}; HttpOnly${secureAttribute}; SameSite=Strict; Max-Age=0`;
     const limitPublic = (request, policy_key, target_id) => rateLimiter?.consume({
         policy_key, principal_type: 'anonymous_browser', principal_id: 'invitation',
         ...(request.ip ? { client_ip: request.ip } : {}), target_id,
@@ -75,7 +76,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
             await limitPublic(request, 'member.invitation_handoff', token);
             const prior = cookieValue(request);
             const material = await services.invitations.createHandoff(token, prior?.[1] ?? null, assertHandoffOrigin(request));
-            response.set('Set-Cookie', `${handoffCookie}=${material.handle}.${material.browser_binding}; Path=/api/invitations; HttpOnly${secureAttribute}; SameSite=Strict; Max-Age=${material.max_age_seconds}`);
+            response.set('Set-Cookie', `${handoffCookie}=${material.handle}.${material.browser_binding}; Path=${handoffPath}; HttpOnly${secureAttribute}; SameSite=Strict; Max-Age=${material.max_age_seconds}`);
             response.status(201).json({ handoff_ready: true, expires_in_seconds: material.max_age_seconds });
         }
         catch (error) {

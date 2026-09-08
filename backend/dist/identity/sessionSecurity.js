@@ -43,6 +43,9 @@ export function createSessionTokenMaterial(environment) {
 export function cookieName(environment) {
     return environment.NODE_ENV === 'production' ? APPLICATION_SESSION_COOKIE : DEVELOPMENT_SESSION_COOKIE;
 }
+export function invitationHandoffCookiePath(environment) {
+    return `${environment.VERCEL === '1' ? '/_/backend' : ''}/api/invitations`;
+}
 export function parseCookies(request) {
     const values = new Map();
     for (const part of (request.get('Cookie') ?? '').split(';')) {

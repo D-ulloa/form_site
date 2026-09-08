@@ -55,6 +55,10 @@ export function cookieName(environment: NodeJS.ProcessEnv): string {
   return environment.NODE_ENV === 'production' ? APPLICATION_SESSION_COOKIE : DEVELOPMENT_SESSION_COOKIE;
 }
 
+export function invitationHandoffCookiePath(environment: NodeJS.ProcessEnv): string {
+  return `${environment.VERCEL === '1' ? '/_/backend' : ''}/api/invitations`;
+}
+
 export function parseCookies(request: Request): ReadonlyMap<string, string> {
   const values = new Map<string, string>();
   for (const part of (request.get('Cookie') ?? '').split(';')) {
