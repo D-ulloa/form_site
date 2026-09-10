@@ -229,7 +229,14 @@ Google OAuth, which supports both normal login and the pre-intent SPEC-41 regist
 
 The Google button uses Supabase Auth's PKCE flow and returns to
 `/auth/callback`; the callback exchanges the Supabase session for the existing
-HttpOnly application cookie. Reviewed password login uses the backend Supabase
+HttpOnly application cookie. Only the PKCE verifier is persisted in same-tab
+`sessionStorage`; temporary Supabase access/refresh tokens stay in memory.
+The flow checks storage before redirecting and explicitly waits for SDK
+initialization before generating the verifier. Old Supabase sessions in
+`localStorage` are not loaded by this temporary client. Keep the Google flow
+in the same browser tab and on the same origin (scheme, hostname, and port).
+Callbacks started before this storage change may need a fresh Google attempt.
+Reviewed password login uses the backend Supabase
 service client directly. Self-service password registration remains server-only and is controlled by `SELF_SERVICE_REGISTRATION_ENABLED`. Configure Google in Supabase Auth before using it:
 
 1. Enable Google under Authentication → Providers and enter the Google OAuth
@@ -240,6 +247,19 @@ service client directly. Self-service password registration remains server-only 
 3. Add the app callback URL to Supabase Auth's allowed redirect URLs, for
    example `http://localhost:5173/auth/callback` and
    `https://<production-host>/auth/callback`.
+
+Check each production alias and Preview origin that users actually visit.
+The complete redirect must retain `self_service_operation` for registration
+and `return_to` for invitations. Do not redirect a callback to a different
+hostname after OAuth starts; the verifier belongs to the initiating origin.
+
+The callback exchanges each code once and removes it from browser history,
+including on exchange failure. If Google authentication succeeds but the
+application handoff fails, **Reintentar** reuses the temporary in-memory token
+and checks for an already-established application cookie first. A full reload
+can recover from that cookie; without it, **Continuar con Google** starts a
+fresh flow while preserving the registration operation. Never retry a consumed
+authorization code or delete a partially provisioned account to recover.
 
 `VITE_ALLOW_SYNTHETIC_REGISTRATION` is legacy-only and no longer controls the product registration path. Do not set it in a real-data build.
 

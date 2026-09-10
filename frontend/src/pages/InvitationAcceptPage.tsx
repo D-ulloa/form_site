@@ -80,7 +80,10 @@ export function InvitationAcceptPage() {
   async function google() {
     setAuthError(null); setGooglePending(true);
     try { await startGoogleLogin('/invitations/accept'); }
-    catch { setAuthError('No se pudo iniciar el acceso con Google.'); setGooglePending(false); }
+    catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'No se pudo iniciar el acceso con Google.');
+      setGooglePending(false);
+    }
   }
 
   async function accept() {

@@ -25,6 +25,10 @@ export default defineConfig({
     : {
         webServer: {
           command: 'npm run dev -- --host 127.0.0.1 --port 4173',
+          env: {
+            VITE_SUPABASE_URL: 'https://pkce-test.supabase.co',
+            VITE_SUPABASE_ANON_KEY: 'public-test-key',
+          },
           url: 'http://127.0.0.1:4173',
           reuseExistingServer: true,
           timeout: 120_000,

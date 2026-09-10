@@ -1,5 +1,8 @@
 import axios from 'axios';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  assertGoogleOAuthStorageAvailable, createGoogleOAuthStorage, GoogleOAuthStorageError,
+} from './googleOAuthStorage.ts';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const AUTH_API_PATH = `${API_PREFIX}/api/auth`;
@@ -80,7 +83,20 @@ export class AdminAuthError extends Error {
   }
 }
 
+export class GoogleAuthError extends AdminAuthError {
+  readonly stage: 'oauth' | 'handoff';
+
+  constructor(message: string, stage: 'oauth' | 'handoff', status?: number) {
+    super(message, status);
+    this.name = 'GoogleAuthError';
+    this.stage = stage;
+  }
+}
+
+const GOOGLE_RESTART_MESSAGE = 'El acceso con Google venció o se perdió. Volvé a continuar con Google desde esta misma pestaña.';
+
 function authError(error: unknown, fallback: string): AdminAuthError {
+  if (error instanceof GoogleOAuthStorageError) return new GoogleAuthError(error.message, 'oauth');
   if (axios.isAxiosError(error)) {
     const message = typeof error.response?.data?.message === 'string'
       ? error.response.data.message
@@ -93,6 +109,13 @@ function authError(error: unknown, fallback: string): AdminAuthError {
 }
 
 let supabaseAuthClient: SupabaseClient | null = null;
+let googleStart: Promise<void> | null = null;
+type GoogleSession = AdminSession | SelfServiceSession;
+let googleCompletion: { code: string | null; context: string; promise: Promise<GoogleSession> } | null = null;
+let googleHandoff: {
+  accessToken: string; operationId: string | null; rememberMe: boolean;
+  promise: Promise<GoogleSession> | null;
+} | null = null;
 
 function getSupabaseAuthClient(): SupabaseClient {
   if (supabaseAuthClient) return supabaseAuthClient;
@@ -107,63 +130,149 @@ function getSupabaseAuthClient(): SupabaseClient {
 
   supabaseAuthClient = createClient(url, anonKey, {
     auth: {
-      autoRefreshToken: true,
+      autoRefreshToken: false,
       persistSession: true,
       detectSessionInUrl: false,
       flowType: 'pkce',
+      storage: createGoogleOAuthStorage(),
     },
   });
   return supabaseAuthClient;
 }
 
-export async function startGoogleLogin(returnTo = '/', selfServiceOperationId?: string): Promise<void> {
+export function startGoogleLogin(returnTo = '/', selfServiceOperationId?: string): Promise<void> {
+  if (googleStart) return googleStart;
+  googleStart = beginGoogleLogin(returnTo, selfServiceOperationId).finally(() => { googleStart = null; });
+  return googleStart;
+}
+
+async function beginGoogleLogin(returnTo: string, selfServiceOperationId?: string): Promise<void> {
   try {
+    assertGoogleOAuthStorageAvailable();
+    const client = getSupabaseAuthClient();
+    await client.auth.initialize();
+    await clearTemporaryGoogleSession();
+    googleCompletion = null;
+    googleHandoff = null;
     const callback = new URL('/auth/callback', window.location.origin);
     if (returnTo === '/invitations/accept') callback.searchParams.set('return_to', returnTo);
     if (selfServiceOperationId) callback.searchParams.set('self_service_operation', selfServiceOperationId);
-    const { error } = await getSupabaseAuthClient().auth.signInWithOAuth({
+    const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: callback.toString(),
+        skipBrowserRedirect: true,
       },
     });
     if (error) throw new AdminAuthError(error.message);
+    if (!data.url) throw new AdminAuthError('No se pudo iniciar el acceso con Google.');
+    // signInWithOAuth has finished writing the verifier before navigation.
+    window.location.assign(data.url);
   } catch (error) {
     throw authError(error, 'No se pudo iniciar el acceso con Google.');
   }
 }
 
-export async function completeGoogleLogin(
+export function completeGoogleLogin(
   rememberMe = true,
-): Promise<AdminSession | SelfServiceSession> {
-  const code = new URLSearchParams(window.location.search).get('code');
-  if (!code) {
-    const message = new URLSearchParams(window.location.search)
-      .get('error_description');
-    throw new AdminAuthError(
-      message ?? 'Google no devolvió un código de acceso.',
-    );
+): Promise<GoogleSession> {
+  const callback = new URL(window.location.href);
+  const code = callback.searchParams.get('code');
+  const context = googleCallbackContext(callback);
+  if (googleCompletion?.context === context && (!code || googleCompletion.code === code)) {
+    return googleCompletion.promise;
   }
+  const promise = finishGoogleLogin(callback, rememberMe);
+  googleCompletion = { code, context, promise };
+  return promise;
+}
 
+function googleCallbackContext(url: URL): string {
+  return JSON.stringify([url.origin, url.pathname, url.searchParams.get('self_service_operation'),
+    url.searchParams.get('return_to')]);
+}
+
+function clearGoogleCallbackCode(callback: URL): void {
+  const current = new URL(window.location.href);
+  if (googleCallbackContext(current) !== googleCallbackContext(callback)) return;
+  if (current.searchParams.has('code') && current.searchParams.get('code') !== callback.searchParams.get('code')) return;
+  for (const key of ['code', 'sb_flow_id', 'error', 'error_code', 'error_description']) current.searchParams.delete(key);
+  if (new URLSearchParams(current.hash.slice(1)).has('error')) current.hash = '';
+  window.history.replaceState(window.history.state, '', current);
+}
+
+async function clearTemporaryGoogleSession(): Promise<void> {
   try {
+    // Revoke only this temporary Supabase session, never other devices.
+    await getSupabaseAuthClient().auth.signOut({ scope: 'local' });
+  } catch {
+    // Cleanup must not turn an established application session into a failure.
+  }
+}
+
+async function recoverGoogleApplicationSession(operationId: string | null): Promise<GoogleSession | null> {
+  const session = await fetchAdminSession();
+  if (!session) return null;
+  return operationId ? recoverSelfServiceRegistration(operationId) : session;
+}
+
+async function finishGoogleLogin(callback: URL, rememberMe: boolean): Promise<GoogleSession> {
+  const code = callback.searchParams.get('code');
+  const operationId = callback.searchParams.get('self_service_operation');
+  const hash = new URLSearchParams(callback.hash.slice(1));
+  if (callback.searchParams.has('error') || hash.has('error')) {
+    clearGoogleCallbackCode(callback);
+    throw new GoogleAuthError('Google no autorizó el acceso. Volvé a intentarlo.', 'oauth');
+  }
+  if (!code) {
+    // After a reload, a consumed code is gone. Recover a completed backend
+    // handoff from its HttpOnly cookie, or start a fresh OAuth attempt.
+    const recovered = await recoverGoogleApplicationSession(operationId);
+    if (recovered) return recovered;
+    throw new GoogleAuthError(GOOGLE_RESTART_MESSAGE, 'oauth');
+  }
+  try {
+    assertGoogleOAuthStorageAvailable();
     const { data, error } = await getSupabaseAuthClient().auth.exchangeCodeForSession(code);
     if (error || !data.session?.access_token) {
-      throw new AdminAuthError(error?.message ?? 'No se pudo validar la cuenta de Google.');
+      throw new GoogleAuthError(GOOGLE_RESTART_MESSAGE, 'oauth');
     }
-    const operationId = new URLSearchParams(window.location.search).get('self_service_operation');
-    const session = operationId
-      ? await establishGoogleRegistration({ accessToken: data.session.access_token, operationId, rememberMe })
-      : await establishGoogleSession({ accessToken: data.session.access_token, rememberMe });
-    await getSupabaseAuthClient().auth.signOut();
-    return session;
+    googleHandoff = { accessToken: data.session.access_token, operationId, rememberMe, promise: null };
   } catch (error) {
-    try {
-      await getSupabaseAuthClient().auth.signOut();
-    } catch {
-      // The application cookie is not established when the exchange fails.
-    }
+    await clearTemporaryGoogleSession();
     throw authError(error, 'No se pudo completar el acceso con Google.');
+  } finally {
+    clearGoogleCallbackCode(callback);
   }
+  return finishGoogleHandoff();
+}
+
+function finishGoogleHandoff(recover = false): Promise<GoogleSession> {
+  const pending = googleHandoff;
+  if (!pending) return Promise.reject(new GoogleAuthError(GOOGLE_RESTART_MESSAGE, 'oauth'));
+  if (pending.promise) return pending.promise;
+  pending.promise = (async () => {
+    try {
+      const existing = recover ? await recoverGoogleApplicationSession(pending.operationId) : null;
+      const session = existing ?? (pending.operationId
+        ? await establishGoogleRegistration({ ...pending, operationId: pending.operationId })
+        : await establishGoogleSession({ accessToken: pending.accessToken, rememberMe: pending.rememberMe }));
+      await clearTemporaryGoogleSession();
+      googleHandoff = null;
+      return session;
+    } catch (error) {
+      pending.promise = null;
+      const failure = authError(error, 'No se pudo completar el registro. Volvé a intentarlo.');
+      throw new GoogleAuthError(failure.message, 'handoff', failure.status);
+    }
+  })();
+  return pending.promise;
+}
+
+export function retryGoogleHandoff(): Promise<GoogleSession> {
+  const promise = finishGoogleHandoff(true);
+  if (googleCompletion) googleCompletion.promise = promise;
+  return promise;
 }
 
 export async function fetchAdminSession(): Promise<AdminSession | null> {
@@ -215,6 +324,9 @@ export async function registerAdmin(input: RegistrationInput): Promise<SelfServi
 
 export async function startGoogleRegistration(input: GoogleRegistrationIntentInput): Promise<void> {
   try {
+    assertGoogleOAuthStorageAvailable();
+    try { sessionStorage.setItem(SELF_SERVICE_OPERATION_STORAGE_KEY, input.operationId); }
+    catch { throw new GoogleOAuthStorageError(); }
     const response = await axios.post<{ operation_id: string }>(`${AUTH_API_PATH}/register/google/intent`, {
       operation_id: input.operationId, full_name: input.fullName, email: input.email,
       organization_name: input.organizationName, terms_accepted: input.termsAccepted,

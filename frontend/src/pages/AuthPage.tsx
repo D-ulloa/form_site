@@ -155,7 +155,6 @@ export function AuthPage({ mode }: AuthPageProps) {
           setError('Completá nombre, correo y nombre de organización para continuar con Google.');
           return;
         }
-        sessionStorage.setItem(SELF_SERVICE_OPERATION_STORAGE_KEY, registrationOperationId);
         await startGoogleRegistration({
           operationId: registrationOperationId, fullName: name, email, organizationName, termsAccepted,
         });
