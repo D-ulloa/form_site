@@ -32,11 +32,11 @@ Vercel Hobby permits a daily fallback schedule (08:00 UTC); status changes still
 attempt immediate delivery. Production batches use `CONTRACT_MAKE_WORKER_LIMIT=3`.
 Do not call the endpoint without accounting for pending customer deliveries.
 
-The legacy property flow still uses global Drive/Sheets/Make destinations. Production
-allows it only for UUIDs explicitly listed in `LEGACY_PROPERTY_ORGANIZATION_IDS`.
-Empty means unavailable for every organization. Configure and verify the intended
-destinations before adding an organization; full tenant property integration is
-separate work. Email invitation delivery is not enabled.
+The legacy property flow uses shared Drive/Sheets/Make destinations. Every active
+organization whose members have `properties.write` can submit to those destinations
+immediately after it is created. The shared-destination design is intentional until
+tenant-specific property integration is introduced. Email invitation delivery is not
+enabled.
 
 Release verification covers repository tests, a rollback-only real PostgreSQL
 migration/onboarding/isolation/outbox rehearsal, and deployment smoke checks.
