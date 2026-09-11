@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import { ActionSelectionPage } from './pages/ActionSelectionPage';
+import { ArrangementsPage } from './pages/ArrangementsPage';
 import { NewPropertyPage } from './pages/NewPropertyPage';
 import { SubmissionSuccessPage } from './pages/SubmissionSuccessPage';
 import { ContractFormPage } from './pages/ContractFormPage';
@@ -22,6 +23,7 @@ function App() {
         <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
         <Route path="/t/:organizationSlug" element={<OrganizationRouteBoundary />}>
           <Route index element={<ActionSelectionPage />} />
+          <Route path="arrangements" element={<ArrangementsPage />} />
           <Route path="settings/organization" element={<OrganizationGovernancePage section="organization" />} />
           <Route path="settings/members" element={<OrganizationGovernancePage section="members" />} />
           <Route path="settings/invitations" element={<OrganizationGovernancePage section="invitations" />} />

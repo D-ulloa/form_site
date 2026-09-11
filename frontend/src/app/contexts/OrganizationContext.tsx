@@ -50,7 +50,9 @@ export function OrganizationRouteBoundary() {
   }, [authentication.status, organizationSlug, queryClient]);
 
   if (authentication.status === 'anonymous') return <Navigate to="/login" replace />;
-  if (authentication.status === 'loading' || state === 'loading' || resolvedSlug !== organizationSlug) return <NeutralShell label="Validando organización…" />;
+  // Switching back can match resolvedSlug while the cleared context is still being revalidated.
+  if (authentication.status === 'loading' || state === 'loading' || resolvedSlug !== organizationSlug
+    || (state === 'ready' && !context)) return <NeutralShell label="Validando organización…" />;
   if (authentication.status === 'unavailable' || state === 'unavailable') return <NeutralShell label="El contexto seguro no está disponible." />;
   if (state === 'denied' || !context) return <Navigate to="/" replace />;
   return <OrganizationContext.Provider value={context}><Outlet /></OrganizationContext.Provider>;

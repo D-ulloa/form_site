@@ -1,6 +1,7 @@
 # SPEC-38 — Gestión de arreglos, navegación principal y página placeholder
 
-- Estado: `pending`
+- Estado: `implemented`
+- Implementación verificada: `2026-09-10`; evidencia en [`TASK-38-01`](./TASK-38-01-main-navigation-placeholder-page.md).
 - Fecha: `2026-08-26`
 - Prioridad: `medium`
 - Autor: `redacted`

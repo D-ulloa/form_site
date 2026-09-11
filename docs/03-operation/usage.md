@@ -9,6 +9,7 @@ Status: 2026-09-01.
 - `/t/:organizationSlug` — organization-scoped action selection and context boundary.
 - `/t/:organizationSlug/properties/new` and `/t/:organizationSlug/properties/success/:submissionId` — tenant property flow.
 - `/t/:organizationSlug/contracts/admin` and `/t/:organizationSlug/contracts/admin/:entryId` — tenant contract administration.
+- `/t/:organizationSlug/arrangements` — protected, empty arrangement placeholder; `Inicio` returns to the same organization's home page.
 - `/contracts/:entryId/user` and `/contracts/:entryId/client` — public hosted role forms.
 - `/properties/*` and `/contracts/admin/*` — legacy frontend paths redirected to `/`.
 
