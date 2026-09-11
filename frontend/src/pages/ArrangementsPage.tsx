@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useOrganization } from '../app/contexts/OrganizationContext.tsx';
+import { ArrangementOrdersDashboard } from '../features/arrangements/components/ArrangementOrdersDashboard.tsx';
+import { AlertInline } from '../components/ui/AlertInline.tsx';
 
 export function ArrangementsPage() {
-  const { organization } = useOrganization();
+  const { organization, epoch, capabilities } = useOrganization();
 
   return (
     <div className="flex flex-1 flex-col bg-[var(--bg-base)]">
@@ -24,7 +26,11 @@ export function ArrangementsPage() {
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16" />
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
+        {capabilities.includes('arrangements.read')
+          ? <ArrangementOrdersDashboard key={`${organization.id}:${epoch}`} />
+          : <AlertInline>No tenés acceso a las órdenes de esta organización.</AlertInline>}
+      </main>
     </div>
   );
 }

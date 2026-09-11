@@ -5,11 +5,11 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 2 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 3 as const;
 
 const capabilities = {
   owner: [
-    'organization.read', 'organization.update_settings', 'organization.request_deletion',
+    'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
     'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
     'members.manage_member', 'members.manage_admin', 'members.transfer_ownership',
     'contracts.read', 'contracts.write', 'contracts.manage', 'contracts.manage_links',
@@ -20,7 +20,7 @@ const capabilities = {
     'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
   ],
   admin: [
-    'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
+    'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
     'members.manage_member', 'contracts.read', 'contracts.write', 'contracts.manage',
     'contracts.manage_links', 'properties.read', 'properties.write', 'properties.manage',
     'contracts.create', 'contracts.update', 'contracts.assign', 'contracts.change_status',
@@ -29,12 +29,12 @@ const capabilities = {
     'files.read', 'integrations.read', 'audit.read',
   ],
   member: [
-    'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
+    'arrangements.read', 'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
     'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',
     'contract_templates.read',
     'properties.write', 'files.read',
   ],
-  viewer: ['organization.read', 'contracts.read', 'contracts.view_history',
+  viewer: ['arrangements.read', 'organization.read', 'contracts.read', 'contracts.view_history',
     'contract_templates.read', 'properties.read'],
 } as const satisfies Record<OrganizationRole, readonly OrganizationCapability[]>;
 

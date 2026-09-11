@@ -4,6 +4,7 @@ export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type RecordVisibility = 'organization' | 'assigned_only';
 
 export type OrganizationCapability =
+  | 'arrangements.read'
   | 'organization.read'
   | 'organization.update_settings'
   | 'organization.request_deletion'

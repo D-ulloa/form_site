@@ -597,3 +597,43 @@ least-privileged functions. Browser rollout responses contain only `feature_key`
 `state`, where state is `disabled` or `certified_enabled`; provider destinations,
 test evidence, exceptions, approvals, thresholds, and certification internals are
 never response fields. Missing, malformed, stale, or mismatched state denies access.
+
+## SPEC-39 arrangement orders
+
+`GET /api/organizations/:organization/arrangements/orders` requires a current
+application session and `arrangements.read` in the resolved organization. The
+capability is shared by owner/admin/member/viewer for active organizations and
+memberships; suspended or removed authority cannot read orders. Slugs and UUIDs
+are resolved through `SessionService`; the browser uses its confirmed UUID.
+
+Optional query parameters: `status` (exact persisted value, 1–64 characters),
+`limit` (1–100, default 25), and `cursor` (opaque signed continuation). Omit
+`status` for all available open statuses. Repeated, unknown, malformed, or
+cross-filter/cross-organization cursor parameters return 400. Valid statuses with
+no available matches return an empty page.
+
+```ts
+{
+  organization_id: string;
+  items: Array<{ id: string; name: string; status: string }>;
+  available_statuses: string[];
+  next_cursor: string | null;
+}
+```
+
+Only persisted `open` and `in_progress` orders are currently available. The
+status catalog covers the complete authorized open set before status filtering
+and pagination. UUID ordering is ascending. Each cursor binds the organization,
+status, limit, ordering, and availability-rule version. SQL applies ownership
+and filtering; the repository asserts every returned row before public projection.
+
+Responses use `Cache-Control: no-store`. Invalid/expired sessions return 401;
+unavailable memberships/organizations use generic 404 and missing capabilities
+use 403. The distributed `arrangements.orders.read` policy allows 120 reads per
+minute per organization/membership; exhaustion returns 429 with `Retry-After`.
+Database, cursor configuration, or limiter outages return safe 503 errors.
+
+The endpoint is read-only. There is no create/update/delete route, and the
+dashboard's `Generar propiedad` button issues no request or navigation. Migration
+and [verification instructions](../06-testing/spec39-arrangements.md) must precede
+hosted activation.

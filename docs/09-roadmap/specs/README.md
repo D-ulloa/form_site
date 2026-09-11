@@ -19,6 +19,7 @@ new direct-child spec folder.
 ## Current direct-child specs
 
 - [`SPEC-38-gestion-de-arreglos-placeholder-navigation`](SPEC-38-gestion-de-arreglos-placeholder-navigation/) — arrangement placeholder and navigation task; implemented and verified 2026-09-10.
+- [`SPEC-39-gestion-de-arreglos-dashboard-ordenes-abiertas`](SPEC-39-gestion-de-arreglos-dashboard-ordenes-abiertas/) — scoped open-order dashboard, SQL status filtering, and inert property action; verified locally 2026-09-10, migration applied to Supabase `multi-tenant` 2026-09-11, application deployment pending.
 - [`SPEC-41-registro-autoservicio-y-creacion-de-organizacion`](SPEC-41-registro-autoservicio-y-creacion-de-organizacion/) — self-service registration and initial-owner organization bootstrap; pending.
 
 ## Identifier note

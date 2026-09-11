@@ -12,6 +12,15 @@ async function mockOrganizationAccess(page: Page, authenticated = true) {
       await route.fulfill({ json: authenticated ? organizationSession : { authenticated: false } });
     } else if (authenticated && request.method() === 'GET' && /^\/api\/organizations\/(azar|solar)\/context$/u.test(path)) {
       await route.fulfill({ json: organizationContext(path.includes('/azar/') ? 'azar' : 'solar') });
+    } else if (authenticated && request.method() === 'GET' && path.endsWith('/arrangements/orders')) {
+      const organizationId = path.split('/')[3];
+      const status = new URL(request.url()).searchParams.get('status');
+      const items = [
+        { id: '50000000-0000-4000-8000-000000000001', name: 'Ventana ' + 'larga'.repeat(30), status: 'open' },
+        { id: '50000000-0000-4000-8000-000000000002', name: 'Puerta', status: 'in_progress' },
+      ];
+      await route.fulfill({ json: { organization_id: organizationId, items: status ? items.filter(item => item.status === status) : items,
+        available_statuses: ['in_progress', 'open'], next_cursor: null } });
     } else {
       unexpectedRequests.push(`${request.method()} ${path}`);
       await route.fulfill({ status: 500, json: { message: 'Unexpected request in arrangement navigation' } });
@@ -37,7 +46,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 320, height: 740 },
 ]) {
-  test(`arrangement navigation and empty shell at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
+  test(`arrangement dashboard navigation, filtering and inert action at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     const { unexpectedRequests, requestedPaths } = await mockOrganizationAccess(page);
     const browserErrors: string[] = [];
@@ -60,13 +69,39 @@ for (const viewport of [
     const home = page.getByRole('link', { name: 'Inicio', exact: true });
     await expect(home).toBeVisible();
     await expect(home).toHaveAttribute('href', '/t/azar');
-    await expect(page.getByRole('main')).toBeEmpty();
-    await expect(page.getByRole('button')).toHaveCount(0);
+    await expect(page.getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Generar propiedad' })).toBeVisible();
     await expect(page.getByRole('link')).toHaveCount(1);
     await expectNoOverflow(page);
     await page.keyboard.press('Tab');
     await expectVisibleFocus(home);
-    await page.screenshot({ path: testInfo.outputPath('arrangements-placeholder.png'), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath('arrangements-dashboard.png'), fullPage: true });
+    await page.keyboard.press('Tab');
+    const filter = page.getByRole('combobox', { name: 'Filtrar por estado' });
+    await expect(filter).toBeFocused();
+    expect(await filter.evaluate(element => getComputedStyle(element).boxShadow !== 'none')).toBe(true);
+    await page.keyboard.press('ArrowDown');
+    await expect(filter).toHaveValue('in_progress');
+    await expect(page.getByRole('listitem')).toHaveCount(1);
+    await expect(page.getByRole('listitem')).toContainText('Puerta');
+    await page.keyboard.press('ArrowUp');
+    await expect(filter).toHaveValue('');
+    await expect(page.getByRole('listitem')).toHaveCount(2);
+    await page.keyboard.press('Tab');
+    const generate = page.getByRole('button', { name: 'Generar propiedad' });
+    await expectVisibleFocus(generate);
+    const requestsBefore = requestedPaths.length;
+    await generate.click();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    await expect(page).toHaveURL('/t/azar/arrangements');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('listitem')).toHaveCount(2);
+    expect(requestedPaths).toHaveLength(requestsBefore);
+    await expectNoOverflow(page);
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expectVisibleFocus(home);
 
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL('/t/azar');
@@ -78,7 +113,7 @@ for (const viewport of [
     await expect(page).toHaveURL('/t/azar');
     await expect(arrangements).toBeVisible();
     expect(unexpectedRequests).toEqual([]);
-    expect(new Set(requestedPaths)).toEqual(new Set(['/api/auth/session', '/api/organizations/azar/context']));
+    expect(new Set(requestedPaths)).toEqual(new Set(['/api/auth/session', '/api/organizations/azar/context', `/api/organizations/${organizationContext('azar').organization.id}/arrangements/orders`]));
     expect(browserErrors).toEqual([]);
   });
 }
@@ -90,7 +125,7 @@ test('direct entry and reload preserve the second organization', async ({ page }
   await expect(home).toHaveAttribute('href', '/t/solar');
   await page.reload();
   await expect(home).toHaveAttribute('href', '/t/solar');
-  await expect(page.getByRole('main')).toBeEmpty();
+  await expect(page.getByRole('listitem')).toHaveCount(2);
   await home.click();
   await expect(page).toHaveURL('/t/solar');
   await page.getByRole('button', { name: 'Gestión de arreglos', exact: true }).click();

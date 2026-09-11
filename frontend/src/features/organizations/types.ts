@@ -1,6 +1,7 @@
 export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer';
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type OrganizationCapability =
+  | 'arrangements.read'
   | 'organization.read'
   | 'organization.update_settings'
   | 'organization.request_deletion'

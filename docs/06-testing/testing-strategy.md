@@ -1,5 +1,10 @@
 # Testing Strategy
 
+SPEC-39 adds protected arrangement-order API/repository tests, real PostgreSQL
+RLS/grant/filter/pagination assertions, React dashboard tests, and desktop/mobile
+browser coverage. See [the reproducible verification setup](./spec39-arrangements.md)
+for local database evidence and the browser → API → PostgREST → PostgreSQL test.
+
 Status: 2026-09-01.
 
 SPEC-27 adds `spec27-identity.test.ts` and

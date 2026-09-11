@@ -31,7 +31,7 @@ import {
 } from '../../src/organizations/validation.js';
 
 test('SPEC-26 role registry is versioned, complete, and denies unknown or inactive authority', () => {
-  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 2);
+  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 3);
   assert.equal(ROLE_CAPABILITIES.owner.has('billing.manage'), true);
   assert.equal(ROLE_CAPABILITIES.admin.has('members.manage_admin'), false);
   assert.equal(ROLE_CAPABILITIES.member.has('contracts.write'), true);
@@ -103,3 +103,15 @@ test('final deletion fails closed for legal holds or any missing cleanup receipt
     completed_receipts: REQUIRED_DELETION_RECEIPTS,
   }));
 });
+
+for (const role of ['owner', 'admin', 'member', 'viewer'] as const) {
+  test(`SPEC-39 ${role} reads arrangements only with active organization authority`, () => {
+    assert.equal(hasOrganizationCapability(role, 'active', 'active', 'arrangements.read'), true);
+    for (const status of ['suspended', 'pending_deletion', 'deleted'] as const) {
+      assert.equal(hasOrganizationCapability(role, 'active', status, 'arrangements.read'), false);
+    }
+    for (const status of ['suspended', 'removed'] as const) {
+      assert.equal(hasOrganizationCapability(role, status, 'active', 'arrangements.read'), false);
+    }
+  });
+}

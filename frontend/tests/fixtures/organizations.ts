@@ -13,7 +13,7 @@ export function organizationContext(slug: OrganizationSlug): Omit<ConfirmedOrgan
       id: `30000000-0000-4000-8000-00000000000${suffix}`, organization_id: organizationId,
       user_id: '10000000-0000-4000-8000-000000000001', role: 'owner', status: 'active', version: 1,
     },
-    capabilities: ['contracts.manage'],
+    capabilities: ['contracts.manage', 'arrangements.read'],
   };
 }
 

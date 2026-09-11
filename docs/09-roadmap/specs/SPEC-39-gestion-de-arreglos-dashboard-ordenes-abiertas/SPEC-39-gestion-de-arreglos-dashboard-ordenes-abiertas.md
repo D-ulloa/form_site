@@ -1,6 +1,7 @@
 # SPEC-39 — Dashboard de gestión de arreglos y órdenes abiertas
 
-- Estado: `pending`
+- Estado: `implemented`
+- Implementación verificada localmente: `2026-09-10`; migración aplicada a la rama Supabase `multi-tenant` el `2026-09-11`; evidencia en [`TASK-39-01`](./TASK-39-01-dashboard-de-ordenes-abiertas.md). Despliegue de aplicación pendiente.
 - Fecha: `2026-09-02`
 - Prioridad: `medium`
 - Autor: `redacted`

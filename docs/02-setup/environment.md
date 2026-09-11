@@ -54,6 +54,14 @@ dumps, export manifests, or repository files. Current platform constructors
 accept injected secrets/adapters. SPEC-27 activates the identity/context boundary;
 domain/provider activation and compatibility removal remain SPEC-34 gates.
 
+SPEC-39 arrangement reads use `PLATFORM_CURSOR_SECRET`, `PLATFORM_RATE_LIMIT_PEPPER`,
+the existing Supabase service credentials, and the SPEC-28 organization limiter RPC.
+Configure both secrets before enabling the dashboard endpoint; absent configuration
+fails closed with HTTP 503. Apply `20260910120000_spec39_arrangement_orders.sql`
+before deploying the API, then deploy the frontend. No new external provider or
+browser secret is required. Disposable test setup is documented in
+[`spec39-arrangements.md`](../06-testing/spec39-arrangements.md).
+
 SPEC-27 identity values (mandatory in production):
 
 - `APP_SESSION_PEPPER` — independent secret-manager value used to HMAC opaque application-session tokens before lookup/storage.

@@ -27,6 +27,8 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
     if (status === 200) data = await resolveContext(path.split('/')[3]);
   } else if (config.method === 'get' && /^\/api\/organizations\/[^/]+\/contracts\/admin\/entries$/u.test(path)) {
     data = { entries: [] };
+  } else if (config.method === 'get' && path.endsWith('/arrangements/orders')) {
+    data = { organization_id: path.split('/')[3], items: [], available_statuses: [], next_cursor: null };
   } else {
     throw new Error(`Unexpected request: ${config.method} ${path}`);
   }
@@ -105,11 +107,10 @@ describe('SPEC-38 arrangement navigation', () => {
     const home = await screen.findByRole('link', { name: 'Inicio' });
     expect(window.location.pathname).toBe(`/t/${slug}/arrangements`);
     expect(home.getAttribute('href')).toBe(`/t/${slug}`);
-    expect(screen.getByRole('main').childElementCount).toBe(0);
-    expect(screen.getByRole('main').textContent).toBe('');
+    expect(await screen.findByText('No hay órdenes abiertas en esta organización.')).toBeTruthy();
     expect(screen.getAllByRole('link')).toHaveLength(1);
-    expect(screen.queryByRole('button')).toBeNull();
-    expect(new Set(requestedPaths())).toEqual(new Set(['/api/auth/session', `/api/organizations/${slug}/context`]));
+    expect(screen.getByRole('button', { name: 'Generar propiedad' })).toBeTruthy();
+    expect(new Set(requestedPaths())).toEqual(new Set(['/api/auth/session', `/api/organizations/${slug}/context`, `/api/organizations/${organizationContext(slug).organization.id}/arrangements/orders`]));
     expect(adapter.mock.calls.every(([config]) => config.method === 'get' && config.withCredentials)).toBe(true);
 
     fireEvent.click(home);
@@ -144,7 +145,7 @@ describe('SPEC-38 arrangement navigation', () => {
 });
 
 describe('SPEC-38 direct route protection', () => {
-  it('waits for confirmed context before rendering the placeholder', async () => {
+  it('waits for confirmed context before rendering the dashboard', async () => {
     const pending = pendingContext();
     resolveContext = () => pending.promise;
     renderApp('/t/solar/arrangements');
@@ -178,14 +179,14 @@ describe('SPEC-38 direct route protection', () => {
     expect(screen.queryByRole('link', { name: 'Inicio' })).toBeNull();
   });
 
-  it('keeps the placeholder hidden when organization context is unavailable', async () => {
+  it('keeps the dashboard hidden when organization context is unavailable', async () => {
     contextStatus = 503;
     renderApp('/t/solar/arrangements');
     expect(await screen.findByText('El contexto seguro no está disponible.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Inicio' })).toBeNull();
   });
 
-  it('keeps the placeholder hidden when session validation fails', async () => {
+  it('keeps the dashboard hidden when session validation fails', async () => {
     sessionUnavailable = true;
     renderApp('/t/solar/arrangements');
     await waitFor(() => expect(adapter.mock.results[0]?.value).toBeTruthy());
