@@ -207,13 +207,13 @@ export function createOrganizationGovernanceRouter(
       const actor = await scopedActor(request, resolver);
       await limitActor(request, actor, 'member.invitation_create');
       const body = request.body as Record<string, unknown>;
-      if (typeof body.email !== 'string' || !['admin', 'member', 'viewer'].includes(String(body.intended_role))) {
+      if (typeof body.email !== 'string' || !['admin', 'member', 'viewer', 'inquilino'].includes(String(body.intended_role))) {
         response.status(400).json({ error: 'INVALID_REQUEST' });
         return;
       }
       const result = await services.organizations.inviteMember({
         email: body.email,
-        intended_role: body.intended_role as 'admin' | 'member' | 'viewer',
+        intended_role: body.intended_role as Exclude<OrganizationRole, 'owner'>,
         inviter_display_name: actor.display_name,
         public_base_url: publicBaseUrl,
       }, actor);
@@ -297,7 +297,7 @@ export function createOrganizationGovernanceRouter(
       secureResponse(response);
       const actor = await scopedActor(request, resolver);
       const role = request.body?.role as Exclude<OrganizationRole, 'owner'>;
-      if (!['admin', 'member', 'viewer'].includes(role) || !Number.isInteger(request.body?.expected_version)) {
+      if (!['admin', 'member', 'viewer', 'inquilino'].includes(role) || !Number.isInteger(request.body?.expected_version)) {
         response.status(400).json({ error: 'INVALID_REQUEST' });
         return;
       }

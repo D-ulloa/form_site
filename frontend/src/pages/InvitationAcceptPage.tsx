@@ -16,7 +16,7 @@ import type { InvitationResolution } from '../features/organizations/types';
 type PageState = 'resolving' | 'ready' | 'accepting' | 'accepted' | 'invalid' | 'unavailable';
 type AuthMode = 'register' | 'login';
 
-const roleLabel = { admin: 'administrador', member: 'miembro', viewer: 'lector' } as const;
+const roleLabel = { admin: 'administrador', member: 'miembro', viewer: 'lector', inquilino: 'inquilino' } as const;
 
 export function InvitationAcceptPage() {
   const authentication = useAuthentication();

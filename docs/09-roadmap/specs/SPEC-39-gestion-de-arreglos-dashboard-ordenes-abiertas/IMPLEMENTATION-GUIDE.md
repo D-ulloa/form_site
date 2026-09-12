@@ -28,11 +28,11 @@ No crear datos de demostración en la migración ni un endpoint para generar fix
 
 Mantener la ruta bajo el límite existente y resolver cada lectura HTTP mediante `sessions.context(request, organizationParam, 'arrangements.read')`. Construir `OrganizationScope` únicamente con `context.organization.id`.
 
-Agregar `arrangements.read` al tipo de capacidad y al registro compartido de `backend/src/organizations/types.ts` y `roleCapabilities.ts`, para los cuatro roles actuales (`owner`, `admin`, `member`, `viewer`). Actualizar el tipo frontend de capacidades, la versión del registro y sus pruebas. Todos esos roles con membresía y organización activas deben poder leer; no exigir administración de contratos ni permiso de escritura. No introducir una matriz paralela de roles. Las sesiones inválidas y las membresías suspendidas, removidas o ajenas siguen siendo rechazadas por el servicio compartido.
+Agregar `arrangements.read` al tipo de capacidad y al registro compartido de `backend/src/organizations/types.ts` y `roleCapabilities.ts`, para los cuatro roles con acceso interno (`owner`, `admin`, `member`, `viewer`). El quinto rol, `inquilino`, fue agregado después por SPEC-40 y conserva exclusivamente `inquilino.home.read`; no recibe `arrangements.read`. Actualizar el tipo frontend de capacidades, la versión del registro y sus pruebas. Los cuatro roles internos con membresía y organización activas deben poder leer; no exigir administración de contratos ni permiso de escritura. No introducir una matriz paralela de roles. Las sesiones inválidas y las membresías suspendidas, removidas o ajenas siguen siendo rechazadas por el servicio compartido.
 
 El estado de membresía y el estado de organización son conceptos diferentes: el endpoint actual de contexto puede resolver organizaciones `suspended` o `pending_deletion` sin otorgar capacidades de datos. Reutilizar `hasOrganizationCapability` evita convertir ese contexto en autorización de lectura: la nueva capacidad queda denegada en esos estados por las reglas ya existentes. Conservar la resolución del shell y mostrar el rechazo de acceso a datos cuando corresponda. El frontend debe comprobar la capacidad confirmada antes de montar la consulta, y la API comprobarla independientemente. No modificar las reglas de suspensión, baja, lectura de organización o exportación.
 
-SPEC-40 todavía está pendiente y define que `inquilino` no puede acceder a arreglos. No implementarlo aquí ni otorgarle `arrangements.read` cuando exista. Si se integra antes o durante SPEC-39, reutilizar su control central de acceso tanto en esta ruta como en la API y agregar el caso de rechazo; una redirección frontend por sí sola no protege los datos.
+SPEC-40 implementa el rol `inquilino` y confirma que no puede acceder a arreglos. La barrera central de organización lo redirige a su Inicio exclusivo antes de montar el dashboard, y la API continúa exigiendo `arrangements.read`; la prueba de autorización debe conservar este rechazo server-side aunque cambie el frontend.
 
 ### Lectura paginada y filtro
 
@@ -131,7 +131,7 @@ Mantener `Inicio`, el filtro y `Generar propiedad` disponibles durante los estad
 | Capa | Archivo propuesto o existente | Casos necesarios |
 |---|---|---|
 | Repositorio/servicio | `backend/tests/unit/spec39-arrangement-orders.test.ts` | Alcance obligatorio, afirmación de filas retornadas, proyección mínima, validación, cursor firmado y ligado a organización/filtro, error seguro |
-| Autorización | `backend/tests/unit/spec26-organization-governance.test.ts` | Capacidad para los cuatro roles en organización activa; denegación por suspensión/baja de membresía u organización; versión del registro y capacidades anteriores preservadas |
+| Autorización | `backend/tests/unit/spec26-organization-governance.test.ts` | Capacidad para los cuatro roles internos en organización activa; denegación para `inquilino` y por suspensión/baja de membresía u organización; versión del registro y capacidades anteriores preservadas |
 | API | `backend/tests/integration/arrangements-routes.test.ts` | Roles actuales, sesión inválida/expirada, membresía no activa/ajena, organización sin capacidad efectiva, slug inválido, rechazo antes de leer órdenes, UUID resuelto en servidor, filtro SQL, límite de tasa y cabeceras privadas |
 | Migración | `backend/tests/integration/spec39-migration-contract.test.ts` | Cuatro columnas, FK, índices, RLS, grants y restricciones de RPC; solo evidencia estructural |
 | Base real | `supabase/tests/spec39_arrangement_orders.sql` | Aplicar la migración en base desechable, insertar fixtures A/B, probar restricciones y denegación de roles browser, y ejecutar la lectura real con alcance A y B |
@@ -159,13 +159,13 @@ npm --prefix frontend run build
 npm --prefix frontend run test:e2e -- tests/e2e/arrangements-navigation.spec.ts
 ```
 
-El repositorio actual no tiene un ejecutor de pruebas PostgreSQL reales. Preparar la base Supabase desechable y documentar el comando de ejecución del SQL nuevo, por ejemplo `psql "$SPEC39_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/spec39_arrangement_orders.sql`, una vez aplicadas las migraciones. No sustituir esa evidencia por tests que solo inspeccionan el texto SQL ni marcar el aislamiento real como comprobado si falta ese entorno.
+La evidencia PostgreSQL real se ejecuta en una base Supabase desechable. Usar el comando `psql` documentado en [`docs/06-testing/spec39-arrangements.md`](../../../06-testing/spec39-arrangements.md) después de aplicar las migraciones. No sustituir esa evidencia por tests que solo inspeccionan el texto SQL ni marcar el aislamiento real como comprobado si falta ese entorno.
 
 ## 6. Entrega y orden de activación
 
 1. Completar migración, repositorio, consulta protegida y pruebas de base/API.
 2. Completar hook, dashboard y adaptación de las pruebas existentes de SPEC-38.
-3. Validar todo el recorrido y actualizar `docs/05-integrations/api-contracts.md`, `docs/06-testing/testing-strategy.md` y la configuración operativa relevante. Registrar el criterio provisional de órdenes abiertas, la ausencia de carga productiva en esta SPEC y los secretos de plataforma que usa la lectura.
+3. Validar todo el recorrido y mantener actualizados `docs/05-integrations/api-contracts.md`, `docs/06-testing/testing-strategy.md`, `docs/06-testing/spec39-arrangements.md` y la configuración operativa relevante. Registrar el criterio provisional de órdenes abiertas, la ausencia de carga productiva en esta SPEC, los secretos de plataforma que usa la lectura y la exclusión de `inquilino` definida por SPEC-40.
 4. Aplicar la migración antes de desplegar el endpoint; desplegar backend antes que el frontend que lo consume. Comprobar `PLATFORM_CURSOR_SECRET`, `PLATFORM_RATE_LIMIT_PEPPER` y la disponibilidad de la persistencia del limitador. No requiere un proveedor externo nuevo.
 5. Registrar evidencia en `TASK-39-01` y cambiar estados solo tras satisfacer los criterios de cierre. Ante rollback, restaurar la versión anterior de aplicación y conservar la migración/datos; no eliminar órdenes ni modificar migraciones aplicadas.
 

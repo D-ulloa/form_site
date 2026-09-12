@@ -54,3 +54,12 @@ Reemplazar el placeholder de `/t/:organizationSlug/arrangements` por un dashboar
 - El dry run posterior del mismo conjunto aislado devuelve `upToDate: true`, sin migraciones, seeds ni roles pendientes.
 
 La migración está aplicada en la rama `multi-tenant`. El despliegue de aplicación sigue pendiente; verificar los secretos existentes de plataforma y publicar backend antes del frontend.
+
+## Regresión posterior — 2026-09-11
+
+Después de SPEC-40, la suite completa conserva el dashboard para los cuatro roles
+internos y cubre el rechazo de `inquilino` antes de montar la página o leer órdenes:
+320 pruebas backend, 180 frontend y 8 pruebas browser de navegación compartidas
+aprobaron. La cobertura de SPEC-40 confirma por separado el acceso aislado al
+endpoint de miembros y la exclusión de arreglos para el inquilino. No se requiere
+una nueva migración de órdenes; el despliegue de aplicación sigue pendiente.

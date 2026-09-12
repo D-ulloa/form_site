@@ -46,7 +46,7 @@ const requests = () => adapter.mock.calls.filter(([config]) => config.url?.endsW
 
 beforeEach(() => {
   authenticated = true;
-  capabilities = ['arrangements.read'];
+  capabilities = ['organization.read', 'arrangements.read'];
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   adapter.mockClear();
   axios.defaults.adapter = adapter;
@@ -141,7 +141,7 @@ describe('SPEC-39 arrangement dashboard', () => {
   });
 
   it('does not query without the confirmed read capability', async () => {
-    capabilities = [];
+    capabilities = ['organization.read'];
     renderDashboard();
     expect(await screen.findByText('No tenés acceso a las órdenes de esta organización.')).toBeTruthy();
     expect(requests()).toHaveLength(0);

@@ -1,12 +1,11 @@
 # Audits
 
-Status: 2026-09-07.
+Status: 2026-09-11.
 
 Use this folder for release readiness, security, architecture, and documentation-freshness audits.
 
-- [2026-09-07 code/documentation audit](2026-09-07-code-documentation-audit.md) — executed checks, functional gaps, documentation drift, dependency snapshot, and verification limits.
-- [2026-09-07 update plan](2026-09-07-update-plan.md) — ordered correctness, dependency, documentation, and validation work arising from the audit.
-- `2026-09-01-documentation-freshness-audit.md` — repository-wide documentation review and unresolved SPEC-38 identifier collision.
+- [2026-09-11 last-three-specs freshness audit](2026-09-11-last-three-specs-freshness-audit.md) — current SPEC-38/39/40 status, corrected documentation drift, and hosted rollout plan.
+- `2026-09-01-documentation-freshness-audit.md` — historical repository-wide documentation review and unresolved SPEC-38 identifier collision.
 
 - `25-containment-inventory-baseline.md` — redacted repository evidence and protected inventory gate.
 - `25-acceptance-traceability.md` — acceptance-criterion implementation and external-evidence map.

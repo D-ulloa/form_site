@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { OrganizationRole } from '../../organizations/types';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   assertGoogleOAuthStorageAvailable, createGoogleOAuthStorage, GoogleOAuthStorageError,
@@ -34,7 +35,7 @@ export interface OrganizationMembershipSummary {
   readonly organization_status: 'active' | 'suspended' | 'pending_deletion' | 'deleted';
   readonly membership_id: string;
   readonly membership_status: 'active' | 'suspended' | 'removed';
-  readonly role: 'owner' | 'admin' | 'member' | 'viewer';
+  readonly role: OrganizationRole;
   readonly capabilities: readonly string[];
 }
 

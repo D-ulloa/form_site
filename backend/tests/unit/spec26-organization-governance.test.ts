@@ -31,7 +31,7 @@ import {
 } from '../../src/organizations/validation.js';
 
 test('SPEC-26 role registry is versioned, complete, and denies unknown or inactive authority', () => {
-  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 3);
+  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 4);
   assert.equal(ROLE_CAPABILITIES.owner.has('billing.manage'), true);
   assert.equal(ROLE_CAPABILITIES.admin.has('members.manage_admin'), false);
   assert.equal(ROLE_CAPABILITIES.member.has('contracts.write'), true);
@@ -40,8 +40,8 @@ test('SPEC-26 role registry is versioned, complete, and denies unknown or inacti
   assert.equal(hasOrganizationCapability('owner', 'removed', 'active', 'organization.read'), false);
   assert.equal(hasOrganizationCapability('admin', 'active', 'suspended', 'organization.read'), false);
   assert.equal(hasOrganizationCapability('owner', 'active', 'suspended', 'organization.export'), true);
-  assert.deepEqual(allowedInvitationRoles('admin'), ['member', 'viewer']);
-  assert.deepEqual(allowedInvitationRoles('owner'), ['admin', 'member', 'viewer']);
+  assert.deepEqual(allowedInvitationRoles('admin'), ['member', 'viewer', 'inquilino']);
+  assert.deepEqual(allowedInvitationRoles('owner'), ['admin', 'member', 'viewer', 'inquilino']);
   assert.equal(canManageMembership('admin', 'admin'), false);
   assert.equal(canManageMembership('admin', 'viewer'), true);
 });

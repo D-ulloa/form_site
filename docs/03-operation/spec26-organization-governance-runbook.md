@@ -36,6 +36,24 @@ wrong-account, and unknown tokens as the same public invalid result. Provider
 selection is unresolved, so production sending stays disabled and tests use the
 fake adapter.
 
+## SPEC-40 inquilino assignment
+
+SPEC-40 adds `inquilino` to membership roles and invitation targets, independently
+of active/suspended/removed status. Owner/admin can select Inquilino in the
+invitation form or use the existing versioned membership PATCH. Admin cannot
+manage owner/admin targets or elevate a target to admin. Self-role changes and
+last-owner protection remain enforced; no role-editing UI was added.
+
+The role has only `inquilino.home.read`. Member-list access now enforces
+`members.read` in the service and owner/admin authority in SQL; member/viewer
+cannot use the former unrestricted active-membership list path. Invitation
+listing also explicitly checks its existing `members.invite` capability.
+
+Deploy migration `20260911120000_spec40_inquilino_role.sql` and compatible
+backend/frontend before assigning this role. Once assigned, rollback must retain
+the role and its schema support. Do not recover by granting member/viewer access.
+See [local verification and rollout status](../06-testing/spec40-inquilino.md).
+
 ## Last-owner recovery
 
 Never bypass `LAST_OWNER_REQUIRED` by editing membership rows. Confirm the
@@ -61,4 +79,3 @@ Roll back application code while retaining additive governance tables. Do not
 drop organization, membership, invitation, event, request, export, or hold
 history. Correct schema through a forward migration. Reapply deletion
 tombstones before exposing a restored database.
-

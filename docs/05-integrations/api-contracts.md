@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 ## Shared SPEC-28 API conventions
 
@@ -324,6 +324,37 @@ UUID, current role/state, and effective capability summary. Governance and API
 key endpoints use UUID paths and repeat this server-side context check. Raw API
 keys are returned once at issuance; later reads expose metadata only. API-key
 issuance requires `integrations.manage` and an `aal2` session.
+
+SPEC-40 narrows the context response to these browser fields:
+
+| Field | Projection |
+| --- | --- |
+| `organization` | `id`, canonical `slug`, `display_name`, `status` |
+| `membership` | `id`, `organization_id`, `user_id`, `role`, `status`, `version` |
+| `capabilities` | Effective capability strings for this membership/organization |
+| `home_destination` | `organization`, `inquilino`, or `null`, computed by the server |
+| `context_epoch_hint` | Existing session context identifier |
+
+The new membership role `inquilino` has exactly `inquilino.home.read` in capability
+registry version 4. An active inquilino in an active organization receives
+`home_destination: "inquilino"`; internal roles with `organization.read` receive
+`"organization"`; a context with no authorized home receives null. Missing/inactive
+memberships retain the existing rejection behavior. The UI builds
+`/t/:organizationSlug/inquilino` from the confirmed slug, never a caller-supplied URL.
+
+Owner/admin invitation creation and the existing versioned
+`PATCH /api/organizations/:organizationId/members/:userId` accept `inquilino`.
+The PATCH still requires `expected_version` and authorized actor/target roles;
+self-changes and admin escalation remain forbidden. New-account activation uses
+the valid invitation handoff at `POST /api/invitations/register`, followed by
+explicit acceptance. Public registration and normal login cannot self-assign the
+inquilino role. Subsequent access uses normal login without another invitation.
+
+`GET /api/organizations/:organizationId/members` requires `members.read`, enforced
+in both service and SQL as owner/admin authority in an active organization.
+Invitation listing requires `members.invite`. Inquilinos receive no internal
+product or governance capability and are rejected before protected reads/mutations.
+No product API was added for the empty Inicio page.
 
 ## Legacy SPEC-09 contract endpoint authorization
 

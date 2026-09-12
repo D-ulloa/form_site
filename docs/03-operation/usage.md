@@ -1,6 +1,6 @@
 # Usage
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 ## Frontend user flow
 
@@ -9,7 +9,8 @@ Status: 2026-09-01.
 - `/t/:organizationSlug` — organization-scoped action selection and context boundary.
 - `/t/:organizationSlug/properties/new` and `/t/:organizationSlug/properties/success/:submissionId` — tenant property flow.
 - `/t/:organizationSlug/contracts/admin` and `/t/:organizationSlug/contracts/admin/:entryId` — tenant contract administration.
-- `/t/:organizationSlug/arrangements` — protected, empty arrangement placeholder; `Inicio` returns to the same organization's home page.
+- `/t/:organizationSlug/arrangements` — protected dashboard of persisted open arrangement orders; `Inicio` returns to the same organization's home page.
+- `/t/:organizationSlug/inquilino` — exclusive, empty Inicio for an active invitation-created `inquilino` membership; it exposes only session identification and logout.
 - `/contracts/:entryId/user` and `/contracts/:entryId/client` — public hosted role forms.
 - `/properties/*` and `/contracts/admin/*` — legacy frontend paths redirected to `/`.
 
@@ -20,6 +21,11 @@ The main workflow is:
 3. Complete the property fields and upload media files.
 4. Submit the form.
 5. Review the result page and any failure details.
+
+An invited inquilino opens the invitation link to register or authenticate and
+explicitly accept membership. Later visits use `/login`, then the organization
+selector, which sends the active membership to its exclusive Inicio. The public
+registration flow creates a new organization owner and cannot self-assign this role.
 
 The Contract Generation workflow is:
 
@@ -53,6 +59,8 @@ The Contract Generation workflow is:
 - `POST /api/auth/google/session` — exchanges a verified existing Supabase Google session for the same application cookie.
 - `GET /api/auth/session` and `POST /api/auth/logout` — inspect or close the application session.
 - `GET /api/organizations/:organization/context` — resolve the authenticated organization context and capabilities.
+- `GET /api/organizations/:organization/members` and invitation governance routes — owner/admin membership and invitation operations, including the `inquilino` invitation target.
+- `PATCH /api/organizations/:organizationId/members/:userId` — versioned role change, including `inquilino`, subject to actor/target and last-owner controls.
 - `GET/POST/DELETE /api/organizations/:organizationId/api-keys...` — organization API-key management under governance authorization.
 
 Legacy SPEC-09 compatibility endpoints:

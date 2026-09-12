@@ -1,9 +1,10 @@
-export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquilino';
 export type OrganizationStatus = 'active' | 'suspended' | 'pending_deletion' | 'deleted';
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type RecordVisibility = 'organization' | 'assigned_only';
 
 export type OrganizationCapability =
+  | 'inquilino.home.read'
   | 'arrangements.read'
   | 'organization.read'
   | 'organization.update_settings'

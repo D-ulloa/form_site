@@ -4,6 +4,7 @@ import type {
   ManualInvitationReceipt,
   OrganizationInvitationSummary,
   OrganizationMemberSummary,
+  OrganizationRole,
 } from '../types';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
@@ -20,7 +21,7 @@ api.interceptors.request.use((config) => {
 
 export async function createOrganizationInvitation(
   organizationId: string,
-  input: { readonly email: string; readonly intended_role: 'admin' | 'member' | 'viewer' },
+  input: { readonly email: string; readonly intended_role: Exclude<OrganizationRole, 'owner'> },
 ): Promise<ManualInvitationReceipt> {
   const response = await api.post(`/organizations/${organizationId}/invitations`, input);
   return response.data as ManualInvitationReceipt;

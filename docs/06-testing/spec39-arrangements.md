@@ -6,6 +6,11 @@ and rate-limit storage use controlled test adapters in the browser harness; the
 production session service and capability checks execute normally. This is local
 implementation evidence, not a production migration or hosted Supabase certification.
 
+After SPEC-40, the current regression suite still exercises this dashboard for the
+four internal roles (`owner`, `admin`, `member`, `viewer`) and explicitly keeps
+`inquilino` outside `arrangements.read`. The central organization boundary redirects
+an inquilino before the dashboard mounts; the API remains independently protected.
+
 ## Automated checks
 
 Run from the repository root:

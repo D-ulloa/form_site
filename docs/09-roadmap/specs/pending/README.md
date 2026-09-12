@@ -1,6 +1,6 @@
 # Pending Specs
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 This is a legacy index for proposed or approved work that has not yet been
 completed. New specs use direct-child folders under `docs/09-roadmap/specs/`;
@@ -19,6 +19,8 @@ SPEC-37 has a disabled repository implementation and remains pending disposable
 database/concurrency tests, real-provider/domain/webhook certification, end-to-end
 password/Google activation, Azar/Solar isolation, and named approvals.
 
-The direct-child SPEC-38 arrangement placeholder is indexed in
-`../README.md`; its number currently collides with the shared Make-delivery
-implementation identifier used by the migration, backend worker, and tests.
+The direct-child SPEC-38, SPEC-39, and SPEC-40 implementations are indexed in
+`../README.md` and are not pending-spec documents. SPEC-38's number still collides
+with the shared Make-delivery implementation identifier used by its migration,
+backend worker, and tests. Keep that collision historical and use a new identifier
+for future work.

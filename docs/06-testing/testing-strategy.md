@@ -5,7 +5,18 @@ RLS/grant/filter/pagination assertions, React dashboard tests, and desktop/mobil
 browser coverage. See [the reproducible verification setup](./spec39-arrangements.md)
 for local database evidence and the browser → API → PostgREST → PostgreSQL test.
 
-Status: 2026-09-01.
+SPEC-40 adds the invitation-only `inquilino` role, server-computed exclusive-home
+destination, central route exclusion, lifecycle revalidation, and the
+[invitation-to-login verification setup](./spec40-inquilino.md).
+
+Status: 2026-09-11.
+
+The current local run passed 320 backend tests, 180 frontend tests, frontend lint
+and builds, and eight mocked browser navigation tests. A separate disposable
+PostgreSQL/PostgREST browser run passed the complete SPEC-40 invitation →
+registration → acceptance → normal-login → suspension flow. These results are
+repository evidence; hosted deployment, provider certification, and production
+approval gates remain separate.
 
 SPEC-27 adds `spec27-identity.test.ts` and
 `spec27-migration-contract.test.ts` for 256-bit opaque credentials, independent

@@ -5,9 +5,10 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 3 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 4 as const;
 
 const capabilities = {
+  inquilino: ['inquilino.home.read'],
   owner: [
     'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
     'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
@@ -43,10 +44,11 @@ export const ROLE_CAPABILITIES: Readonly<Record<OrganizationRole, ReadonlySet<Or
   admin: new Set(capabilities.admin),
   member: new Set(capabilities.member),
   viewer: new Set(capabilities.viewer),
+  inquilino: new Set(capabilities.inquilino),
 };
 
 export function isOrganizationRole(value: string): value is OrganizationRole {
-  return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer';
+  return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer' || value === 'inquilino';
 }
 
 export function hasOrganizationCapability(
@@ -66,8 +68,8 @@ export function hasOrganizationCapability(
 }
 
 export function allowedInvitationRoles(role: string): readonly Exclude<OrganizationRole, 'owner'>[] {
-  if (role === 'owner') return ['admin', 'member', 'viewer'];
-  if (role === 'admin') return ['member', 'viewer'];
+  if (role === 'owner') return ['admin', 'member', 'viewer', 'inquilino'];
+  if (role === 'admin') return ['member', 'viewer', 'inquilino'];
   return [];
 }
 
@@ -75,5 +77,5 @@ export function canManageMembership(
   actorRole: string,
   targetRole: OrganizationRole,
 ): boolean {
-  return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer'));
+  return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer' || targetRole === 'inquilino'));
 }

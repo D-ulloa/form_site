@@ -6,6 +6,7 @@ import type {
   OrganizationContextSummary,
   OrganizationInvitationSummary,
   OrganizationMemberSummary,
+  OrganizationRole,
   ManualInvitationReceipt,
 } from '../types';
 
@@ -17,7 +18,7 @@ interface OrganizationGovernancePanelProps {
   members?: readonly OrganizationMemberSummary[];
   invitations?: readonly OrganizationInvitationSummary[];
   loadError?: string;
-  onInvite?: (input: { email: string; intended_role: 'admin' | 'member' | 'viewer' }) => Promise<ManualInvitationReceipt>;
+  onInvite?: (input: { email: string; intended_role: Exclude<OrganizationRole, 'owner'> }) => Promise<ManualInvitationReceipt>;
   onRotate?: (invitationId: string) => Promise<ManualInvitationReceipt>;
   onResend?: (invitationId: string) => Promise<void>;
   onRevoke?: (invitationId: string) => Promise<void>;
@@ -39,7 +40,7 @@ export function OrganizationGovernancePanel({
   onDeletionRequest,
 }: OrganizationGovernancePanelProps) {
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [role, setRole] = useState<Exclude<OrganizationRole, 'owner'>>('member');
   const [status, setStatus] = useState('');
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const can = (capability: OrganizationContextSummary['capabilities'][number]) => context.capabilities.includes(capability);
@@ -124,7 +125,7 @@ export function OrganizationGovernancePanel({
                 {members.map((member) => (
                   <li key={member.user_id} className="surface rounded-xl p-4 flex justify-between gap-4">
                     <span><strong className="block">{member.display_name}</strong><span className="text-sm text-slate-400">{member.email_masked}</span></span>
-                    <span className="text-right"><span className="block">{member.role}</span><span className="text-sm text-slate-400">{member.status}</span></span>
+                    <span className="text-right"><span className="block">{member.role === 'inquilino' ? 'Inquilino' : member.role}</span><span className="text-sm text-slate-400">{member.status}</span></span>
                   </li>
                 ))}
               </ul>
@@ -143,6 +144,7 @@ export function OrganizationGovernancePanel({
                 <select className="field-input mt-1.5" value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
                   {context.role === 'owner' && <option value="admin">Administrador</option>}
                   <option value="member">Miembro</option><option value="viewer">Lector</option>
+                  <option value="inquilino">Inquilino</option>
                 </select>
               </label>
               <Button type="submit" disabled={!onInvite}>Crear enlace</Button>
@@ -158,7 +160,7 @@ export function OrganizationGovernancePanel({
           <ul className="mt-4 space-y-3">
             {invitations.map((invitation) => (
               <li key={invitation.invitation_id} className="surface rounded-xl p-4 flex flex-wrap justify-between gap-3">
-                <span>{invitation.email_masked}<small className="block text-slate-400">{invitation.intended_role} · {invitation.status} · entrega: {invitation.delivery_state}</small></span>
+                <span>{invitation.email_masked}<small className="block text-slate-400">{invitation.intended_role === 'inquilino' ? 'Inquilino' : invitation.intended_role} · {invitation.status} · entrega: {invitation.delivery_state}</small></span>
                 {invitation.next_action !== 'none' && <span className="flex gap-2">
                   {invitation.next_action === 'rotate_or_revoke'
                     ? <Button variant="secondary" disabled={!onRotate} onClick={() => void rotateLink(invitation.invitation_id)}>Generar enlace nuevo</Button>

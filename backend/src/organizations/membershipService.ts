@@ -1,5 +1,5 @@
 import { OrganizationDomainError } from './errors.js';
-import { canManageMembership, hasOrganizationCapability } from './roleCapabilities.js';
+import { allowedInvitationRoles, canManageMembership, hasOrganizationCapability } from './roleCapabilities.js';
 import { assertActiveOwnerRemains, assertMembershipTransition } from './stateMachines.js';
 import type {
   OrganizationActorContext,
@@ -56,6 +56,9 @@ export class MembershipService {
     actor: OrganizationActorContext,
   ): Promise<OrganizationMembershipRecord> {
     this.assertWritableContext(actor);
+    if (!allowedInvitationRoles(actor.membership.role).includes(nextRole)) {
+      throw new OrganizationDomainError('FORBIDDEN');
+    }
     const target = await this.repository.getMembership(actor.organization.id, targetUserId);
     if (!target) throw new OrganizationDomainError('NOT_FOUND');
     if (!canManageMembership(actor.membership.role, target.role) || target.user_id === actor.user_id) {

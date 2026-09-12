@@ -1,16 +1,19 @@
 # Project Overview
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 SPEC-25 still contains production in the Azar-only boundary: no real Solar or
 second-organization data may enter the data plane, providers, logs, exports, or
 backups. Tenant-scoped routes and schema now exist in the repository, but no
 second production organization is authorized.
 
-This repository implements two internal workflows in an admin-style web application:
+This repository implements internal workflows and organization-scoped access in an
+admin-style web application:
 
 - Property creation, including media, Google Drive, Google Sheets, and Make integration.
 - Two-party Contract Generation with hosted user/client forms and Supabase persistence.
+- Organization-scoped arrangement-order tracking (SPEC-38/39).
+- Invitation-only inquilino membership with an exclusive empty Inicio (SPEC-40).
 
 ## Purpose
 
@@ -34,6 +37,7 @@ This repository implements two internal workflows in an admin-style web applicat
 - The backend is responsible for independent payload validation, Supabase contract persistence, role-token authorization, Google Drive folder creation, property Sheet appends, Make webhook dispatch, and auditability.
 - No edit workflow is implemented in v1: submissions create new property assets only.
 - Contract access uses stable per-entry administration links plus per-role links whose raw tokens are returned once and stored only as HMAC hashes. Main-page access requires a pre-reviewed Azar grant; registration and login no longer create grants.
+- Organization authority comes from the server-validated session context and membership. `owner`, `admin`, `member`, and `viewer` can use their existing capabilities; `inquilino` receives only `inquilino.home.read` and is routed to its exclusive home.
 
 ## Property flow
 
@@ -51,6 +55,21 @@ This repository implements two internal workflows in an admin-style web applicat
 8. The backend sends the property payload to Make synchronously and records the
    individual integration outcomes.
 9. The user sees `/t/:organizationSlug/properties/success/:submissionId`.
+
+## Arrangement and inquilino flows
+
+The organization action page includes `Gestión de arreglos`, which opens the
+protected `/t/:organizationSlug/arrangements` dashboard. SPEC-39 reads only
+persisted open orders (`open` and `in_progress`), filters by status, paginates by
+signed UUID cursor, and leaves `Generar propiedad` inert.
+
+An owner/admin invites an inquilino through the existing invitation flow. A new
+account registers or activates from the invitation and explicitly accepts before a
+membership exists. Subsequent visits use `/login` and the organization selector;
+the validated context sends the active membership to
+`/t/:organizationSlug/inquilino`, whose content is only `Inicio`, session identity,
+and logout. Public registration never grants this role, and suspension/removal is
+revalidated on navigation, reload, or return to the tab.
 
 ## Contract flow
 
@@ -81,6 +100,7 @@ This repository implements two internal workflows in an admin-style web applicat
 - `frontend/src/pages/`: action selection, property forms/results, hosted contract forms, and contract administration.
 - `frontend/src/features/properties/`: property form schema, hooks, services, components, and payload mapper.
 - `frontend/src/features/contracts/`: entry creation, role schema types, hosted-form rendering, validation, and contract API calls.
+- `frontend/src/features/arrangements/`: open-order types, scoped API, cursor-aware query, and dashboard components.
 - `frontend/src/components/ui/`: shared UI primitives used across pages.
 - `backend/src/routes/properties.ts`: HTTP route handling and multipart parsing.
 - `backend/src/routes/contractEntries.ts`: current entry, role-form, submission, and admin endpoints.
@@ -89,6 +109,7 @@ This repository implements two internal workflows in an admin-style web applicat
 - `backend/src/services/`: contract entry/token persistence, submission orchestration, validation, Drive/Sheets/Make integration, and log persistence.
 - `backend/src/integrations/`: organization-scoped contract Make payload loading, SSRF-safe dispatch, outbox claiming, and the standalone worker.
 - `backend/src/identity/` and `backend/src/organizations/`: session, context, governance, and provisioning boundaries.
+- `backend/src/arrangements/` and `backend/src/identity/organizationHome.ts`: organization-scoped order reads and the minimal server-computed home projection.
 - `backend/logs/`: property and legacy SPEC-09 JSON records; current contract records live in Supabase.
 - `backend/src/migration/`: SPEC-34 manifest validation, quarantine-first inventory decisions, release certification, and Solar rollout gates.
 - `frontend/src/features/migration/`: safe certification-bound Solar feature state; it contains no provider or migration evidence.

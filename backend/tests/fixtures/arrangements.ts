@@ -70,5 +70,5 @@ export function arrangementHarness(repository?: ArrangementOrderRepository) {
   app.use('/api/organizations/:organization/arrangements', createArrangementsRouter(sessions, environment, {
     list: createListArrangementOrders(orders, environment), limiter,
   }));
-  return { app, state, sessions, cookie: `form_site_session=${material.raw_token}` };
+  return { app, state, sessions, identity, material, cookie: `form_site_session=${material.raw_token}` };
 }

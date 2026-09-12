@@ -39,6 +39,19 @@ immutable UUID to the repository. Unknown or foreign identifiers return generic
 `404`. The frontend cancels requests, advances its epoch, clears visible tenant
 state, validates the destination, and renders only after confirmation.
 
+SPEC-40 makes the context response a minimal projection and adds server-computed
+`home_destination` (`organization`, `inquilino`, or null). The frontend constructs
+the route from the confirmed slug and checks the matching effective capability
+before mounting pages. Session membership summaries only populate the selector.
+An inquilino cannot mount the general home or any internal organization page.
+
+Context is revalidated on navigation, reload, session refresh/change, and returning
+to the tab (focus/visibility). While validating, the page is hidden. A same-page
+focus check preserves unfinished forms only when the confirmed authority is
+unchanged; denial or changed authority discards local state and query data.
+There is no polling: an idle open Inicio may remain visible until the next event,
+while every subsequent protected API request independently checks current access.
+
 Legacy global business routes remain Azar-only compatibility surfaces until
 SPEC-34. They must never be treated as proof that Solar is enabled. Production
 cutover invalidates old signed cookies, removes global keys/headers/admin

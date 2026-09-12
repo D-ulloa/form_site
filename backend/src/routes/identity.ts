@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { IdentityRepository } from '../identity/identityRepository.js';
 import { SessionService } from '../identity/sessionService.js';
+import { publicOrganizationContext } from '../identity/organizationHome.js';
 import {
   IdentityAccessError, IdentityConfigurationError, assertCsrf, assertMutationOrigin,
   clearSessionCookies, serializeSessionCookies, invitationHandoffCookiePath,
@@ -349,8 +350,7 @@ export function createOrganizationContextRouter(
   router.get('/organizations/:organization/context', async (request, response) => {
     try {
       const context = await service.context(request, String(request.params.organization ?? ''));
-      response.json({ organization: context.organization, membership: context.membership,
-        capabilities: [...context.capabilities], context_epoch_hint: context.session_id });
+      response.json(publicOrganizationContext(context));
     } catch (error) { safeError(response, error); }
   });
 

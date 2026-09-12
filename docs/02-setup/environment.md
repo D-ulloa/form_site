@@ -1,6 +1,6 @@
 # Environment
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 ## Backend environment variables
 
@@ -61,6 +61,11 @@ fails closed with HTTP 503. Apply `20260910120000_spec39_arrangement_orders.sql`
 before deploying the API, then deploy the frontend. No new external provider or
 browser secret is required. Disposable test setup is documented in
 [`spec39-arrangements.md`](../06-testing/spec39-arrangements.md).
+
+SPEC-40 adds no environment variables. Its invitation-only `inquilino` role uses
+the existing application-session, invitation-handoff, CSRF, and organization
+capability configuration. Keep the role migration and compatible backend/frontend
+deployment ordered before selecting Inquilino in production.
 
 SPEC-27 identity values (mandatory in production):
 

@@ -38,3 +38,11 @@ Agregar la acción `Gestión de arreglos` a la navegación principal de la organ
 - `cd frontend && npm run test:e2e -- tests/e2e/arrangements-navigation.spec.ts`: 5 pruebas aprobadas con sesión y contexto simulados; sin escrituras a servicios externos.
 - Viewports comprobados: 1280×800, 390×844 y 320×740. Sin overflow horizontal ni errores de consola en el flujo autenticado; se verificaron foco visible, activación por teclado, `Inicio`, historial del navegador y recarga directa. Las capturas `organization-home.png` y `arrangements-placeholder.png` se generan en `frontend/test-results/` por viewport.
 - La navegación del placeholder solo realiza las solicitudes existentes de sesión/contexto. El diff de implementación se limita a frontend, pruebas y documentación; no introduce servicios, datos, permisos ni consultas del dominio de arreglos.
+
+## Evolución posterior
+
+SPEC-39 reemplazó el contenido vacío de esta ruta por el dashboard de órdenes
+abiertas, conservando el shell, el acceso y `Inicio`. SPEC-40 añadió una barrera
+central que mantiene la ruta fuera del alcance de un inquilino. Por eso los criterios
+anteriores describen el estado histórico del placeholder; las pruebas actuales se
+mantienen como regresión de navegación y shell en [`spec39-arrangements.md`](../../../06-testing/spec39-arrangements.md).

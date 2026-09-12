@@ -16,6 +16,15 @@ the cookie-bound handoff. Confirmed or previously used identities cannot be over
 and must log in with their existing password or Google account. Acceptance still checks
 the exact authenticated email and applies only the role stored by the inviter.
 
+SPEC-40 adds Inquilino to owner/admin invitation options. A new inquilino account
+must register/activate through a valid organization invitation handoff; registration
+alone creates no membership. After explicit acceptance, ordinary visits use
+`/login` (also linked from `/`) and the organization selector, then
+`/t/:organizationSlug/inquilino`. The invitation is not required again. An existing
+account logs in and accepts its invitation without registering another account.
+Public SPEC-41 registration creates a new organization owner and cannot enroll an
+inquilino in an existing organization. See [SPEC-40 verification](../06-testing/spec40-inquilino.md).
+
 ## Enablement gate
 
 Keep `INVITATION_ROUTES_ENABLED=false` until migrations 1–24 apply cleanly to an empty

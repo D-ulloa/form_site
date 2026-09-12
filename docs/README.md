@@ -1,6 +1,6 @@
 # Documentation Index
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 This repository uses a structured documentation layout under `docs/`.
 The top-level files are intentionally minimized in favor of numbered folders that preserve reading order.
@@ -38,10 +38,12 @@ The top-level files are intentionally minimized in favor of numbered folders tha
   - `decisions/README.md`
 
 The roadmap includes staged repository implementations for SPEC-25 through SPEC-37,
-plus the current SPEC-38 shared Make-delivery migration and a separate direct-child
-SPEC-38 arrangement placeholder. Their status records distinguish mounted behavior
-from disabled/staged code, external approvals, real-database/provider/recovery
-evidence, and the block on Solar real data.
+the direct-child SPEC-38/39/40 feature work, and the pending SPEC-41 onboarding work.
+SPEC-38 also names the shared Make-delivery migration, backend worker, and integration
+tests; the collision is retained as historical context and must not receive new
+dependencies. Status records distinguish mounted behavior from disabled/staged code,
+external approvals, real-database/provider/recovery evidence, and the block on Solar
+real data.
 
 
 ## Existing project docs
@@ -58,7 +60,9 @@ evidence, and the block on Solar real data.
 - `docs/09-roadmap/specs/completed/18-SPEC-contract-generation-reworked.md` — implemented IPC/ICL copy, simplified upload guidance, and editable feedback.
 - `docs/09-roadmap/specs/completed/19-SPEC-contract-generation-reworked.md` — implemented Supabase email/password authentication and immediate admin onboarding while retaining Google OAuth as an alternate login.
 - `docs/09-roadmap/specs/research/09-SPEC-contract-generation.md` — superseded Google Forms/Sheets workflow retained for history.
-- [`docs/09-roadmap/specs/SPEC-38-gestion-de-arreglos-placeholder-navigation`](09-roadmap/specs/SPEC-38-gestion-de-arreglos-placeholder-navigation/) — current direct-child spec folder example; its arrangement is pending review.
+- [`docs/09-roadmap/specs/SPEC-38-gestion-de-arreglos-placeholder-navigation`](09-roadmap/specs/SPEC-38-gestion-de-arreglos-placeholder-navigation/) — implemented arrangement navigation and original placeholder, superseded by the SPEC-39 dashboard.
+- [`docs/09-roadmap/specs/SPEC-39-gestion-de-arreglos-dashboard-ordenes-abiertas`](09-roadmap/specs/SPEC-39-gestion-de-arreglos-dashboard-ordenes-abiertas/) — implemented scoped open-order dashboard; hosted application rollout pending.
+- [`docs/09-roadmap/specs/SPEC-40-rol-inquilino-inicio-exclusivo`](09-roadmap/specs/SPEC-40-rol-inquilino-inicio-exclusivo/) — implemented invitation-only inquilino role and exclusive Inicio; migration applied to Supabase development branch `multi-tenant` 2026-09-11; application rollout pending.
 - `docs/03-operation/spec32-integrations-outbox-runbook.md` — current organization-scoped outbox and contract Make-delivery operation.
 
 ## How to use this folder

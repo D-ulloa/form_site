@@ -13,6 +13,7 @@ import type {
   InvitationIdentityContext,
   OrganizationActorContext,
   OrganizationRecord,
+  OrganizationRole,
   PlatformActorContext,
   PublicBranding,
 } from './types.js';
@@ -43,7 +44,7 @@ export interface CreateOrganizationInput {
 
 export interface InviteMemberInput {
   readonly email: string;
-  readonly intended_role: 'admin' | 'member' | 'viewer';
+  readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly inviter_display_name: string;
   readonly public_base_url: string;
 }

@@ -8,6 +8,7 @@ import type {
   InvitationIdentityContext,
   OrganizationMembershipRecord,
   OrganizationRecord,
+  OrganizationRole,
   OrganizationSettingsRecord,
   PlatformActorContext,
 } from './types.js';
@@ -30,7 +31,7 @@ export interface CreateInvitationPersistenceInput {
   readonly invitation_id: string;
   readonly organization_id: string;
   readonly email_normalized: string;
-  readonly intended_role: 'admin' | 'member' | 'viewer';
+  readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly token_hash: string;
   readonly token_prefix: string;
   readonly expires_at: string;
@@ -44,7 +45,7 @@ export interface InvitationRecord {
   readonly id: string;
   readonly organization_id: string;
   readonly email_normalized: string;
-  readonly intended_role: 'admin' | 'member' | 'viewer';
+  readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced';
   readonly expires_at: string;
   readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
@@ -56,7 +57,7 @@ export interface InvitationRecord {
 export interface InvitationResolutionRecord {
   readonly organization_display_name: string;
   readonly email_masked: string;
-  readonly intended_role: 'admin' | 'member' | 'viewer';
+  readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly expires_at: string;
 }
 

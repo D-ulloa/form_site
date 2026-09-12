@@ -11,6 +11,8 @@ import { InvitationAcceptPage } from './pages/InvitationAcceptPage';
 import { OrganizationGovernancePage } from './pages/OrganizationGovernancePage';
 import { AuthenticationProvider } from './app/contexts/AuthenticationContext';
 import { OrganizationRouteBoundary } from './app/contexts/OrganizationContext';
+import { OrganizationAccessBoundary } from './app/OrganizationAccessBoundary';
+import { InquilinoHomePage } from './pages/InquilinoHomePage';
 
 function App() {
   return (
@@ -22,16 +24,21 @@ function App() {
         <Route path="/auth/callback" element={<GoogleAuthCallbackPage />} />
         <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
         <Route path="/t/:organizationSlug" element={<OrganizationRouteBoundary />}>
-          <Route index element={<ActionSelectionPage />} />
-          <Route path="arrangements" element={<ArrangementsPage />} />
-          <Route path="settings/organization" element={<OrganizationGovernancePage section="organization" />} />
-          <Route path="settings/members" element={<OrganizationGovernancePage section="members" />} />
-          <Route path="settings/invitations" element={<OrganizationGovernancePage section="invitations" />} />
-          <Route path="settings/lifecycle" element={<OrganizationGovernancePage section="lifecycle" />} />
-          <Route path="properties/new" element={<NewPropertyPage />} />
-          <Route path="properties/success/:submissionId" element={<SubmissionSuccessPage />} />
-          <Route path="contracts/admin" element={<ContractAdminPage />} />
-          <Route path="contracts/admin/:entryId" element={<ContractAdminPage />} />
+          <Route element={<OrganizationAccessBoundary home="inquilino" />}>
+            <Route path="inquilino" element={<InquilinoHomePage />} />
+          </Route>
+          <Route element={<OrganizationAccessBoundary home="organization" />}>
+            <Route index element={<ActionSelectionPage />} />
+            <Route path="arrangements" element={<ArrangementsPage />} />
+            <Route path="settings/organization" element={<OrganizationGovernancePage section="organization" />} />
+            <Route path="settings/members" element={<OrganizationGovernancePage section="members" />} />
+            <Route path="settings/invitations" element={<OrganizationGovernancePage section="invitations" />} />
+            <Route path="settings/lifecycle" element={<OrganizationGovernancePage section="lifecycle" />} />
+            <Route path="properties/new" element={<NewPropertyPage />} />
+            <Route path="properties/success/:submissionId" element={<SubmissionSuccessPage />} />
+            <Route path="contracts/admin" element={<ContractAdminPage />} />
+            <Route path="contracts/admin/:entryId" element={<ContractAdminPage />} />
+          </Route>
         </Route>
         <Route path="/properties/*" element={<Navigate to="/" replace />} />
         <Route path="/contracts/admin/*" element={<Navigate to="/" replace />} />

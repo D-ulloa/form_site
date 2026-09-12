@@ -1,3 +1,4 @@
+import { publicOrganizationContext } from '../../src/identity/organizationHome.js';
 /** Disposable-database browser harness. Never imported by the production server. */
 import { createHmac } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -32,7 +33,7 @@ app.get('/api/auth/session', async (request, response) => {
 app.get('/api/organizations/:organization/context', async (request, response) => {
   try {
     const context = await sessions.context(request, request.params.organization);
-    response.json({ organization: context.organization, membership: context.membership, capabilities: [...context.capabilities] });
+    response.json(publicOrganizationContext(context));
   } catch (error) { response.status(error instanceof IdentityAccessError ? error.status : 503).json({ error: 'CONTEXT_UNAVAILABLE' }); }
 });
 app.listen(3001, '127.0.0.1', () => process.stdout.write('SPEC-39 disposable browser API on 127.0.0.1:3001\n'));

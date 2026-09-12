@@ -1,6 +1,7 @@
 # SPEC-40 — Rol de inquilino e inicio exclusivo
 
-- Estado: `pending`
+- Estado: `implemented` (verificado localmente; migración aplicada a Supabase `multi-tenant` el `2026-09-11`; despliegue de aplicaciones pendiente)
+- Evidencia de migración: [`TASK-40-01`](./TASK-40-01-rol-inquilino-y-pagina-inicio.md#aplicación-de-migración-en-desarrollo--2026-09-11).
 - Fecha: `2026-09-02`
 - Prioridad: `medium`
 - Autor: `redacted`
@@ -39,6 +40,16 @@ El término `Inquilino` también existe como participante del formulario de cont
 - La existencia, vigencia o contenido de un contrato no debe utilizarse como sustituto de la membresía validada.
 - La membresía no debe crearse automáticamente desde un formulario contractual, un token de participante o un registro de inquilino del contrato.
 - La futura asociación entre un usuario `inquilino` y uno o más contratos debe definirse en una especificación separada.
+
+### Registro por invitación e inicio de sesión
+
+- El registro o activación de una cuenta nueva para incorporarse como `inquilino` requiere una invitación vigente emitida por un propietario o administrador autorizado de la organización, con `inquilino` como rol persistido.
+- El flujo inicial utiliza `/invitations/accept`: valida la invitación, permite registrar/activar la cuenta vinculada al correo invitado y requiere aceptar la invitación para crear la membresía.
+- Una invitación ausente, vencida, revocada, reemplazada o incompatible con la identidad autenticada no permite completar ese registro o incorporación.
+- El registro público `/register` de SPEC-41 crea una organización nueva con un propietario inicial; no permite elegir `inquilino` ni incorporarse a una organización existente.
+- Una persona con cuenta existente puede iniciar sesión y aceptar su invitación sin crear otra identidad. El cambio de rol autorizado de una membresía existente conserva el alcance definido y no constituye un registro de cuenta nueva.
+- Después de incorporarse, el inquilino inicia sesión normalmente desde `/login`, accesible mediante `Iniciar sesión` en la entrada `/`, con los métodos de autenticación existentes. No debe reutilizar la invitación para cada acceso.
+- Tras autenticar y seleccionar una organización, el contexto validado determina el destino exclusivo de esa membresía. Iniciar sesión por sí solo no crea ni eleva una membresía.
 
 ### Página propia de `Inicio`
 

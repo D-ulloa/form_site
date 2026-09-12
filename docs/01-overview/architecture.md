@@ -1,6 +1,6 @@
 # Architecture
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 ## SPEC-25 containment boundary
 
@@ -32,7 +32,10 @@ The frontend lives under `frontend/` and is organized into:
 
 Important frontend flows:
 
-- `ActionSelectionPage`: entry point that launches property creation or Contract Generation.
+- `ActionSelectionPage`: entry point that launches property creation, Contract Generation, or the SPEC-39 arrangement dashboard after organization selection.
+- `ArrangementsPage` and `ArrangementOrdersDashboard`: organization-scoped open-order listing with SQL filtering, cursor pagination, and an inert `Generar propiedad` action.
+- `InquilinoHomePage`: empty, exclusive Inicio for active invitation-created inquilino memberships; it exposes session identity and logout only.
+- `OrganizationRouteBoundary` and `OrganizationAccessBoundary`: server-confirmed organization context, capability destination, cancellation/epoch handling, and route exclusion before internal pages mount.
 - `NewPropertyPage`: composes section components and orchestrates form submission.
 - `SubmissionSuccessPage`: shows submission status and integration results.
 - `ContractEntryModal`: remains passive until its dedicated create action is clicked, then presents the hosted user form and copyable client link.
@@ -69,6 +72,7 @@ Key backend responsibilities:
 - Append canonical property rows to Google Sheets; retained SPEC-09 routes still append `RAW` legacy contract rows.
 - Send property compatibility payloads to Make synchronously; for tenant contract generation, materialize an outbox delivery and dispatch it through the bounded worker after commit.
 - Persist current contract state/audits in Supabase and property/legacy audit files under `backend/logs/`.
+- Resolve organization context and effective capabilities, list organization-scoped arrangement orders for internal roles, and keep the invitation-only inquilino role restricted to `inquilino.home.read`.
 
 Property Google operations may use configured user OAuth with a service-account fallback. Legacy SPEC-09 Contract Sheet reads and writes use `GOOGLE_SERVICE_ACCOUNT_KEY_JSON` exclusively and never fall back to user OAuth credentials.
 
@@ -160,6 +164,12 @@ The governance/context layer is mounted, but production remains Azar-contained.
 Existing contract/property repositories, local logs/maps, and compatibility
 principals remain legacy surfaces; they cannot authorize Solar or substitute for
 SPEC-34 migration certification.
+
+SPEC-38 establishes the arrangement navigation route and shell; SPEC-39 replaces
+its placeholder content with the protected open-order dashboard. SPEC-40 adds the
+server-computed `home_destination` and a central frontend boundary so an active
+inquilino reaches only `/t/:organizationSlug/inquilino`, while suspended/removed
+memberships and internal routes remain inaccessible.
 
 SPEC-30 adds the replacement property persistence boundary: organization-owned
 durable drafts, immutable revisions, processing runs/steps, domain events, and

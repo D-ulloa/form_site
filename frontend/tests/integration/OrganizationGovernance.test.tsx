@@ -66,7 +66,7 @@ describe('SPEC-26 invitation acceptance', () => {
 });
 
 describe('SPEC-26 governance controls', () => {
-  it('limits an administrator invite form to member and viewer roles', () => {
+  it('limits an administrator invite form to member, viewer and inquilino roles', () => {
     render(<MemoryRouter><OrganizationGovernancePanel
       section="invitations"
       context={{
@@ -79,6 +79,7 @@ describe('SPEC-26 governance controls', () => {
     expect(screen.getByLabelText(/Correo electrónico/u)).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Miembro' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Lector' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Inquilino' })).toBeTruthy();
     expect(screen.queryByRole('option', { name: 'Administrador' })).toBeNull();
   });
 

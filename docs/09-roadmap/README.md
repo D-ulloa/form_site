@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: 2026-09-01.
+Status: 2026-09-11.
 
 This folder is reserved for durable plans, specifications, audits, and decisions.
 
@@ -19,8 +19,10 @@ Each folder contains the specification, one or more task files, and an
 those folders remain for historical material and legacy indexes.
 
 SPEC-25 through SPEC-37 have repository implementations with different activation
-states and open external gates. SPEC-38 is currently ambiguous: the direct-child
-arrangement placeholder uses that number, while the latest migration, backend worker,
-and integration tests use SPEC-38 for shared contract Make delivery. Resolve that
-identifier collision before assigning a final status or starting another SPEC-38.
-No staged artifact authorizes production Solar data or production provider changes.
+states and open external gates. The direct-child SPEC-38, SPEC-39, and SPEC-40
+folders have local implementation evidence; their hosted rollout states are recorded
+in each task. SPEC-38 remains an identifier collision: the arrangement placeholder
+and shared contract Make-delivery work use the same number. Keep those historical
+records, avoid new SPEC-38 dependencies, and assign the next unambiguous identifier
+before expanding either workstream. No staged artifact authorizes production Solar
+data or production provider changes.

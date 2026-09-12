@@ -1,3 +1,4 @@
+import { hasOrganizationCapability } from './roleCapabilities.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createPlatformServiceRoleClient } from '../platform/serviceRoleClient.js';
@@ -165,11 +166,17 @@ export class InvitationWorkflowService {
       provider_reference_hash: createHmac('sha256', this.config.provider_reference_pepper).update(providerReference).digest('hex') });
   }
   async listMembers(actor: OrganizationActorContext, cursor: string | null) {
+    if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.read')) {
+      throw new OrganizationDomainError('FORBIDDEN');
+    }
     const items = await this.repository.listMembers(actor.organization.id, actor.membership.id, cursor, 51);
     return { items: items.slice(0, 50).map(({ cursor_id: _cursor, ...item }) => item),
       next_cursor: items.length > 50 ? String(items[49]?.cursor_id ?? '') : null };
   }
   async listInvitations(actor: OrganizationActorContext, cursor: string | null) {
+    if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.invite')) {
+      throw new OrganizationDomainError('FORBIDDEN');
+    }
     const items = await this.repository.listInvitations(actor.organization.id, actor.membership.id, cursor, 51);
     return { items: items.slice(0, 50).map(({ cursor_id: _cursor, ...item }) => item),
       next_cursor: items.length > 50 ? String(items[49]?.cursor_id ?? '') : null };
