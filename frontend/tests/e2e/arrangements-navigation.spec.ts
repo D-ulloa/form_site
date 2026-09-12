@@ -12,6 +12,8 @@ async function mockOrganizationAccess(page: Page, authenticated = true) {
       await route.fulfill({ json: authenticated ? organizationSession : { authenticated: false } });
     } else if (authenticated && request.method() === 'GET' && /^\/api\/organizations\/(azar|solar)\/context$/u.test(path)) {
       await route.fulfill({ json: organizationContext(path.includes('/azar/') ? 'azar' : 'solar') });
+    } else if (authenticated && request.method() === 'GET' && path.endsWith('/arrangements/properties')) {
+      await route.fulfill({ json: { organization_id: path.split('/')[3], items: [], next_cursor: null } });
     } else if (authenticated && request.method() === 'GET' && path.endsWith('/arrangements/orders')) {
       const organizationId = path.split('/')[3];
       const status = new URL(request.url()).searchParams.get('status');
@@ -46,7 +48,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 320, height: 740 },
 ]) {
-  test(`arrangement dashboard navigation, filtering and inert action at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
+  test(`arrangement dashboard navigation, filtering and read-only properties at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     const { unexpectedRequests, requestedPaths } = await mockOrganizationAccess(page);
     const browserErrors: string[] = [];
@@ -70,7 +72,7 @@ for (const viewport of [
     await expect(home).toBeVisible();
     await expect(home).toHaveAttribute('href', '/t/azar');
     await expect(page.getByRole('listitem')).toHaveCount(2);
-    await expect(page.getByRole('button', { name: 'Generar propiedad' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Generar propiedad' })).toHaveCount(0);
     await expect(page.getByRole('link')).toHaveCount(1);
     await expectNoOverflow(page);
     await page.keyboard.press('Tab');
@@ -87,19 +89,6 @@ for (const viewport of [
     await page.keyboard.press('ArrowUp');
     await expect(filter).toHaveValue('');
     await expect(page.getByRole('listitem')).toHaveCount(2);
-    await page.keyboard.press('Tab');
-    const generate = page.getByRole('button', { name: 'Generar propiedad' });
-    await expectVisibleFocus(generate);
-    const requestsBefore = requestedPaths.length;
-    await generate.click();
-    await page.keyboard.press('Enter');
-    await page.keyboard.press('Space');
-    await expect(page).toHaveURL('/t/azar/arrangements');
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByRole('listitem')).toHaveCount(2);
-    expect(requestedPaths).toHaveLength(requestsBefore);
-    await expectNoOverflow(page);
-    await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Shift+Tab');
     await expectVisibleFocus(home);
 
@@ -113,7 +102,7 @@ for (const viewport of [
     await expect(page).toHaveURL('/t/azar');
     await expect(arrangements).toBeVisible();
     expect(unexpectedRequests).toEqual([]);
-    expect(new Set(requestedPaths)).toEqual(new Set(['/api/auth/session', '/api/organizations/azar/context', `/api/organizations/${organizationContext('azar').organization.id}/arrangements/orders`]));
+    expect(new Set(requestedPaths)).toEqual(new Set(['/api/auth/session', '/api/organizations/azar/context', `/api/organizations/${organizationContext('azar').organization.id}/arrangements/orders`, `/api/organizations/${organizationContext('azar').organization.id}/arrangements/properties`]));
     expect(browserErrors).toEqual([]);
   });
 }

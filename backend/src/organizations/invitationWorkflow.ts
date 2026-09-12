@@ -2,7 +2,7 @@ import { hasOrganizationCapability } from './roleCapabilities.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createPlatformServiceRoleClient } from '../platform/serviceRoleClient.js';
-import { OrganizationDomainError } from './errors.js';
+import { mapOrganizationPersistenceError, OrganizationDomainError } from './errors.js';
 import type { InvitationDeliveryAdapter, InvitationDeliveryConfiguration } from './invitationDelivery.js';
 import type { InvitationIdentityContext, OrganizationActorContext, OrganizationMembershipRecord } from './types.js';
 import type { InvitationRecord, InvitationResolutionRecord } from './organizationRepository.js';
@@ -10,7 +10,8 @@ import type { InvitationRecord, InvitationResolutionRecord } from './organizatio
 export interface InvitationDeliveryReceipt {
   readonly invitation_id: string; readonly status: string; readonly delivery_state: string;
   readonly delivery_method: 'share_link' | 'email'; readonly expires_at: string;
-  readonly next_action: 'copy_or_revoke' | 'wait' | 'resend_or_revoke'; readonly share_url?: string;
+  readonly arrangement_property_id?: string | null;
+  readonly next_action: 'copy_or_revoke' | 'rotate_or_revoke' | 'none' | 'wait' | 'resend_or_revoke'; readonly share_url?: string;
 }
 export interface InvitationHandoffMaterial { readonly handle: string; readonly browser_binding: string; readonly max_age_seconds: number }
 export interface InvitationWorkflowRepository {
@@ -25,6 +26,8 @@ export interface InvitationWorkflowRepository {
     Promise<InvitationResolutionRecord | null>;
   acceptHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
     identity: InvitationIdentityContext }): Promise<OrganizationMembershipRecord>;
+  recoverAcceptedHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
+    identity: InvitationIdentityContext }): Promise<OrganizationMembershipRecord | null>;
   organizationSlug(organizationId: string): Promise<string>;
   recordWebhook(input: { event_id_hash: string; event_type: string; provider_reference_hash: string }): Promise<boolean>;
   listMembers(organizationId: string, membershipId: string, cursor: string | null, limit: number): Promise<readonly Record<string, unknown>[]>;
@@ -36,10 +39,7 @@ export interface InvitationWorkflowRepository {
 }
 
 function failure(error: { message: string } | null): never {
-  if (error?.message.includes('FORBIDDEN')) throw new OrganizationDomainError('FORBIDDEN');
-  if (error?.message.includes('NOT_FOUND')) throw new OrganizationDomainError('NOT_FOUND');
-  if (error?.message.includes('INVITATION_INVALID')) throw new OrganizationDomainError('INVITATION_INVALID');
-  throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+  return mapOrganizationPersistenceError(error ?? { message: 'DEPENDENCY_NOT_READY' });
 }
 
 export function createInvitationWorkflowRepository(environment: NodeJS.ProcessEnv = process.env,
@@ -67,6 +67,14 @@ export function createInvitationWorkflowRepository(environment: NodeJS.ProcessEn
       p_origin_hash: input.origin_hash, p_user_id: input.identity.user_id,
       p_verified_email_normalized: input.identity.verified_email, p_request_id: input.identity.request_id,
     }).single(); if (error || !data) failure(error ?? { message: 'INVITATION_INVALID' }); return data as OrganizationMembershipRecord; },
+    async recoverAcceptedHandoff(input) {
+      const { data, error } = await client.rpc('spec42_recover_accepted_handoff', {
+        p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash, p_origin_hash: input.origin_hash,
+        p_user_id: input.identity.user_id, p_verified_email_normalized: input.identity.verified_email,
+      }).maybeSingle();
+      if (error) failure(error);
+      return data as OrganizationMembershipRecord | null;
+    },
     async organizationSlug(organizationId) { const { data, error } = await client.from('organizations').select('slug')
       .eq('id', organizationId).single(); if (error || !data) failure(error ?? { message: 'NOT_FOUND' }); return String(data.slug); },
     async recordWebhook(input) { const { data, error } = await client.rpc('spec37_record_invitation_webhook', {
@@ -103,18 +111,31 @@ export class InvitationWorkflowService {
     return url.toString();
   }
 
+  assertManualAvailable(): void {
+    if (!this.config.enabled || this.config.delivery_method !== 'share_link') throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+  }
+
+  replayedLink(invitation: InvitationRecord): InvitationDeliveryReceipt {
+    return { invitation_id: invitation.id, status: invitation.status, delivery_state: invitation.delivery_state,
+      delivery_method: invitation.delivery_method, expires_at: invitation.expires_at,
+      arrangement_property_id: invitation.arrangement_property_id ?? null,
+      next_action: invitation.status === 'pending' ? 'rotate_or_revoke' : 'none' };
+  }
+
   manualLink(invitation: InvitationRecord, rawToken: string): InvitationDeliveryReceipt {
     if (!this.config.enabled || this.config.delivery_method !== 'share_link') {
       throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
     }
     return { invitation_id: invitation.id, status: invitation.status, delivery_state: 'pending',
       delivery_method: 'share_link', expires_at: invitation.expires_at, next_action: 'copy_or_revoke',
+      ...(invitation.arrangement_property_id ? { arrangement_property_id: invitation.arrangement_property_id } : {}),
       share_url: this.acceptanceUrl(rawToken) };
   }
 
   async deliver(invitation: InvitationRecord, rawToken: string, input: { organization_display_name: string;
     inviter_display_name: string; request_id: string }): Promise<InvitationDeliveryReceipt> {
     if (!this.config.enabled || this.config.adapter === 'disabled') throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    if (!invitation.email_normalized) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
     const attemptId = randomUUID(); const idempotencyKey = `invitation/${invitation.id}/${invitation.token_version}`;
     await this.repository.beginDelivery({ attempt_id: attemptId, invitation_id: invitation.id,
       provider: this.config.adapter, template_version: this.config.template_version, locale: 'es',
@@ -157,8 +178,15 @@ export class InvitationWorkflowService {
     return this.repository.resolveHandoff({ handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin) });
   }
   async acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext) {
-    const membership = await this.repository.acceptHandoff({ handle_hash: digest(handle), browser_binding_hash: digest(binding),
-      origin_hash: digest(origin), identity });
+    const input = { handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity };
+    let membership: OrganizationMembershipRecord;
+    try { membership = await this.repository.acceptHandoff(input); }
+    catch (error) {
+      if (!(error instanceof OrganizationDomainError) || error.code !== 'INVITATION_INVALID') throw error;
+      const recovered = await this.repository.recoverAcceptedHandoff(input);
+      if (!recovered) throw error;
+      membership = recovered;
+    }
     return { membership, organization_slug: await this.repository.organizationSlug(membership.organization_id) };
   }
   async webhook(eventId: string, type: string, providerReference: string): Promise<boolean> {

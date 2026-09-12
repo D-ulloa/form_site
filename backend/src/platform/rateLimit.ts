@@ -3,6 +3,10 @@ import { PlatformError } from './errors.js';
 import type { OrganizationScope } from './scope.js';
 
 export const RATE_LIMIT_POLICIES = {
+  'arrangements.properties.read': { window_seconds: 60, limit: 120, sensitive: false },
+  'arrangements.properties.create': { window_seconds: 3600, limit: 60, sensitive: true },
+  'arrangements.inquilinos.read': { window_seconds: 60, limit: 120, sensitive: true },
+  'arrangements.inquilinos.associate': { window_seconds: 3600, limit: 60, sensitive: true },
   'arrangements.orders.read': { window_seconds: 60, limit: 120, sensitive: false },
   'auth.password_login': { window_seconds: 300, limit: 10, sensitive: true },
   'auth.self_service_registration': { window_seconds: 3600, limit: 8, sensitive: true },

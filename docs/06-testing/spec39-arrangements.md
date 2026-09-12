@@ -11,6 +11,13 @@ four internal roles (`owner`, `admin`, `member`, `viewer`) and explicitly keeps
 `inquilino` outside `arrangements.read`. The central organization boundary redirects
 an inquilino before the dashboard mounts; the API remains independently protected.
 
+Current regression update, 2026-09-12: SPEC-42 replaces the inert property action
+with a creation dialog for owner/admin and hides it for member/viewer. Order
+filtering/navigation remain covered. The historical SPEC-39 browser harness
+supplies an empty controlled property collection while retaining real persisted
+orders. See [SPEC-42 verification](spec42-property-invitations.md) for the current
+property flow and test results; the inert-button evidence below is historical.
+
 ## Automated checks
 
 Run from the repository root:

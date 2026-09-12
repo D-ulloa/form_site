@@ -113,6 +113,9 @@ export function InvitationAcceptPage() {
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                 <p>Te invitaron a <strong>{resolution.organization_display_name}</strong>.</p>
                 <dl className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
+                  {resolution.arrangement_property && <div className="min-w-0 sm:col-span-2"><dt>Propiedad asignada</dt>
+                    <dd className="font-medium text-slate-200 [overflow-wrap:anywhere]">{resolution.arrangement_property.name}</dd>
+                    <dd className="mt-1 font-mono text-xs [overflow-wrap:anywhere]">{resolution.arrangement_property.id}</dd></div>}
                   <div><dt>Rol asignado</dt><dd className="font-medium text-slate-200">{roleLabel[resolution.intended_role]}</dd></div>
                   <div><dt>Cuenta invitada</dt><dd className="font-medium text-slate-200">{resolution.email_masked}</dd></div>
                 </dl>

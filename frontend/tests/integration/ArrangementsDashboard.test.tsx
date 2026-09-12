@@ -30,7 +30,8 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
   else if (path.endsWith('/context')) {
     const context = organizationContext(path.includes('/solar/') ? 'solar' : 'azar');
     data = { ...context, capabilities };
-  } else if (path.endsWith('/arrangements/orders')) data = await resolveOrders(config);
+  } else if (path.endsWith('/arrangements/properties')) data = { organization_id: path.includes(B) ? B : A, items: [], next_cursor: null };
+  else if (path.endsWith('/arrangements/orders')) data = await resolveOrders(config);
   else throw new Error(`Unexpected request ${path}`);
   return { data, status: 200, statusText: 'OK', config, headers: {} };
 });
@@ -79,18 +80,11 @@ describe('SPEC-39 arrangement dashboard', () => {
     expect(window.location.search).toBe('');
   });
 
-  it('keeps Generar propiedad focusable and inert after loading', async () => {
+  it('retains orders while hiding property mutations from read-only capabilities', async () => {
     renderDashboard(); await screen.findByText('Ventana');
-    const button = screen.getByRole('button', { name: 'Generar propiedad' });
-    const count = adapter.mock.calls.length;
-    button.focus();
-    expect(document.activeElement).toBe(button);
-    fireEvent.click(button); fireEvent.keyDown(button, { key: 'Enter' }); fireEvent.keyUp(button, { key: ' ' });
-    await act(async () => { await Promise.resolve(); });
-    expect(adapter.mock.calls).toHaveLength(count);
+    expect(screen.queryByRole('button', { name: 'Generar propiedad' })).toBeNull();
+    expect(await screen.findByText('No hay propiedades en esta organización.')).toBeTruthy();
     expect(window.location.pathname).toBe('/t/azar/arrangements');
-    expect(screen.getByText('Ventana')).toBeTruthy();
-    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('distinguishes empty organization, loading, filtered empty and a vanished selected state', async () => {

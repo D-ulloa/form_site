@@ -1,6 +1,6 @@
 # API Contracts
 
-Status: 2026-09-11.
+Status: 2026-09-12.
 
 ## Shared SPEC-28 API conventions
 
@@ -664,7 +664,75 @@ use 403. The distributed `arrangements.orders.read` policy allows 120 reads per
 minute per organization/membership; exhaustion returns 429 with `Retry-After`.
 Database, cursor configuration, or limiter outages return safe 503 errors.
 
-The endpoint is read-only. There is no create/update/delete route, and the
-dashboard's `Generar propiedad` button issues no request or navigation. Migration
-and [verification instructions](../06-testing/spec39-arrangements.md) must precede
-hosted activation.
+The orders endpoint remains read-only. SPEC-42 adds the independent property
+collection and activates the dashboard's `Generar propiedad` action below.
+Migration and [verification instructions](../06-testing/spec39-arrangements.md)
+must precede hosted activation.
+
+## SPEC-42 arrangement properties and inquilinos
+
+All routes below are relative to `/api/organizations/:organization/arrangements`.
+They resolve the current session and organization, return `Cache-Control: no-store`,
+and use distributed rate limits. Mutations additionally require the current CSRF
+token and an allowed origin. Capability registry version 5 adds
+`arrangements.properties.create` and `arrangements.inquilinos.manage` for active
+owner/admin memberships. Active member/viewer memberships can list properties
+with `arrangements.read`; they cannot read people or mutate this collection.
+Inquilino retains only `inquilino.home.read` and cannot access these routes.
+
+| Method/path | Input | Success |
+| --- | --- | --- |
+| `GET /properties` | `limit`, `cursor` | Page of `{id, name}` |
+| `POST /properties` | `{name}` and `Idempotency-Key` | 201 `{id, name}` |
+| `GET /inquilinos/available` | `limit`, `cursor` | Page of active unassigned inquilino memberships |
+| `GET /properties/:propertyId/inquilinos` | `limit`, `cursor` | Page of retained membership associations |
+| `GET /properties/:propertyId/invitations` | `limit`, `cursor` | Page of invitations for the property |
+| `POST /properties/:propertyId/inquilinos` | `{membership_id, expected_version}` | `{id, version, arrangement_property_id}` |
+| `POST /properties/:propertyId/invitations` | `{email}` and `Idempotency-Key` | 201 manual invitation receipt |
+
+Bodies and queries are strict: no extra organization, role, membership, identity
+or property authority is accepted. Names are trimmed and must contain 1–200
+characters. Keys contain 8–128 characters from `[A-Za-z0-9._:-]`; retain a key for
+the same normalized operation after a failed/lost response. Reusing it for a
+different name, email or property returns `IDEMPOTENCY_CONFLICT`.
+
+All pages contain `{organization_id, items, next_cursor}`. Limit defaults to 25
+and ranges from 1–100. Cursors bind organization, collection, property, limit and
+ascending UUID order. Membership items contain only
+`{id, display_name, role, status, version}`. Invitation items contain only
+`{id, email_masked, status, expires_at, version}`. Historical associations remain
+visible with their current role/status; eligibility for direct association is
+restricted to active, unassigned inquilinos. A retry to the same property succeeds;
+another destination conflicts. There is no transfer/unlink API in this release.
+
+The scoped invitation endpoint fixes `inquilino` and the path property server-side
+and delegates to the common invitation service. The general
+`POST /api/organizations/:organizationId/invitations` also requires
+`arrangement_property_id` and `Idempotency-Key` for `intended_role=inquilino`;
+other roles omit both fields. Property and operation preflight precede Auth
+provisioning and are rechecked in the final database transaction.
+
+The manual receipt adds `arrangement_property_id`. Only first issuance or explicit
+rotation returns `share_url`; committed creation retries return the current safe
+invitation receipt and `next_action=rotate_or_revoke` (or `none`) without a URL.
+The existing resend/revoke endpoints manage the lifecycle. Rotation preserves the
+property, invalidates old handoffs, and updates the durable operation reference.
+Raw URLs are transient UI state, never persisted or stored in query/mutation caches.
+
+Invitation resolution includes `arrangement_property: {id, name} | null`, required
+for inquilino. Registration accepts `{password, display_name}`; acceptance accepts
+an empty body. Property and role come from the bound invitation, and acceptance
+checks the verified session identity against its recipient.
+Acceptance commits membership/property, invitation consumption and audit atomically.
+A consumed-handoff retry can recover only the same identity's still-active,
+matching accepted membership without reactivating it. Legacy propertyless
+inquilino invitations must be revoked and replaced after migration.
+
+Organization-domain errors retain `{error: "CODE"}`: malformed inputs use 400,
+missing property 422, unavailable scope 404, forbidden authority 403, stale
+version/property/association/idempotency/pending-invitation conflicts 409, invalid
+invitation 410, locked organization 423, and safe dependency failure 503.
+Platform errors retain the shared structured envelope; rate exhaustion uses 429
+and `Retry-After`. No database/provider text is exposed. See
+[verification](../06-testing/spec42-property-invitations.md) and the
+[release runbook](../03-operation/spec42-property-invitations-runbook.md).

@@ -17,7 +17,11 @@ const client = createClient(endpoint.origin, token, {
   auth: { persistSession: false, autoRefreshToken: false },
   global: { fetch: (input, init) => fetch(String(input).replace('/rest/v1/', '/'), init) },
 });
-const { app, cookie, sessions, state } = arrangementHarness(createArrangementOrderRepository(client));
+const { app, cookie, sessions, state } = arrangementHarness(createArrangementOrderRepository(client), {
+  // Historical harness verifies orders only; property persistence is covered by SPEC-42.
+  properties: { async list(scope) { return { organization_id: scope.organization_id, items: [], next_cursor: null }; },
+    async create() { throw new Error('Use SPEC-42 harness'); }, async associate() { throw new Error('Use SPEC-42 harness'); } },
+});
 app.get('/api/test-session', (_request, response) => {
   response.setHeader('Set-Cookie', `${cookie}; HttpOnly; Path=/; SameSite=Lax`);
   response.json({ fixture: 'SPEC-39', organization_id: A });

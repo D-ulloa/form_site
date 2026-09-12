@@ -1,3 +1,4 @@
+import { ArrangementPropertiesSection } from './ArrangementPropertiesSection';
 import { useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { Select } from '../../../components/ui/Select';
@@ -31,7 +32,6 @@ export function ArrangementOrdersDashboard() {
             options={[{ value: '', label: 'Todos' }, ...options.map(value => ({ value, label: statusLabel(value) }))]}
             onChange={event => { setRetainedStatuses(availableStatuses); setStatus(event.target.value); }} />
         </div>
-        <Button type="button" variant="secondary" className={focusClass}>Generar propiedad</Button>
       </div>
       {query.isError && (
         <AlertInline title="No se pudieron cargar las órdenes">
@@ -70,6 +70,7 @@ export function ArrangementOrdersDashboard() {
         <Button type="button" variant="ghost" className={`self-center ${focusClass}`} disabled={query.isFetching}
           onClick={() => { void query.fetchNextPage(); }}>Cargar más</Button>
       )}
+      <ArrangementPropertiesSection />
     </section>
   );
 }

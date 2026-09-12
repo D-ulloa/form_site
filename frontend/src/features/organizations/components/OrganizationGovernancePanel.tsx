@@ -144,12 +144,13 @@ export function OrganizationGovernancePanel({
                 <select className="field-input mt-1.5" value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
                   {context.role === 'owner' && <option value="admin">Administrador</option>}
                   <option value="member">Miembro</option><option value="viewer">Lector</option>
-                  <option value="inquilino">Inquilino</option>
                 </select>
               </label>
               <Button type="submit" disabled={!onInvite}>Crear enlace</Button>
             </form>
           )}
+          {can('members.invite') && <p className="mt-4 text-sm text-slate-400">Para invitar a un inquilino, elegí su propiedad en{' '}
+            <Link className="text-indigo-300 underline" to={`/t/${context.organization_slug}/arrangements`}>Gestión de arreglos</Link>.</p>}
           <p aria-live="polite" className="mt-3 text-sm text-slate-300">{status}</p>
           {shareUrl && (
             <div className="mt-3 rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-4">

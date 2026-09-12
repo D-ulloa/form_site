@@ -1,4 +1,9 @@
 export type OrganizationErrorCode =
+  | 'INVALID_REQUEST'
+  | 'PROPERTY_REQUIRED'
+  | 'PROPERTY_CONFLICT'
+  | 'ASSOCIATION_UNAVAILABLE'
+  | 'IDEMPOTENCY_CONFLICT'
   | 'ALREADY_A_MEMBER'
   | 'DEPENDENCY_NOT_READY'
   | 'FORBIDDEN'
@@ -12,6 +17,11 @@ export type OrganizationErrorCode =
   | 'VERSION_CONFLICT';
 
 const statusByCode: Readonly<Record<OrganizationErrorCode, number>> = {
+  INVALID_REQUEST: 400,
+  PROPERTY_REQUIRED: 422,
+  PROPERTY_CONFLICT: 409,
+  ASSOCIATION_UNAVAILABLE: 409,
+  IDEMPOTENCY_CONFLICT: 409,
   ALREADY_A_MEMBER: 409,
   DEPENDENCY_NOT_READY: 503,
   FORBIDDEN: 403,
@@ -47,5 +57,5 @@ export function mapOrganizationPersistenceError(error: { message: string }): nev
   if (error.message.includes('organizations_slug_key')) {
     throw new OrganizationDomainError('VERSION_CONFLICT', 'Organization slug is already reserved.');
   }
-  throw new Error(`Organization persistence failed: ${error.message}`);
+  throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
 }

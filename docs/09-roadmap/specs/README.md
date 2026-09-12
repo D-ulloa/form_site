@@ -1,6 +1,6 @@
 # Specs
 
-Status: 2026-09-11.
+Status: 2026-09-12.
 
 ## Current convention
 
@@ -22,6 +22,7 @@ new direct-child spec folder.
 - [`SPEC-39-gestion-de-arreglos-dashboard-ordenes-abiertas`](SPEC-39-gestion-de-arreglos-dashboard-ordenes-abiertas/) — scoped open-order dashboard, SQL status filtering, and inert property action; verified locally 2026-09-10, migration applied to Supabase `multi-tenant` 2026-09-11, application deployment pending.
 - [`SPEC-40-rol-inquilino-inicio-exclusivo`](SPEC-40-rol-inquilino-inicio-exclusivo/) — invitation-only `inquilino` role and exclusive Inicio route; verified locally and migration applied to Supabase development branch `multi-tenant` 2026-09-11; application deployment pending.
 - [`SPEC-41-registro-autoservicio-y-creacion-de-organizacion`](SPEC-41-registro-autoservicio-y-creacion-de-organizacion/) — self-service registration and initial-owner organization bootstrap; pending.
+- [`SPEC-42-propiedades-e-invitaciones-de-inquilinos-en-arreglos`](SPEC-42-propiedades-e-invitaciones-de-inquilinos-en-arreglos/) — lightweight properties created from the arrangements dashboard, property-bound inquilino invitations and atomic association on acceptance; verified locally and both migrations applied to Supabase development branch `multi-tenant` 2026-09-12; application deployment pending.
 
 ## Identifier note
 

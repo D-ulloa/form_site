@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { OrganizationValidationError } from '../organizations/validation.js';
 import { Router, type Request, type Response } from 'express';
 import { OrganizationDomainError } from '../organizations/errors.js';
 import type { MembershipService } from '../organizations/membershipService.js';
@@ -53,6 +55,10 @@ function secureResponse(response: Response): void {
 
 function sendError(response: Response, error: unknown): void {
   secureResponse(response);
+  if (error instanceof z.ZodError || error instanceof OrganizationValidationError) {
+    response.status(400).json({ error: 'INVALID_REQUEST' }); return;
+  }
+  if (error instanceof IdentityAccessError) { response.status(error.status).json({ error: error.code }); return; }
   if (error instanceof OrganizationDomainError) {
     response.status(error.http_status).json({ error: error.code });
     return;
@@ -140,6 +146,7 @@ export function createOrganizationGovernanceRouter(
       const material = cookieValue(request); if (!material) throw new OrganizationDomainError('INVITATION_INVALID');
       await limitPublic(request, 'member.invitation_register', material[0]);
       const origin = assertHandoffOrigin(request);
+      z.object({ password: z.string(), display_name: z.string() }).strict().parse(request.body);
       const password = typeof request.body?.password === 'string' ? request.body.password : '';
       const rawDisplayName = typeof request.body?.display_name === 'string' ? request.body.display_name.trim() : '';
       if (password.length < 12 || password.length > 1024
@@ -194,6 +201,7 @@ export function createOrganizationGovernanceRouter(
       const material = cookieValue(request); if (!material) throw new OrganizationDomainError('INVITATION_INVALID');
       await limitPublic(request, 'member.invitation_accept', material[0]);
       const identity = await resolver.resolveInvitationIdentity(request);
+      z.object({}).strict().parse(request.body ?? {});
       const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity);
       response.set('Set-Cookie', clearHandoff);
       response.json({ organization_id: accepted.membership.organization_id,
@@ -206,12 +214,12 @@ export function createOrganizationGovernanceRouter(
       secureResponse(response);
       const actor = await scopedActor(request, resolver);
       await limitActor(request, actor, 'member.invitation_create');
-      const body = request.body as Record<string, unknown>;
-      if (typeof body.email !== 'string' || !['admin', 'member', 'viewer', 'inquilino'].includes(String(body.intended_role))) {
-        response.status(400).json({ error: 'INVALID_REQUEST' });
-        return;
-      }
+      const body = z.object({ email: z.string().min(3).max(320),
+        intended_role: z.enum(['admin', 'member', 'viewer', 'inquilino']), arrangement_property_id: z.uuid().optional(),
+      }).strict().parse(request.body);
       const result = await services.organizations.inviteMember({
+        ...(body.arrangement_property_id ? { arrangement_property_id: body.arrangement_property_id } : {}),
+        ...(request.get('Idempotency-Key') ? { idempotency_key: request.get('Idempotency-Key')! } : {}),
         email: body.email,
         intended_role: body.intended_role as Exclude<OrganizationRole, 'owner'>,
         inviter_display_name: actor.display_name,

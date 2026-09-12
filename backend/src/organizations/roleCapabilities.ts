@@ -5,11 +5,12 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 4 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 5 as const;
 
 const capabilities = {
   inquilino: ['inquilino.home.read'],
   owner: [
+    'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
     'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
     'members.manage_member', 'members.manage_admin', 'members.transfer_ownership',
@@ -21,6 +22,7 @@ const capabilities = {
     'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
   ],
   admin: [
+    'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
     'members.manage_member', 'contracts.read', 'contracts.write', 'contracts.manage',
     'contracts.manage_links', 'properties.read', 'properties.write', 'properties.manage',

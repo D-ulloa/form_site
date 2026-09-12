@@ -68,6 +68,7 @@ export class MembershipService {
       const owners = await this.repository.listActiveOwnersForUpdate(actor.organization.id);
       assertActiveOwnerRemains(owners.filter(({ id }) => id !== target.id));
     }
+    if (nextRole === 'inquilino' && target.role !== 'inquilino' && !target.arrangement_property_id) throw new OrganizationDomainError('PROPERTY_REQUIRED');
     return this.repository.changeRoleAtomic({
       organization_id: actor.organization.id,
       target_user_id: targetUserId,
@@ -95,6 +96,7 @@ export class MembershipService {
       throw new OrganizationDomainError('FORBIDDEN');
     }
     assertMembershipTransition(target.status, nextStatus);
+    if (nextStatus === 'active' && target.role === 'inquilino' && !target.arrangement_property_id) throw new OrganizationDomainError('PROPERTY_REQUIRED');
     if (target.role === 'owner' && target.status === 'active' && nextStatus !== 'active') {
       const owners = await this.repository.listActiveOwnersForUpdate(actor.organization.id);
       assertActiveOwnerRemains(owners.filter(({ id }) => id !== target.id));
@@ -125,6 +127,7 @@ export class MembershipService {
     if (targetUserId === actor.user_id) throw new OrganizationDomainError('FORBIDDEN');
     const target = await this.repository.getMembership(actor.organization.id, targetUserId);
     if (!target || target.status !== 'active') throw new OrganizationDomainError('NOT_FOUND');
+    if (sourceRoleAfter === 'inquilino' && !actor.membership.arrangement_property_id) throw new OrganizationDomainError('PROPERTY_REQUIRED');
     return this.repository.transferOwnershipAtomic({
       organization_id: actor.organization.id,
       source_owner_membership_id: actor.membership.id,

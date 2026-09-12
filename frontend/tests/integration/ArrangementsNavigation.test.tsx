@@ -27,6 +27,8 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
     if (status === 200) data = await resolveContext(path.split('/')[3]);
   } else if (config.method === 'get' && /^\/api\/organizations\/[^/]+\/contracts\/admin\/entries$/u.test(path)) {
     data = { entries: [] };
+  } else if (config.method === 'get' && path.endsWith('/arrangements/properties')) {
+    data = { organization_id: path.split('/')[3], items: [], next_cursor: null };
   } else if (config.method === 'get' && path.endsWith('/arrangements/orders')) {
     data = { organization_id: path.split('/')[3], items: [], available_statuses: [], next_cursor: null };
   } else {
@@ -109,8 +111,8 @@ describe('SPEC-38 arrangement navigation', () => {
     expect(home.getAttribute('href')).toBe(`/t/${slug}`);
     expect(await screen.findByText('No hay órdenes abiertas en esta organización.')).toBeTruthy();
     expect(screen.getAllByRole('link')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Generar propiedad' })).toBeTruthy();
-    expect(new Set(requestedPaths())).toEqual(new Set(['/api/auth/session', `/api/organizations/${slug}/context`, `/api/organizations/${organizationContext(slug).organization.id}/arrangements/orders`]));
+    expect(screen.queryByRole('button', { name: 'Generar propiedad' })).toBeNull();
+    expect(new Set(requestedPaths())).toEqual(new Set(['/api/auth/session', `/api/organizations/${slug}/context`, `/api/organizations/${organizationContext(slug).organization.id}/arrangements/orders`, `/api/organizations/${organizationContext(slug).organization.id}/arrangements/properties`]));
     expect(adapter.mock.calls.every(([config]) => config.method === 'get' && config.withCredentials)).toBe(true);
 
     fireEvent.click(home);

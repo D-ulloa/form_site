@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import axios from 'axios';
 import type {
   InvitationResolution,
@@ -33,7 +34,10 @@ export async function establishInvitationHandoff(invitationToken: string): Promi
 
 export async function resolveInvitation(): Promise<InvitationResolution> {
   const response = await api.post<InvitationResolution>('/invitations/resolve');
-  return response.data;
+  return z.object({ organization_display_name: z.string(), email_masked: z.string(),
+    intended_role: z.enum(['admin', 'member', 'viewer', 'inquilino']), expires_at: z.string(),
+    arrangement_property: z.object({ id: z.uuid(), name: z.string().min(1).max(200) }).strict().nullable().optional(),
+  }).strict().refine(value => value.intended_role !== 'inquilino' || value.arrangement_property != null).parse(response.data);
 }
 
 export async function acceptInvitation(): Promise<{ organization_id: string; organization_slug: string }> {

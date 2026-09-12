@@ -55,11 +55,13 @@ test('SPEC-40 invitation → registration → persisted membership → login →
   await page.getByLabel('Contraseña', { exact: false }).fill('owner-test-password');
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   await page.getByRole('link', { name: /Azar/ }).click();
-  await page.getByRole('link', { name: 'Miembros', exact: true }).click();
+  await page.goto('/t/azar/arrangements');
+  await page.getByRole('button', { name: 'Generar propiedad' }).click();
+  await page.getByLabel('Nombre de la propiedad').fill('SPEC-40 regression');
+  await page.getByRole('button', { name: 'Crear propiedad' }).click();
   await page.getByLabel('Correo electrónico').fill('inquilino@example.test');
-  await page.getByRole('combobox').selectOption('inquilino');
-  const receiptPromise = page.waitForResponse(response => response.url().endsWith(`/organizations/${a}/invitations`) && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Crear enlace' }).click();
+  const receiptPromise = page.waitForResponse(response => /\/arrangements\/properties\/[^/]+\/invitations$/.test(response.url()) && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Generar invitación' }).click();
   const receipt = await (await receiptPromise).json();
   expect(receipt.share_url).toContain('/invitations/accept#invitation_token=');
   const invitedContext = await browser.newContext();

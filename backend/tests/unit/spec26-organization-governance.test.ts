@@ -31,7 +31,7 @@ import {
 } from '../../src/organizations/validation.js';
 
 test('SPEC-26 role registry is versioned, complete, and denies unknown or inactive authority', () => {
-  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 4);
+  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 5);
   assert.equal(ROLE_CAPABILITIES.owner.has('billing.manage'), true);
   assert.equal(ROLE_CAPABILITIES.admin.has('members.manage_admin'), false);
   assert.equal(ROLE_CAPABILITIES.member.has('contracts.write'), true);

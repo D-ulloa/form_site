@@ -92,7 +92,7 @@ test('SPEC-40 rejects actual internal HTTP routes before product reads or mutati
 test('SPEC-40 owner/admin changes remain scoped, versioned, and reject self-assignment and admin escalation', async () => {
   const { state } = arrangementHarness();
   let written = 0;
-  const target = { ...state.membership, id: '30000000-0000-4000-8000-000000000009', user_id: 'target', role: 'member' as OrganizationRole };
+  const target = { ...state.membership, arrangement_property_id: '60000000-0000-4000-8000-000000000001', id: '30000000-0000-4000-8000-000000000009', user_id: 'target', role: 'member' as OrganizationRole };
   const repository: MembershipMutationRepository = {
     async getMembership(org, user) { assert.equal(org, A); return user === USER ? state.membership : target; },
     async changeRoleAtomic(input) { written++; assert.equal(input.organization_id, A); assert.equal(input.expected_version, 1); return { ...target, role: input.next_role }; },
@@ -134,7 +134,7 @@ test('SPEC-40 invitation registration fails before activation without a valid ha
   } as unknown as OrganizationRouteServices, config.public_base_url));
   for (const cookie of ['', 'form_site_invitation_handoff=invalid-handle.invalid-binding']) {
     await request(app).post('/api/invitations/register').set('Origin', config.public_base_url).set('Cookie', cookie)
-      .send({ display_name: 'Inquilino', password: 'test-password-123', role: 'inquilino', organization_id: A }).expect(410);
+      .send({ display_name: 'Inquilino', password: 'test-password-123' }).expect(410);
   }
   assert.equal(activated, 0);
 });

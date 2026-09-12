@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createOrganizationScope } from '../platform/scope.js';
+import { IdempotencyKey, requireArrangementAuthority } from '../services/arrangementProperties.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { IdentityProvisioningService } from '../identity/identityProvisioningService.js';
 import { createInvitationProvisioningActor } from '../identity/identityProvisioningTypes.js';
@@ -43,6 +46,8 @@ export interface CreateOrganizationInput {
 }
 
 export interface InviteMemberInput {
+  readonly arrangement_property_id?: string;
+  readonly idempotency_key?: string;
   readonly email: string;
   readonly intended_role: Exclude<OrganizationRole, 'owner'>;
   readonly inviter_display_name: string;
@@ -91,6 +96,20 @@ export class OrganizationService {
     }
     const email = normalizeOrganizationEmail(input.email);
     if (!this.invitationWorkflow || !this.identityProvisioning) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    let operationId: string | undefined;
+    if (input.intended_role === 'inquilino') {
+      if (!input.arrangement_property_id) throw new OrganizationDomainError('PROPERTY_REQUIRED');
+      const scope = createOrganizationScope(actor.organization.id);
+      requireArrangementAuthority(scope, actor, 'arrangements.inquilinos.manage', 'members.invite');
+      z.uuid().parse(input.arrangement_property_id);
+      this.invitationWorkflow.assertManualAvailable();
+      const prepared = await this.repository.preparePropertyInvitation(scope, {
+        actor_id: actor.membership.id, property_id: input.arrangement_property_id,
+        email, idempotency_key: IdempotencyKey.parse(input.idempotency_key),
+      });
+      if (prepared.invitation) return this.invitationWorkflow.replayedLink(prepared.invitation);
+      operationId = prepared.operation_id;
+    } else if (input.arrangement_property_id !== undefined) throw new OrganizationDomainError('INVALID_REQUEST');
     const identity = await this.identityProvisioning.provision({ email, purpose: 'organization_invitee',
       request_id: actor.request_id, idempotency_key: `invite:${actor.organization.id}:${createHash('sha256').update(email).digest('hex').slice(0, 32)}` },
     createInvitationProvisioningActor({ actor_type: 'organization_invitation', user_id: actor.user_id,
@@ -102,6 +121,7 @@ export class OrganizationService {
     const invitationId = randomUUID();
     const expiresAt = new Date(this.now().getTime() + INVITATION_EXPIRY_MILLISECONDS).toISOString();
     const persistence: CreateInvitationPersistenceInput = {
+      ...(input.arrangement_property_id && operationId ? { arrangement_property_id: input.arrangement_property_id, operation_id: operationId } : {}),
       invitation_id: invitationId,
       organization_id: actor.organization.id,
       email_normalized: email,
@@ -115,6 +135,7 @@ export class OrganizationService {
       request_id: actor.request_id,
     };
     const invitation = await this.repository.createInvitation(persistence);
+    if (invitation.link_issued === false) return this.invitationWorkflow.replayedLink(invitation);
     if (invitation.delivery_method === 'share_link') return this.invitationWorkflow.manualLink(invitation, token.raw_token);
     return this.invitationWorkflow.deliver(invitation, token.raw_token, {
       organization_display_name: actor.organization.display_name,

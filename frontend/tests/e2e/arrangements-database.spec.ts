@@ -16,8 +16,8 @@ test('SPEC-39 browser → API → PostgREST → PostgreSQL', async ({ page }) =>
   const requests: string[] = [];
   page.on('request', request => requests.push(request.url()));
   await page.getByRole('button', { name: 'Generar propiedad' }).click();
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('Space');
+  await expect(page.getByRole('dialog', { name: 'Generar propiedad' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await expect(page).toHaveURL('/t/azar/arrangements');
   await expect(page.getByRole('listitem')).toHaveCount(1);
   expect(requests).toEqual([]);

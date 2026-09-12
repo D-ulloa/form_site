@@ -16,7 +16,11 @@ the cookie-bound handoff. Confirmed or previously used identities cannot be over
 and must log in with their existing password or Google account. Acceptance still checks
 the exact authenticated email and applies only the role stored by the inviter.
 
-SPEC-40 adds Inquilino to owner/admin invitation options. A new inquilino account
+SPEC-42 routes owner/admin Inquilino invitations through Gestión de arreglos and
+requires a persisted property before issuance. Acceptance creates the membership
+and its property association in the same transaction. The general member form
+links to this dashboard. See the [SPEC-42 release and legacy recovery runbook](spec42-property-invitations-runbook.md).
+A new inquilino account
 must register/activate through a valid organization invitation handoff; registration
 alone creates no membership. After explicit acceptance, ordinary visits use
 `/login` (also linked from `/`) and the organization selector, then

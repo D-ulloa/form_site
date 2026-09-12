@@ -39,6 +39,17 @@ afterEach(() => {
 });
 
 describe('SPEC-26 invitation acceptance', () => {
+  it('shows the invitation property as read-only without offering property or role selection', async () => {
+    vi.mocked(resolveInvitation).mockResolvedValue({ organization_display_name: 'Solar', email_masked: 'i***@example.test',
+      intended_role: 'inquilino', expires_at: '2099-01-01T00:00:00Z',
+      arrangement_property: { id: '60000000-0000-4000-8000-000000000001', name: 'Casa Solar' } });
+    render(<MemoryRouter><InvitationAcceptPage /></MemoryRouter>);
+    expect(await screen.findByText('Casa Solar')).toBeTruthy();
+    expect(screen.getByText('60000000-0000-4000-8000-000000000001')).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
   it('reads the token from the fragment, removes it immediately, and passes it only in memory', async () => {
     window.history.replaceState(null, '', '/invitations/accept#invitation_token=single-use-secret');
     render(<StrictMode><MemoryRouter><InvitationAcceptPage /></MemoryRouter></StrictMode>);
@@ -66,7 +77,7 @@ describe('SPEC-26 invitation acceptance', () => {
 });
 
 describe('SPEC-26 governance controls', () => {
-  it('limits an administrator invite form to member, viewer and inquilino roles', () => {
+  it('routes inquilino invitations through properties while retaining internal role choices', () => {
     render(<MemoryRouter><OrganizationGovernancePanel
       section="invitations"
       context={{
@@ -79,7 +90,8 @@ describe('SPEC-26 governance controls', () => {
     expect(screen.getByLabelText(/Correo electrónico/u)).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Miembro' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Lector' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Inquilino' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Inquilino' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Gestión de arreglos' }).getAttribute('href')).toBe('/t/azar/arrangements');
     expect(screen.queryByRole('option', { name: 'Administrador' })).toBeNull();
   });
 

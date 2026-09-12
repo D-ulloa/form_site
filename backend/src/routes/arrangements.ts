@@ -1,3 +1,4 @@
+import { createArrangementPropertiesRouter, type ArrangementPropertyDependencies } from './arrangementProperties.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { SessionService } from '../identity/sessionService.js';
@@ -9,7 +10,7 @@ import { createPlatformRepository } from '../platform/platformRepository.js';
 import { createArrangementOrderRepository } from '../arrangements/arrangementOrderRepository.js';
 import { createListArrangementOrders } from '../services/listArrangementOrders.js';
 
-interface Dependencies {
+interface Dependencies extends ArrangementPropertyDependencies {
   readonly list?: ReturnType<typeof createListArrangementOrders>;
   readonly limiter?: Pick<ReturnType<typeof createDistributedRateLimiter>, 'consume'>;
 }
@@ -50,5 +51,6 @@ export function createArrangementsRouter(
       }
     }
   });
+  router.use(createArrangementPropertiesRouter(sessions, environment, dependencies));
   return router;
 }

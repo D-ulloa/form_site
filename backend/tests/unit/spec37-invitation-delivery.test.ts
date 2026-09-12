@@ -16,6 +16,7 @@ class FakeRepository implements InvitationWorkflowRepository {
   createHandoff(input: Record<string, unknown>) { this.created = input; return Promise.resolve(); }
   resolveHandoff() { return Promise.resolve(null); }
   acceptHandoff() { throw new Error('not used'); }
+  recoverAcceptedHandoff() { return Promise.resolve(null); }
   organizationSlug() { return Promise.resolve('solar'); }
   recordWebhook() { return Promise.resolve(true); }
   listMembers() { return Promise.resolve([]); }

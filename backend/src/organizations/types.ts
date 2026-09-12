@@ -6,6 +6,8 @@ export type RecordVisibility = 'organization' | 'assigned_only';
 export type OrganizationCapability =
   | 'inquilino.home.read'
   | 'arrangements.read'
+  | 'arrangements.properties.create'
+  | 'arrangements.inquilinos.manage'
   | 'organization.read'
   | 'organization.update_settings'
   | 'organization.request_deletion'
@@ -72,6 +74,7 @@ export interface OrganizationSettingsRecord {
 }
 
 export interface OrganizationMembershipRecord {
+  readonly arrangement_property_id?: string | null;
   readonly id: string;
   readonly organization_id: string;
   readonly user_id: string;

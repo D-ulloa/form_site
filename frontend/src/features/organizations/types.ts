@@ -3,6 +3,8 @@ export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type OrganizationCapability =
   | 'inquilino.home.read'
   | 'arrangements.read'
+  | 'arrangements.properties.create'
+  | 'arrangements.inquilinos.manage'
   | 'organization.read'
   | 'organization.update_settings'
   | 'organization.request_deletion'
@@ -60,6 +62,7 @@ export interface ManualInvitationReceipt {
 }
 
 export interface InvitationResolution {
+  readonly arrangement_property?: { readonly id: string; readonly name: string } | null;
   readonly organization_display_name: string;
   readonly email_masked: string;
   readonly intended_role: Exclude<OrganizationRole, 'owner'>;

@@ -1,5 +1,14 @@
 # SPEC-40 verification
 
+Current regression update, 2026-09-12: SPEC-42 requires a property for new
+inquilino invitations and first incorporation. The updated SQL fixtures and
+database browser case create that property first. Use the
+[SPEC-42 disposable setup and current browser harness](spec42-property-invitations.md)
+with both SPEC-42 migrations; it supersedes the historical setup/port instructions
+below. The updated SPEC-40 SQL and mocked navigation regression passed locally.
+The new persisted SPEC-42 browser flow also covers exclusive Inicio and subsequent
+login. The dated SPEC-40 evidence below describes its original implementation run.
+
 Verified locally on 2026-09-11. New users join as `inquilino` through an owner/admin
 invitation, then use `/login` and the organization selector for subsequent visits.
 Their only capability is `inquilino.home.read`; the exclusive home is
