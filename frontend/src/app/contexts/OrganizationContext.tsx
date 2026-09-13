@@ -14,7 +14,7 @@ export interface ConfirmedOrganizationContext {
     readonly status: 'active' | 'suspended' | 'pending_deletion' | 'deleted' };
   readonly membership: { readonly id: string; readonly organization_id: string;
     readonly user_id: string; readonly role: OrganizationRole;
-    readonly status: MembershipStatus; readonly version: number };
+    readonly arrangement_property_id?: string | null; readonly status: MembershipStatus; readonly version: number };
   readonly capabilities: readonly string[];
   readonly home_destination: 'organization' | 'inquilino' | null;
   readonly epoch: number;
@@ -93,7 +93,9 @@ export function OrganizationRouteBoundary() {
         const context = response.data;
         if (context.membership.organization_id !== context.organization.id
           || context.membership.user_id !== request.session?.user.id
-          || context.membership.status !== 'active') {
+          || context.membership.status !== 'active'
+          || (context.membership.arrangement_property_id != null
+            && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(context.membership.arrangement_property_id))) {
           confirmed.current = null;
           queryClient.clear();
           setResolved({ request, state: 'denied', context: null });

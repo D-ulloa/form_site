@@ -5,7 +5,7 @@ test('SPEC-39 browser → API → PostgREST → PostgreSQL', async ({ page }) =>
   await page.goto('/api/test-session');
   await page.goto('/t/azar/arrangements');
   await expect(page.getByRole('listitem')).toHaveCount(25);
-  await expect(page.getByRole('option', { name: 'En curso' })).toHaveCount(1);
+  await expect(page.getByRole('option', { name: 'En proceso' })).toHaveCount(1);
   await page.getByRole('button', { name: 'Cargar más' }).click();
   await expect(page.getByRole('listitem')).toHaveCount(27);
   await expect(page.getByRole('main')).not.toContainText('Solo Solar');

@@ -83,9 +83,9 @@ for (const viewport of [
     await expect(filter).toBeFocused();
     expect(await filter.evaluate(element => getComputedStyle(element).boxShadow !== 'none')).toBe(true);
     await page.keyboard.press('ArrowDown');
-    await expect(filter).toHaveValue('in_progress');
+    await expect(filter).toHaveValue('open');
     await expect(page.getByRole('listitem')).toHaveCount(1);
-    await expect(page.getByRole('listitem')).toContainText('Puerta');
+    await expect(page.getByRole('listitem')).toContainText('Ventana');
     await page.keyboard.press('ArrowUp');
     await expect(filter).toHaveValue('');
     await expect(page.getByRole('listitem')).toHaveCount(2);

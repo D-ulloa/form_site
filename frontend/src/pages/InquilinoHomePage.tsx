@@ -1,7 +1,10 @@
+import { InquilinoArrangements } from '../features/arrangements/components/InquilinoArrangements';
+import { useOrganization } from '../app/contexts/OrganizationContext';
 import { useAuthentication } from '../app/contexts/AuthenticationContext';
 
 export function InquilinoHomePage() {
   const authentication = useAuthentication();
+  const { organization, membership, epoch } = useOrganization();
   return (
     <div className="flex min-h-dvh flex-1 flex-col bg-[var(--bg-base)]">
       <header className="glass sticky top-0 z-10 border-b border-white/[0.07]">
@@ -25,6 +28,7 @@ export function InquilinoHomePage() {
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <h1 className="text-3xl font-bold tracking-tight text-slate-100">Inicio</h1>
+        <InquilinoArrangements key={`${organization.id}:${membership.id}:${membership.arrangement_property_id ?? "none"}:${epoch}`} />
       </main>
     </div>
   );

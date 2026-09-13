@@ -21,8 +21,8 @@ const config = { enabled: true, delivery_method: 'share_link' as const, adapter:
   public_base_url: 'https://app.example.test', template_version: 'v1', provider_reference_pepper: 'p'.repeat(48), webhook_secret: '' };
 const forbidden = (error: unknown) => error instanceof OrganizationDomainError && error.code === 'FORBIDDEN';
 
-test('SPEC-40 grants exactly the home capability and no internal inheritance', () => {
-  assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read']);
+test('SPEC-40 grants only tenant capabilities and no internal inheritance', () => {
+  assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create']);
   for (const capability of ROLE_CAPABILITIES.owner) {
     assert.equal(hasOrganizationCapability('inquilino', 'active', 'active', capability), false, capability);
   }
@@ -43,9 +43,9 @@ test('SPEC-40 context projects only home authority and revalidates membership li
   state.membership = { ...state.membership, role: 'inquilino' };
   const result = await request(app).get('/api/organizations/azar/context').set('Cookie', cookie).expect(200);
   assert.equal(result.body.home_destination, 'inquilino');
-  assert.deepEqual(result.body.capabilities, ['inquilino.home.read']);
+  assert.deepEqual(result.body.capabilities, ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create']);
   assert.deepEqual(Object.keys(result.body.organization).sort(), ['display_name', 'id', 'slug', 'status']);
-  assert.deepEqual(Object.keys(result.body.membership).sort(), ['id', 'organization_id', 'role', 'status', 'user_id', 'version']);
+  assert.deepEqual(Object.keys(result.body.membership).sort(), ['arrangement_property_id', 'id', 'organization_id', 'role', 'status', 'user_id', 'version']);
   assert.equal(result.headers['cache-control'], 'no-store');
   await request(app).get(`/api/organizations/${B}/context`).set('Cookie', cookie).expect(404);
   for (const status of ['suspended', 'removed'] as const) {

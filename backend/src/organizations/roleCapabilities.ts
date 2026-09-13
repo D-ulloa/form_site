@@ -5,11 +5,12 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 5 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 6 as const;
 
 const capabilities = {
-  inquilino: ['inquilino.home.read'],
+  inquilino: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create'],
   owner: [
+    'arrangements.status.update',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
     'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
@@ -22,6 +23,7 @@ const capabilities = {
     'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
   ],
   admin: [
+    'arrangements.status.update',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
     'members.manage_member', 'contracts.read', 'contracts.write', 'contracts.manage',
@@ -32,6 +34,7 @@ const capabilities = {
     'files.read', 'integrations.read', 'audit.read',
   ],
   member: [
+    'arrangements.status.update',
     'arrangements.read', 'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
     'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',
     'contract_templates.read',

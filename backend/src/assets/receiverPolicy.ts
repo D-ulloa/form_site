@@ -65,6 +65,14 @@ export function createAssetReceiverRegistry(
       maximum_bytes: 100 * 1024 * 1024, maximum_count: 10, retention_class: 'property_media',
       download_disposition: 'attachment', require_checksum: false, require_content_detection: true,
     })],
+    ...(['image', 'video'] as const).map(kind => [`arrangement.${kind}`, Object.freeze({
+      key: `arrangement.${kind}`, version: 1, category: `arrangement_${kind}` as AssetCategory,
+      bucket: 'arrangement-media', allowed_principals: new Set<AssetPrincipalType>(['member']),
+      allowed_mime_types: kind === 'image' ? IMAGE_MIME_TYPES : PROPERTY_VIDEO_MIME_TYPES,
+      maximum_bytes: (kind === 'image' ? 10 : 100) * 1024 * 1024,
+      maximum_count: kind === 'image' ? 30 : 10, retention_class: 'property_media',
+      download_disposition: 'attachment' as const, require_checksum: true, require_content_detection: true,
+    })] as const),
     ['branding.logo', Object.freeze({
       key: 'branding.logo', version: 1, category: 'organization_logo', bucket: 'organization-branding',
       allowed_principals: new Set<AssetPrincipalType>(['member', 'platform_support', 'migration']),

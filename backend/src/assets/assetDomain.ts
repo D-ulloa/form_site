@@ -15,7 +15,7 @@ export function sanitizeAssetFilename(rawName: string): string {
 }
 
 export function buildOrganizationAssetPath(input: {
-  readonly organization_id: string; readonly domain: 'contracts' | 'properties' | 'branding' | 'exports';
+  readonly organization_id: string; readonly domain: 'contracts' | 'properties' | 'branding' | 'exports' | 'arrangements';
   readonly owner_id: string; readonly asset_id: string; readonly original_filename: string;
 }): string {
   if (![input.organization_id, input.owner_id, input.asset_id].every((value) => UUID.test(value))) {

@@ -109,7 +109,7 @@ describe('SPEC-38 arrangement navigation', () => {
     const home = await screen.findByRole('link', { name: 'Inicio' });
     expect(window.location.pathname).toBe(`/t/${slug}/arrangements`);
     expect(home.getAttribute('href')).toBe(`/t/${slug}`);
-    expect(await screen.findByText('No hay órdenes abiertas en esta organización.')).toBeTruthy();
+    expect(await screen.findByText('No hay solicitudes en esta organización.')).toBeTruthy();
     expect(screen.getAllByRole('link')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Generar propiedad' })).toBeNull();
     expect(new Set(requestedPaths())).toEqual(new Set(['/api/auth/session', `/api/organizations/${slug}/context`, `/api/organizations/${organizationContext(slug).organization.id}/arrangements/orders`, `/api/organizations/${organizationContext(slug).organization.id}/arrangements/properties`]));

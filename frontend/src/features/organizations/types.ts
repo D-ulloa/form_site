@@ -2,6 +2,7 @@ export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquil
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type OrganizationCapability =
   | 'inquilino.home.read'
+  | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'arrangements.status.update'
   | 'arrangements.read'
   | 'arrangements.properties.create'
   | 'arrangements.inquilinos.manage'

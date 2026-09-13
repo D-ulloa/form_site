@@ -1,3 +1,4 @@
+import type { ArrangementRequestDependencies } from '../../src/routes/arrangementRequests.js';
 import type { ArrangementPropertyDependencies } from '../../src/routes/arrangementProperties.js';
 import express from 'express';
 import type { IdentityRepository } from '../../src/identity/identityRepository.js';
@@ -20,7 +21,7 @@ export const environment: NodeJS.ProcessEnv = {
   PLATFORM_CURSOR_SECRET: 'p'.repeat(48), PLATFORM_RATE_LIMIT_PEPPER: 'l'.repeat(48),
 };
 
-export function arrangementHarness(repository?: ArrangementOrderRepository, dependencies: ArrangementPropertyDependencies = {}) {
+export function arrangementHarness(repository?: ArrangementOrderRepository, dependencies: ArrangementPropertyDependencies & ArrangementRequestDependencies = {}) {
   const now = new Date().toISOString();
   const material = createSessionTokenMaterial(environment);
   const state = {
@@ -70,7 +71,7 @@ export function arrangementHarness(repository?: ArrangementOrderRepository, depe
   app.use(requestIdMiddleware);
   app.use(express.json());
   app.use('/api/organizations/:organization/arrangements', createArrangementsRouter(sessions, environment, {
-    ...dependencies, list: createListArrangementOrders(orders, environment), limiter,
+    ...dependencies, ...(dependencies.requests ? {} : { list: createListArrangementOrders(orders, environment) }), limiter,
   }));
   return { app, state, sessions, identity, material, cookie: `form_site_session=${material.raw_token}` };
 }

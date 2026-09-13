@@ -22,7 +22,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     });
     await page.goto('/t/azar');
     await expect(page).toHaveURL('/t/azar/inquilino');
-    await expect(page.getByRole('main')).toHaveText('Inicio');
+    await expect(page.getByRole('main')).toContainText('No tenés una propiedad vinculada.');
     await expect(page.getByRole('button')).toHaveCount(1);
     await expect(page.getByRole('link')).toHaveCount(0);
     await page.getByRole('button', { name: 'Cerrar sesión' }).focus();
@@ -30,11 +30,11 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('inquilino-home.png'), fullPage: true });
     await page.reload();
-    await expect(page.getByRole('main')).toHaveText('Inicio');
+    await expect(page.getByRole('main')).toContainText('No tenés una propiedad vinculada.');
     for (const path of ['arrangements', 'contracts/admin', 'properties/new', 'settings/members']) {
       await page.goto(`/t/azar/${path}`);
       await expect(page).toHaveURL('/t/azar/inquilino');
-      await expect(page.getByRole('main')).toHaveText('Inicio');
+      await expect(page.getByRole('main')).toContainText('No tenés una propiedad vinculada.');
     }
     denied = true;
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -75,7 +75,7 @@ test('SPEC-40 invitation → registration → persisted membership → login →
     await invitedPage.getByRole('button', { name: 'Crear cuenta', exact: true }).click();
     await invitedPage.getByRole('button', { name: 'Aceptar invitación', exact: true }).click();
     await expect(invitedPage).toHaveURL('/t/azar/inquilino');
-    await expect(invitedPage.getByRole('main')).toHaveText('Inicio');
+    await expect(invitedPage.getByRole('main')).toContainText('No tenés una propiedad vinculada.');
     const context = await (await invitedContext.request.get(`/api/organizations/${a}/context`)).json();
     expect(context.membership.role).toBe('inquilino');
     expect(context.capabilities).toEqual(['inquilino.home.read']);

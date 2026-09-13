@@ -16,6 +16,7 @@ const page = { organization_id: A, items: [first, second], available_statuses: [
 let queryClient: QueryClient;
 let capabilities: string[];
 let authenticated: boolean;
+let mutateOrder: (config: InternalAxiosRequestConfig) => Promise<unknown>;
 let resolveOrders: (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
 function reject(config: InternalAxiosRequestConfig, status: number): never {
@@ -32,6 +33,7 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
     data = { ...context, capabilities };
   } else if (path.endsWith('/arrangements/properties')) data = { organization_id: path.includes(B) ? B : A, items: [], next_cursor: null };
   else if (path.endsWith('/arrangements/orders')) data = await resolveOrders(config);
+  else if (path.endsWith('/status') && config.method === 'patch') data = await mutateOrder(config);
   else throw new Error(`Unexpected request ${path}`);
   return { data, status: 200, statusText: 'OK', config, headers: {} };
 });
@@ -62,16 +64,15 @@ afterEach(() => {
 describe('SPEC-39 arrangement dashboard', () => {
   it('renders persisted fields and sends exact status filters under the confirmed UUID', async () => {
     renderDashboard();
-    const list = await screen.findByRole('list', { name: 'Órdenes abiertas' });
+    const list = await screen.findByRole('list', { name: 'Solicitudes de arreglo' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(2);
     expect(within(list).getByText(first.id)).toBeTruthy();
-    expect(within(list).getAllByRole('term').map(term => term.textContent))
-      .toEqual(['Nombre', 'Estado', 'Identificador', 'Nombre', 'Estado', 'Identificador']);
+    expect(within(list).getAllByText('Propiedad no registrada')).toHaveLength(2);
     const filter = screen.getByRole('combobox', { name: 'Filtrar por estado' });
     fireEvent.change(filter, { target: { value: 'in_progress' } });
     await waitFor(() => expect(screen.queryByText('Ventana')).toBeNull());
     expect(await screen.findByText('Puerta')).toBeTruthy();
-    expect(within(filter).getAllByRole('option').map(option => option.textContent)).toEqual(['Todos', 'En curso', 'Abierta']);
+    expect(within(filter).getAllByRole('option').map(option => option.textContent)).toEqual(['Todos', 'Sin procesar', 'En proceso', 'Solucionado', 'Archivados']);
     fireEvent.change(filter, { target: { value: '' } });
     expect(await screen.findByText('Ventana')).toBeTruthy();
     expect(requests().every(([config]) => config.withCredentials && config.signal
@@ -93,13 +94,13 @@ describe('SPEC-39 arrangement dashboard', () => {
     renderDashboard();
     expect(await screen.findByText('Cargando órdenes…')).toBeTruthy();
     await act(async () => { release({ ...page, items: [], available_statuses: [] }); });
-    expect(await screen.findByText('No hay órdenes abiertas en esta organización.')).toBeTruthy();
+    expect(await screen.findByText('No hay solicitudes en esta organización.')).toBeTruthy();
     resolveOrders = async () => page;
     await act(async () => { await queryClient.invalidateQueries(); });
     await screen.findByText('Ventana');
     resolveOrders = async () => ({ ...page, items: [], available_statuses: ['open'] });
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'in_progress' } });
-    expect(await screen.findByText('No hay órdenes abiertas con este estado.')).toBeTruthy();
+    expect(await screen.findByText('No hay solicitudes con este estado.')).toBeTruthy();
     expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('in_progress');
   });
 
@@ -111,7 +112,7 @@ describe('SPEC-39 arrangement dashboard', () => {
       return { ...page, items: [second] };
     };
     renderDashboard(); await screen.findByText('Ventana');
-    expect(screen.getByRole('option', { name: 'En curso' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'En proceso' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByText(/La lista está incompleta/)).toBeTruthy();
@@ -128,7 +129,7 @@ describe('SPEC-39 arrangement dashboard', () => {
     renderDashboard();
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.queryByText('Ventana')).toBeNull();
-    expect(screen.queryByText('No hay órdenes abiertas en esta organización.')).toBeNull();
+    expect(screen.queryByText('No hay solicitudes en esta organización.')).toBeNull();
     resolveOrders = async () => page;
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(await screen.findByText('Ventana')).toBeTruthy();
@@ -167,4 +168,37 @@ describe('SPEC-39 arrangement dashboard', () => {
     expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('');
     expect(screen.getByRole('link', { name: 'Inicio' }).getAttribute('href')).toBe('/t/solar');
   });
+});
+
+
+it('saves a permitted status with the current version and refreshes only the organization list', async () => {
+  capabilities = ['organization.read', 'arrangements.read', 'arrangements.status.update'];
+  let current = { ...first, organization_id: A, description: 'Humedad en techo', property: { id: '40000000-0000-4000-8000-000000000001', name: 'Casa Norte' },
+    created_at: '2026-09-12T12:00:00Z', submitted_at: '2026-09-12T12:00:00Z', updated_at: '2026-09-12T12:00:00Z', version: 2, legacy: false, created_by_you: false, assets: [] };
+  resolveOrders = async () => ({ ...page, items: [current], available_statuses: ['open', 'in_progress', 'solved', 'archived'] });
+  mutateOrder = async config => {
+    expect(JSON.parse(config.data)).toEqual({ status: 'archived', expected_version: 2 });
+    current = { ...current, status: 'archived', version: 3 }; return current;
+  };
+  renderDashboard(); await screen.findByText('Humedad en techo');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Estado de la solicitud' }), { target: { value: 'archived' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar estado' }));
+  await waitFor(() => expect(screen.getAllByText('Archivada')).toHaveLength(2));
+  expect((screen.getByRole('button', { name: 'Guardar estado' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(adapter.mock.calls.some(([config]) => config.method === 'patch' && config.url === `/api/organizations/${A}/arrangements/orders/${first.id}/status`)).toBe(true);
+});
+it('explains a version conflict and refreshes the current state before another write', async () => {
+  capabilities = ['organization.read', 'arrangements.read', 'arrangements.status.update'];
+  let current = { ...first, organization_id: A, description: 'Solicitud compartida', property: null,
+    created_at: null, submitted_at: null, updated_at: null, version: 2, legacy: true, created_by_you: false, assets: [] };
+  resolveOrders = async () => ({ ...page, items: [current], available_statuses: ['open', 'in_progress', 'solved', 'archived'] });
+  mutateOrder = async config => {
+    current = { ...current, status: 'solved', version: 3 };
+    throw new AxiosError('Conflict', 'ERR_BAD_RESPONSE', config, undefined, { data: { error: 'VERSION_CONFLICT', current: { id: first.id, status: 'solved', version: 3 } }, status: 409, statusText: 'Conflict', config, headers: {} });
+  };
+  renderDashboard(); await screen.findByText('Solicitud compartida');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Estado de la solicitud' }), { target: { value: 'in_progress' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar estado' }));
+  await screen.findByText(/Alguien actualizó esta solicitud/);
+  await waitFor(() => expect(screen.getAllByText('Solucionado')).toHaveLength(3));
 });

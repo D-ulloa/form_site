@@ -7,7 +7,7 @@ export interface PrivateAssetStorageAdapter {
     readonly upload_url: string; readonly required_headers: Readonly<Record<string, string>>;
   }>;
   inspect(bucketName: string, objectPath: string): Promise<ProviderObjectMetadata>;
-  issueView(bucketName: string, objectPath: string, expiresInSeconds: number): Promise<{
+  issueView(bucketName: string, objectPath: string, expiresInSeconds: number, downloadFilename?: string): Promise<{
     readonly signed_url: string; readonly expires_at: string;
   }>;
   remove(bucketName: string, objectPath: string): Promise<'deleted' | 'not_found'>;
@@ -36,9 +36,9 @@ export function createSupabaseAssetStorageAdapter(
       }
       return { bucket_name: bucketName, object_path: objectPath, bytes, provider_mime: providerMime };
     },
-    async issueView(bucketName, objectPath, expiresInSeconds) {
+    async issueView(bucketName, objectPath, expiresInSeconds, downloadFilename) {
       const ttl = Math.max(15, Math.min(300, Math.floor(expiresInSeconds)));
-      const { data, error } = await client().storage.from(bucketName).createSignedUrl(objectPath, ttl);
+      const { data, error } = await client().storage.from(bucketName).createSignedUrl(objectPath, ttl, downloadFilename ? { download: downloadFilename } : {});
       if (error || !data?.signedUrl) throw new Error('STORAGE_UNAVAILABLE');
       return { signed_url: data.signedUrl, expires_at: new Date(now().getTime() + ttl * 1000).toISOString() };
     },

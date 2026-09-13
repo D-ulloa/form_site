@@ -74,7 +74,7 @@ it('creates a property with only name, preserves the empty orders section and ca
   fireEvent.click(within(dialog).getByRole('button', { name: 'Crear propiedad' }));
   expect(await screen.findByRole('dialog', { name: 'Agregar inquilino' })).toBeTruthy();
   expect(within(screen.getByRole('list', { name: 'Propiedades' })).getByText(P)).toBeTruthy();
-  expect(screen.getByText('No hay órdenes abiertas en esta organización.')).toBeTruthy();
+  expect(screen.getByText('No hay solicitudes en esta organización.')).toBeTruthy();
   expect(JSON.parse(posts()[0][0].data)).toEqual({ name: 'Casa' });
   expect(posts()[0][0].headers.get('Idempotency-Key')).toBeTruthy();
 });

@@ -47,7 +47,7 @@ function navigate(path: string) {
 function assertEmptyHome() {
   const main = screen.getByRole('main');
   expect(within(main).getByRole('heading', { name: 'Inicio', level: 1 })).toBeTruthy();
-  expect(main.textContent).toBe('Inicio');
+  expect(main.textContent).toContain('No tenés una propiedad vinculada.');
   expect(within(main).queryByRole('button')).toBeNull();
   expect(screen.queryByRole('link')).toBeNull();
   expect(screen.queryByRole('dialog')).toBeNull();

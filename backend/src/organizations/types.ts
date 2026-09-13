@@ -5,6 +5,7 @@ export type RecordVisibility = 'organization' | 'assigned_only';
 
 export type OrganizationCapability =
   | 'inquilino.home.read'
+  | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'arrangements.status.update'
   | 'arrangements.read'
   | 'arrangements.properties.create'
   | 'arrangements.inquilinos.manage'

@@ -24,6 +24,9 @@ new direct-child spec folder.
 - [`SPEC-41-registro-autoservicio-y-creacion-de-organizacion`](SPEC-41-registro-autoservicio-y-creacion-de-organizacion/) — self-service registration and initial-owner organization bootstrap; pending.
 - [`SPEC-42-propiedades-e-invitaciones-de-inquilinos-en-arreglos`](SPEC-42-propiedades-e-invitaciones-de-inquilinos-en-arreglos/) — lightweight properties created from the arrangements dashboard, property-bound inquilino invitations and atomic association on acceptance; verified locally and both migrations applied to Supabase development branch `multi-tenant` 2026-09-12; application deployment pending.
 
+- [`SPEC-43-solicitudes-de-arreglo-para-inquilinos`](SPEC-43-solicitudes-de-arreglo-para-inquilinos/) — local implementation and verification of tenant repair requests, private media, shared property history and status management; hosted rollout and SPEC-31/POL-09 gates pending.
+- [`SPEC-44-rol-personal-inicio-exclusivo`](SPEC-44-rol-personal-inicio-exclusivo/) — ready for implementation: invitation-only `personal` role, invitee-provided profile details at acceptance, and an exclusive empty Inicio page.
+
 ## Identifier note
 
 The direct-child arrangement work uses SPEC-38, while the shared contract

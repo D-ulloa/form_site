@@ -37,7 +37,7 @@ export function useArrangementCollection<C extends PropertyCollection>(collectio
 }
 
 /** Response-only links never enter React Query's mutation cache. Unmount/hidden context aborts pending work. */
-export function useArrangementOperation() {
+export function useArrangementOperation(errorMessage: (error: unknown) => string = arrangementError) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const controller = useRef<AbortController | null>(null);
@@ -59,11 +59,12 @@ export function useArrangementOperation() {
       const result = await work(request.signal);
       if (active.current && !request.signal.aborted) success(result);
     } catch (caught) {
-      if (active.current && !request.signal.aborted) { denied(caught); setError(arrangementError(caught)); }
+      if (active.current && !request.signal.aborted) { denied(caught); setError(errorMessage(caught)); }
     } finally {
       if (active.current && !request.signal.aborted) setPending(false);
       if (controller.current === request) controller.current = null;
     }
   }
-  return { pending, error, run };
+  function cancel() { controller.current?.abort(); controller.current = null; setPending(false); }
+  return { pending, error, run, cancel };
 }

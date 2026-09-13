@@ -8,7 +8,7 @@ export function ArrangementDialog({ title, children, onClose }: { title: string;
     const dialog = ref.current;
     const previous = document.activeElement;
     dialog?.showModal();
-    dialog?.querySelector<HTMLInputElement>('input:not([disabled])')?.focus();
+    dialog?.querySelector<HTMLElement>('textarea:not([disabled]), input:not([disabled])')?.focus();
     return () => { dialog?.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
   }, []);
   return <dialog ref={ref} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}

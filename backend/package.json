@@ -13,7 +13,8 @@
     "spec35:provision-identity": "tsx src/identity/provisionIdentityCli.ts",
     "platform:provision-organization": "tsx src/platform/provisionOrganizationCli.ts",
     "worker:contract-make": "tsx src/integrations/runContractMakeDeliveryWorker.ts",
-    "test": "tsx --test tests/unit/*.test.ts tests/integration/*.test.ts"
+    "test": "tsx --test tests/unit/*.test.ts tests/integration/*.test.ts",
+    "worker:arrangement-cleanup": "tsx scripts/cleanup-arrangement-assets.ts"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "file-type": "^21.3.4",
     "googleapis": "^148.0.0",
     "multer": "^2.1.1",
     "uuid": "^11.1.0",

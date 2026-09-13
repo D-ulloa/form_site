@@ -1,3 +1,4 @@
+import { createArrangementRequestsRouter, type ArrangementRequestDependencies } from './arrangementRequests.js';
 import { createArrangementPropertiesRouter, type ArrangementPropertyDependencies } from './arrangementProperties.js';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -10,7 +11,7 @@ import { createPlatformRepository } from '../platform/platformRepository.js';
 import { createArrangementOrderRepository } from '../arrangements/arrangementOrderRepository.js';
 import { createListArrangementOrders } from '../services/listArrangementOrders.js';
 
-interface Dependencies extends ArrangementPropertyDependencies {
+interface Dependencies extends ArrangementPropertyDependencies, ArrangementRequestDependencies {
   readonly list?: ReturnType<typeof createListArrangementOrders>;
   readonly limiter?: Pick<ReturnType<typeof createDistributedRateLimiter>, 'consume'>;
 }
@@ -31,6 +32,7 @@ export function createArrangementsRouter(
       'Referrer-Policy': 'no-referrer', 'Cross-Origin-Resource-Policy': 'same-origin' });
     next();
   });
+  router.use(createArrangementRequestsRouter(sessions, environment, dependencies, Boolean(dependencies.list)));
   router.get('/orders', async (request, response) => {
     try {
       const organization = (request.params as Record<string, string | undefined>).organization ?? '';
