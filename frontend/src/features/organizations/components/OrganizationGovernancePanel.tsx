@@ -125,7 +125,7 @@ export function OrganizationGovernancePanel({
                 {members.map((member) => (
                   <li key={member.user_id} className="surface rounded-xl p-4 flex justify-between gap-4">
                     <span><strong className="block">{member.display_name}</strong><span className="text-sm text-slate-400">{member.email_masked}</span></span>
-                    <span className="text-right"><span className="block">{member.role === 'inquilino' ? 'Inquilino' : member.role}</span><span className="text-sm text-slate-400">{member.status}</span></span>
+                    <span className="text-right"><span className="block">{member.role === 'personal' ? 'Personal' : member.role === 'inquilino' ? 'Inquilino' : member.role}</span><span className="text-sm text-slate-400">{member.status}</span></span>
                   </li>
                 ))}
               </ul>
@@ -161,7 +161,7 @@ export function OrganizationGovernancePanel({
           <ul className="mt-4 space-y-3">
             {invitations.map((invitation) => (
               <li key={invitation.invitation_id} className="surface rounded-xl p-4 flex flex-wrap justify-between gap-3">
-                <span>{invitation.email_masked}<small className="block text-slate-400">{invitation.intended_role === 'inquilino' ? 'Inquilino' : invitation.intended_role} · {invitation.status} · entrega: {invitation.delivery_state}</small></span>
+                <span>{invitation.email_masked}<small className="block text-slate-400">{invitation.intended_role === 'personal' ? 'Personal' : invitation.intended_role === 'inquilino' ? 'Inquilino' : invitation.intended_role} · {invitation.status} · entrega: {invitation.delivery_state}</small></span>
                 {invitation.next_action !== 'none' && <span className="flex gap-2">
                   {invitation.next_action === 'rotate_or_revoke'
                     ? <Button variant="secondary" disabled={!onRotate} onClick={() => void rotateLink(invitation.invitation_id)}>Generar enlace nuevo</Button>

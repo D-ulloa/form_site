@@ -12,6 +12,7 @@ import { OrganizationGovernancePage } from './pages/OrganizationGovernancePage';
 import { AuthenticationProvider } from './app/contexts/AuthenticationContext';
 import { OrganizationRouteBoundary } from './app/contexts/OrganizationContext';
 import { OrganizationAccessBoundary } from './app/OrganizationAccessBoundary';
+import { PersonalHomePage } from './pages/PersonalHomePage';
 import { InquilinoHomePage } from './pages/InquilinoHomePage';
 
 function App() {
@@ -24,6 +25,9 @@ function App() {
         <Route path="/auth/callback" element={<GoogleAuthCallbackPage />} />
         <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
         <Route path="/t/:organizationSlug" element={<OrganizationRouteBoundary />}>
+          <Route element={<OrganizationAccessBoundary home="personal" />}>
+            <Route path="personal" element={<PersonalHomePage />} />
+          </Route>
           <Route element={<OrganizationAccessBoundary home="inquilino" />}>
             <Route path="inquilino" element={<InquilinoHomePage />} />
           </Route>

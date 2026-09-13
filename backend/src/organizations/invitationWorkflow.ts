@@ -1,3 +1,4 @@
+import { PersonalProfileSchema, type PersonalProfile } from './personalProfile.js';
 import { hasOrganizationCapability } from './roleCapabilities.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -25,7 +26,7 @@ export interface InvitationWorkflowRepository {
   resolveHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string }):
     Promise<InvitationResolutionRecord | null>;
   acceptHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
-    identity: InvitationIdentityContext }): Promise<OrganizationMembershipRecord>;
+    identity: InvitationIdentityContext; personal_profile?: PersonalProfile }): Promise<OrganizationMembershipRecord>;
   recoverAcceptedHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
     identity: InvitationIdentityContext }): Promise<OrganizationMembershipRecord | null>;
   organizationSlug(organizationId: string): Promise<string>;
@@ -62,7 +63,8 @@ export function createInvitationWorkflowRepository(environment: NodeJS.ProcessEn
     async resolveHandoff(input) { const { data, error } = await client.rpc('spec37_resolve_invitation_handoff', {
       p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
       p_origin_hash: input.origin_hash }).maybeSingle(); if (error) failure(error); return data as InvitationResolutionRecord | null; },
-    async acceptHandoff(input) { const { data, error } = await client.rpc('spec37_accept_invitation_handoff', {
+    async acceptHandoff(input) { const { data, error } = await client.rpc('spec44_accept_invitation_handoff', {
+      p_personal_profile: input.personal_profile ?? null,
       p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
       p_origin_hash: input.origin_hash, p_user_id: input.identity.user_id,
       p_verified_email_normalized: input.identity.verified_email, p_request_id: input.identity.request_id,
@@ -109,6 +111,11 @@ export class InvitationWorkflowService {
     const url = new URL('/invitations/accept', this.config.public_base_url);
     url.hash = `invitation_token=${rawToken}`;
     return url.toString();
+  }
+
+  configuredDeliveryMethod(): 'share_link' | 'email' {
+    if (!this.config.enabled || (this.config.delivery_method === 'email' && this.config.adapter === 'disabled')) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    return this.config.delivery_method;
   }
 
   assertManualAvailable(): void {
@@ -177,8 +184,9 @@ export class InvitationWorkflowService {
   resolveHandoff(handle: string, binding: string, origin: string) {
     return this.repository.resolveHandoff({ handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin) });
   }
-  async acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext) {
-    const input = { handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity };
+  async acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext, personalProfile?: PersonalProfile) {
+    const personal_profile = personalProfile === undefined ? undefined : PersonalProfileSchema.parse(personalProfile);
+    const input = { handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity, ...(personal_profile ? { personal_profile } : {}) };
     let membership: OrganizationMembershipRecord;
     try { membership = await this.repository.acceptHandoff(input); }
     catch (error) {

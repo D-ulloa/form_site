@@ -25,7 +25,7 @@ new direct-child spec folder.
 - [`SPEC-42-propiedades-e-invitaciones-de-inquilinos-en-arreglos`](SPEC-42-propiedades-e-invitaciones-de-inquilinos-en-arreglos/) — lightweight properties created from the arrangements dashboard, property-bound inquilino invitations and atomic association on acceptance; verified locally and both migrations applied to Supabase development branch `multi-tenant` 2026-09-12; application deployment pending.
 
 - [`SPEC-43-solicitudes-de-arreglo-para-inquilinos`](SPEC-43-solicitudes-de-arreglo-para-inquilinos/) — local implementation and verification of tenant repair requests, private media, shared property history and status management; hosted rollout and SPEC-31/POL-09 gates pending.
-- [`SPEC-44-rol-personal-inicio-exclusivo`](SPEC-44-rol-personal-inicio-exclusivo/) — ready for implementation: invitation-only `personal` role, invitee-provided profile details at acceptance, and an exclusive empty Inicio page.
+- [`SPEC-44-rol-personal-inicio-exclusivo`](SPEC-44-rol-personal-inicio-exclusivo/) — implemented and verified locally: scoped personal invitations, atomic membership profiles and exclusive Inicio. SQL/upgrade/concurrency, regression suites and six browser cases passed. Migration applied to development `multi-tenant`; personal invitations enabled in the local backend environment. Application deployment/hosted smoke tests pending ([evidence](../../06-testing/spec44-personal-invitations.md), 2026-09-12).
 
 ## Identifier note
 

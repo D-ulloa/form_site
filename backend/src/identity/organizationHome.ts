@@ -3,7 +3,9 @@ import type { OrganizationRequestContext } from './types.js';
 /** Minimal browser projection. Organization records contain administrative metadata. */
 export function publicOrganizationContext(context: OrganizationRequestContext) {
   const { organization, membership, capabilities } = context;
-  const homeDestination = membership.role === 'inquilino'
+  const homeDestination = membership.role === 'personal'
+    ? capabilities.has('personal.home.read') ? 'personal' : null
+    : membership.role === 'inquilino'
     ? capabilities.has('inquilino.home.read') ? 'inquilino' : null
     : capabilities.has('organization.read') ? 'organization' : null;
   return {

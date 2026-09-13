@@ -1,3 +1,4 @@
+import { InvitationAcceptanceSchema, publicMembership } from '../organizations/personalProfile.js';
 import { z } from 'zod';
 import { OrganizationValidationError } from '../organizations/validation.js';
 import { Router, type Request, type Response } from 'express';
@@ -201,8 +202,8 @@ export function createOrganizationGovernanceRouter(
       const material = cookieValue(request); if (!material) throw new OrganizationDomainError('INVITATION_INVALID');
       await limitPublic(request, 'member.invitation_accept', material[0]);
       const identity = await resolver.resolveInvitationIdentity(request);
-      z.object({}).strict().parse(request.body ?? {});
-      const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity);
+      const body = InvitationAcceptanceSchema.parse(request.body ?? {});
+      const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity, body.personal_profile);
       response.set('Set-Cookie', clearHandoff);
       response.json({ organization_id: accepted.membership.organization_id,
         organization_slug: accepted.organization_slug, context_refresh_required: true });
@@ -309,9 +310,9 @@ export function createOrganizationGovernanceRouter(
         response.status(400).json({ error: 'INVALID_REQUEST' });
         return;
       }
-      response.json(await services.memberships.changeRole(
+      response.json(publicMembership(await services.memberships.changeRole(
         valueAt(request.params.userId), role, request.body.expected_version as number, actor,
-      ));
+      )));
     } catch (error) { sendError(response, error); }
   });
 
@@ -319,10 +320,10 @@ export function createOrganizationGovernanceRouter(
     try {
       secureResponse(response);
       const actor = await scopedActor(request, resolver);
-      response.json(await services.memberships.changeStatus(
+      response.json(publicMembership(await services.memberships.changeStatus(
         valueAt(request.params.userId), 'suspended', Number(request.body?.expected_version),
         String(request.body?.reason_code ?? ''), actor,
-      ));
+      )));
     } catch (error) { sendError(response, error); }
   });
 
@@ -330,9 +331,9 @@ export function createOrganizationGovernanceRouter(
     try {
       secureResponse(response);
       const actor = await scopedActor(request, resolver);
-      response.json(await services.memberships.changeStatus(
+      response.json(publicMembership(await services.memberships.changeStatus(
         valueAt(request.params.userId), 'active', Number(request.body?.expected_version), '', actor,
-      ));
+      )));
     } catch (error) { sendError(response, error); }
   });
 
@@ -340,10 +341,10 @@ export function createOrganizationGovernanceRouter(
     try {
       secureResponse(response);
       const actor = await scopedActor(request, resolver);
-      response.json(await services.memberships.changeStatus(
+      response.json(publicMembership(await services.memberships.changeStatus(
         valueAt(request.params.userId), 'removed', Number(request.body?.expected_version),
         String(request.body?.reason_code ?? ''), actor,
-      ));
+      )));
     } catch (error) { sendError(response, error); }
   });
 
@@ -352,14 +353,14 @@ export function createOrganizationGovernanceRouter(
       secureResponse(response);
       const actor = await scopedActor(request, resolver);
       const body = request.body as Record<string, unknown>;
-      response.json(await services.memberships.transferOwnership(
+      response.json((await services.memberships.transferOwnership(
         String(body.target_user_id ?? ''),
         body.source_owner_role_after_transfer as OrganizationRole,
         Number(body.expected_organization_version),
         Number(body.expected_target_membership_version),
         body.confirmed === true,
         actor,
-      ));
+      )).map(publicMembership));
     } catch (error) { sendError(response, error); }
   });
 

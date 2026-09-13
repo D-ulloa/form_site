@@ -35,13 +35,15 @@ export async function establishInvitationHandoff(invitationToken: string): Promi
 export async function resolveInvitation(): Promise<InvitationResolution> {
   const response = await api.post<InvitationResolution>('/invitations/resolve');
   return z.object({ organization_display_name: z.string(), email_masked: z.string(),
-    intended_role: z.enum(['admin', 'member', 'viewer', 'inquilino']), expires_at: z.string(),
+    intended_role: z.enum(['admin', 'member', 'viewer', 'inquilino', 'personal']), expires_at: z.string(),
     arrangement_property: z.object({ id: z.uuid(), name: z.string().min(1).max(200) }).strict().nullable().optional(),
-  }).strict().refine(value => value.intended_role !== 'inquilino' || value.arrangement_property != null).parse(response.data);
+  }).strict().refine(value => value.intended_role !== 'inquilino' || value.arrangement_property != null)
+    .refine(value => value.intended_role !== 'personal' || value.arrangement_property == null).parse(response.data);
 }
 
-export async function acceptInvitation(): Promise<{ organization_id: string; organization_slug: string }> {
-  const response = await api.post<{ organization_id: string; organization_slug: string }>('/invitations/accept');
+export async function acceptInvitation(personalProfile?: { name: string; contact_number: string; occupation: string }, signal?: AbortSignal): Promise<{ organization_id: string; organization_slug: string }> {
+  const response = await api.post<{ organization_id: string; organization_slug: string }>('/invitations/accept',
+    personalProfile ? { personal_profile: personalProfile } : {}, { signal });
   return response.data;
 }
 

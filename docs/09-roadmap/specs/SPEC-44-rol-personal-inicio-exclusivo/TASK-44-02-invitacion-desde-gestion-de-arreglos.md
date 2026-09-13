@@ -1,6 +1,6 @@
 # TASK-44-02 — Invitación de personal desde Gestión de arreglos
 
-- Estado: `ready`
+- Estado: `implemented` (verificado localmente; migración aplicada a desarrollo `multi-tenant`; despliegue y smoke test pendientes)
 - SPEC: [SPEC-44](./SPEC-44-rol-personal-inicio-exclusivo.md)
 - Dependencias: TASK-44-01 para capacidades, perfil y contrato de aceptación; flujo de invitaciones de SPEC-37/42.
 - Paralelización: puede comenzar con contrato de API fijado; su cierre requiere la persistencia y autorización de TASK-44-01.
@@ -36,6 +36,22 @@ Permitir que `owner`, `admin` y `member` generen una invitación de rol fijo `pe
 - Pruebas de emisión/aceptación con el repositorio y persistencia real.
 - Pruebas de integración del formulario, errores, copiado/recuperación de enlace y contexto.
 - Recorrido browser con actor autorizado y no autorizado, sin invitación externa real.
+
+## Secuencia concreta
+
+1. Crear `routes/arrangementPersonal.ts`, montarlo bajo arreglos y conectar `OrganizationService.invitePersonal`. El body de emisión solo contiene `{ email }`; rol, propiedad y organización nunca son opciones del cliente.
+2. Incorporar rutas dedicadas de creación, rotación y revocación en `/personal/invitations`. Reutilizar las políticas distribuidas y seguridad de mutación existentes; proponer que member recupere únicamente sus propias invitaciones personales y que owner/admin mantengan su autoridad de gestión.
+3. Conectar preparación durable → provisioning autorizado → creación SQL → recibo de `InvitationWorkflowService`. Un replay sin enlace devuelve ID y acción recuperable, sin duplicar emisión ni guardar el token.
+4. Extender `POST /api/invitations/accept`, repositorio/workflow y cliente para `personal_profile`, con rol resuelto en servidor. Conservar body vacío para los otros roles y errores corregibles antes del consumo.
+5. Añadir `Invitar personal` y diálogo de correo al dashboard. Representar recibos con/sin `share_url`; limpiar enlace e intentos al cerrar o cambiar contexto. No añadir consultas de gobernanza para member.
+6. Añadir el formulario de tres campos después de autenticarse en `InvitationAcceptPage`. Separar nombre global del registro y nombre de membresía; cubrir registro, login existente y retorno Google. Proteger respuestas tardías tras cambio de cuenta o invitación.
+7. Actualizar etiqueta `Personal` en entrega, resolución y listas existentes; probar body estricto, doble envío, expiración, recuperación y regresiones SPEC-35/37/41/42.
+
+Contratos detallados, política propuesta de recuperación y archivos de pruebas están en las secciones 2, 3 y 5 de la guía. No permitir nueva emisión hasta completar la compatibilidad de TASK-44-03.
+
+## Evidencia local — 2026-09-12
+
+Implementación y verificaciones completadas: [resultados, comandos reproducibles y pendientes de rollout](../../../06-testing/spec44-personal-invitations.md). La migración también se aplicó y verificó en la rama de desarrollo `multi-tenant` (`kcobkbtieyowdmsvtsvv`). `PERSONAL_INVITATIONS_ENABLED=true` está configurado en `backend/.env` para desarrollo local. El valor por defecto continúa siendo `false`; despliegue de aplicaciones y smoke test alojado pendientes.
 
 ## Referencias
 

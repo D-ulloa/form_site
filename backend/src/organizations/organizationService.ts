@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { createPersonalInvitationRepository, type PersonalInvitationRepository } from './personalInvitationRepository.js';
+import type { InvitationRecord } from './organizationRepository.js';
 import { createOrganizationScope } from '../platform/scope.js';
 import { IdempotencyKey, requireArrangementAuthority } from '../services/arrangementProperties.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -60,6 +62,8 @@ export class OrganizationService {
     private readonly now: () => Date = () => new Date(),
     private readonly invitationWorkflow?: InvitationWorkflowService,
     private readonly identityProvisioning?: IdentityProvisioningService,
+    private readonly personalRepository: PersonalInvitationRepository = createPersonalInvitationRepository(),
+    private readonly environment: NodeJS.ProcessEnv = process.env,
   ) {}
 
   async createOrganization(
@@ -147,6 +151,63 @@ export class OrganizationService {
       ...identity,
       verified_email: normalizeOrganizationEmail(identity.verified_email),
     });
+  }
+
+  async invitePersonal(input: { email: string; idempotency_key: string }, actor: OrganizationActorContext) {
+    requireArrangementAuthority(createOrganizationScope(actor.organization.id), actor, 'arrangements.personal.invite');
+    if (this.environment.PERSONAL_INVITATIONS_ENABLED !== 'true') throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    const body = z.object({ email: z.string(), idempotency_key: IdempotencyKey }).strict().parse(input);
+    const email = normalizeOrganizationEmail(body.email);
+    if (!this.invitationWorkflow || !this.identityProvisioning) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    const deliveryMethod = this.invitationWorkflow.configuredDeliveryMethod();
+    const scope = { organization_id: actor.organization.id, actor_membership_id: actor.membership.id };
+    const prepared = await this.personalRepository.prepare({ ...scope, email, idempotency_key: body.idempotency_key });
+    if (prepared.invitation) return this.invitationWorkflow.replayedLink(prepared.invitation);
+    const identity = await this.identityProvisioning.provision({ email, purpose: 'organization_invitee',
+      request_id: actor.request_id, idempotency_key: `personal:${prepared.operation_id}` },
+    createInvitationProvisioningActor({ actor_type: 'organization_invitation', user_id: actor.user_id,
+      membership_id: actor.membership.id, organization_id: actor.organization.id,
+      personal_invitation_operation_id: prepared.operation_id }));
+    if (!identity.user_id || identity.outcome === 'blocked_ambiguous' || identity.outcome === 'blocked_ineligible') {
+      throw new OrganizationDomainError('FORBIDDEN');
+    }
+    const token = createInvitationToken();
+    const invitation = await this.personalRepository.create({ ...scope, operation_id: prepared.operation_id, email,
+      token_hash: token.token_hash, token_prefix: token.token_prefix,
+      expires_at: new Date(this.now().getTime() + INVITATION_EXPIRY_MILLISECONDS).toISOString(),
+      invited_auth_user_id: identity.user_id,
+      registration_permitted: identity.activation_required && identity.outcome === 'created_activation_required',
+      delivery_method: deliveryMethod, request_id: actor.request_id });
+    return this.personalReceipt(invitation, token.raw_token, actor);
+  }
+
+  private async personalReceipt(invitation: InvitationRecord, rawToken: string, actor: OrganizationActorContext) {
+    if (!this.invitationWorkflow) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    if (invitation.link_issued === false) return this.invitationWorkflow.replayedLink(invitation);
+    if (invitation.delivery_method === 'share_link') return this.invitationWorkflow.manualLink(invitation, rawToken);
+    return this.invitationWorkflow.deliver(invitation, rawToken, { organization_display_name: actor.organization.display_name,
+      inviter_display_name: validateDisplayName(actor.display_name), request_id: actor.request_id });
+  }
+
+  async rotatePersonalInvitation(invitationId: string, actor: OrganizationActorContext) {
+    requireArrangementAuthority(createOrganizationScope(actor.organization.id), actor, 'arrangements.personal.invite');
+    z.uuid().parse(invitationId);
+    if (!this.invitationWorkflow) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    this.invitationWorkflow.configuredDeliveryMethod();
+    const token = createInvitationToken();
+    const invitation = await this.personalRepository.rotate({ organization_id: actor.organization.id,
+      actor_membership_id: actor.membership.id, invitation_id: invitationId, replacement_invitation_id: randomUUID(),
+      token_hash: token.token_hash, token_prefix: token.token_prefix,
+      expires_at: new Date(this.now().getTime() + INVITATION_EXPIRY_MILLISECONDS).toISOString(), request_id: actor.request_id });
+    return this.personalReceipt(invitation, token.raw_token, actor);
+  }
+
+  async revokePersonalInvitation(invitationId: string, actor: OrganizationActorContext) {
+    requireArrangementAuthority(createOrganizationScope(actor.organization.id), actor, 'arrangements.personal.invite');
+    z.uuid().parse(invitationId);
+    const invitation = await this.personalRepository.revoke({ organization_id: actor.organization.id,
+      actor_membership_id: actor.membership.id, invitation_id: invitationId, request_id: actor.request_id });
+    return { invitation_id: invitation.id, status: invitation.status, version: invitation.version };
   }
 
   async resolveInvitation(rawToken: string) {

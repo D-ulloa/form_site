@@ -1,3 +1,4 @@
+import { PersonalInvitationSection } from '../features/arrangements/components/PersonalInvitationSection';
 import { Link } from 'react-router-dom';
 import { useOrganization } from '../app/contexts/OrganizationContext.tsx';
 import { ArrangementOrdersDashboard } from '../features/arrangements/components/ArrangementOrdersDashboard.tsx';
@@ -27,6 +28,7 @@ export function ArrangementsPage() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
+        <PersonalInvitationSection key={`${organization.id}:${epoch}`} />
         {capabilities.includes('arrangements.read')
           ? <ArrangementOrdersDashboard key={`${organization.id}:${epoch}`} />
           : <AlertInline>No tenés acceso a las órdenes de esta organización.</AlertInline>}

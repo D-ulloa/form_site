@@ -5,11 +5,13 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 6 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 7 as const;
 
 const capabilities = {
+  personal: ['personal.home.read'],
   inquilino: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create'],
   owner: [
+    'arrangements.personal.invite',
     'arrangements.status.update',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
@@ -23,6 +25,7 @@ const capabilities = {
     'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
   ],
   admin: [
+    'arrangements.personal.invite',
     'arrangements.status.update',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
@@ -34,6 +37,7 @@ const capabilities = {
     'files.read', 'integrations.read', 'audit.read',
   ],
   member: [
+    'arrangements.personal.invite',
     'arrangements.status.update',
     'arrangements.read', 'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
     'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',
@@ -45,6 +49,7 @@ const capabilities = {
 } as const satisfies Record<OrganizationRole, readonly OrganizationCapability[]>;
 
 export const ROLE_CAPABILITIES: Readonly<Record<OrganizationRole, ReadonlySet<OrganizationCapability>>> = {
+  personal: new Set(capabilities.personal),
   owner: new Set(capabilities.owner),
   admin: new Set(capabilities.admin),
   member: new Set(capabilities.member),
@@ -53,7 +58,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<OrganizationRole, ReadonlySet<Or
 };
 
 export function isOrganizationRole(value: string): value is OrganizationRole {
-  return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer' || value === 'inquilino';
+  return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer' || value === 'inquilino' || value === 'personal';
 }
 
 export function hasOrganizationCapability(
@@ -82,5 +87,5 @@ export function canManageMembership(
   actorRole: string,
   targetRole: OrganizationRole,
 ): boolean {
-  return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer' || targetRole === 'inquilino'));
+  return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer' || targetRole === 'inquilino' || targetRole === 'personal'));
 }

@@ -7,7 +7,7 @@ import { ROLE_CAPABILITIES, ROLE_CAPABILITY_REGISTRY_VERSION } from '../../src/o
 import { A, B, ORDER } from '../fixtures/arrangements.js';
 
 test('SPEC43 capability matrix has scoped tenant operations and member status writes', () => {
-  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 6);
+  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 7);
   for (const role of ['owner', 'admin', 'member'] as const) assert.equal(ROLE_CAPABILITIES[role].has('arrangements.status.update'), true);
   assert.equal(ROLE_CAPABILITIES.viewer.has('arrangements.status.update'), false);
   assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create']);

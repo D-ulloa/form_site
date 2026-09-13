@@ -1,6 +1,6 @@
 # SPEC-44 — Rol de personal e inicio exclusivo
 
-- Estado: `ready`
+- Estado: `implemented` (verificado localmente; migración aplicada a desarrollo `multi-tenant`; despliegue y smoke test pendientes)
 - Fecha: `2026-09-12`
 - Prioridad: `medium`
 - Autor: `redacted`
@@ -157,6 +157,10 @@ El flujo debe pedir los datos tanto a una persona que crea su cuenta como a una 
 - Extender la proyección del contexto de organización con el destino de inicio basado en membresía confirmada. No utilizar una decisión solo del frontend para otorgar autorización.
 - Incorporar una ruta `/t/:organizationSlug/personal` y una página con el shell compartido, sin consultas a APIs de producto.
 - Los detalles de componentes y presentación son decisiones de implementación mientras se mantengan permisos mínimos, aislamiento por organización y Inicio sin funcionalidad.
+
+## Evidencia local — 2026-09-12
+
+Implementación y verificaciones completadas: [resultados, comandos reproducibles y pendientes de rollout](../../../06-testing/spec44-personal-invitations.md). La migración también se aplicó y verificó en la rama de desarrollo `multi-tenant` (`kcobkbtieyowdmsvtsvv`). `PERSONAL_INVITATIONS_ENABLED=true` está configurado en `backend/.env` para desarrollo local. El valor por defecto continúa siendo `false`; despliegue de aplicaciones y smoke test alojado pendientes.
 
 ## Referencias
 

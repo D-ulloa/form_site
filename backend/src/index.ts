@@ -111,7 +111,7 @@ app.use('/api/auth', createIdentityRouter(
   selfServiceOnboarding, selfServiceRegistrationRateLimiter,
 ));
 app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
-app.use('/api/organizations/:organization/arrangements', createArrangementsRouter(sessionService, process.env, { organizations: governanceServices.organizations }));
+app.use('/api/organizations/:organization/arrangements', createArrangementsRouter(sessionService, process.env, { organizations: governanceServices.organizations, personal: governanceServices.organizations }));
 app.use('/api/organizations/:organization/contracts',
   createTenantContractEntriesRouter(sessionService, undefined, process.env,
     createContractMakeDeliveryRunner(process.env)));

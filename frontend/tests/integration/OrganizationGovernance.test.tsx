@@ -63,7 +63,7 @@ describe('SPEC-26 invitation acceptance', () => {
     expect(screen.getByText(/Te invitaron a/u).textContent).toContain('Solar');
 
     fireEvent.click(screen.getByRole('button', { name: 'Aceptar invitación' }));
-    await waitFor(() => expect(acceptInvitation).toHaveBeenCalledWith());
+    await waitFor(() => expect(acceptInvitation).toHaveBeenCalledWith(undefined, expect.any(AbortSignal)));
     expect(await screen.findByText(/fue aceptada/u)).toBeTruthy();
   });
 

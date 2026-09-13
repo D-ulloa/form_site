@@ -51,9 +51,9 @@ export class IdentityProvisioningService {
     if (!REQUEST_ID.test(input.request_id) || !IDEMPOTENCY_KEY.test(input.idempotency_key)) {
       throw new IdentityProvisioningError('IDEMPOTENCY_CONFLICT');
     }
-    await this.repository.assertActor(actor, input.purpose);
-    const defaults = identityProvisioningDefaults(this.environment);
     const email = normalizeOrganizationEmail(input.email);
+    await this.repository.assertActor(actor, input.purpose, email);
+    const defaults = identityProvisioningDefaults(this.environment);
     const displayName = validateDisplayName(input.display_name ?? defaults.display_name);
     const locale = validateLocale(input.locale ?? defaults.locale);
     const timeZone = validateTimeZone(input.time_zone ?? defaults.time_zone);
@@ -65,6 +65,7 @@ export class IdentityProvisioningService {
       idempotency_key: input.idempotency_key,
       payload_fingerprint: payloadFingerprint,
       email_fingerprint: emailFingerprint,
+      email_normalized: email,
       purpose: input.purpose,
       request_id: input.request_id,
       actor,

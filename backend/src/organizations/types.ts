@@ -1,9 +1,11 @@
-export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquilino';
+export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquilino' | 'personal';
 export type OrganizationStatus = 'active' | 'suspended' | 'pending_deletion' | 'deleted';
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type RecordVisibility = 'organization' | 'assigned_only';
 
 export type OrganizationCapability =
+  | 'personal.home.read'
+  | 'arrangements.personal.invite'
   | 'inquilino.home.read'
   | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'arrangements.status.update'
   | 'arrangements.read'
@@ -75,6 +77,9 @@ export interface OrganizationSettingsRecord {
 }
 
 export interface OrganizationMembershipRecord {
+  readonly personal_name?: string | null;
+  readonly personal_contact_number?: string | null;
+  readonly personal_occupation?: string | null;
   readonly arrangement_property_id?: string | null;
   readonly id: string;
   readonly organization_id: string;

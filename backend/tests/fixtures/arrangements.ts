@@ -1,3 +1,4 @@
+import type { ArrangementPersonalDependencies } from '../../src/routes/arrangementPersonal.js';
 import type { ArrangementRequestDependencies } from '../../src/routes/arrangementRequests.js';
 import type { ArrangementPropertyDependencies } from '../../src/routes/arrangementProperties.js';
 import express from 'express';
@@ -21,7 +22,7 @@ export const environment: NodeJS.ProcessEnv = {
   PLATFORM_CURSOR_SECRET: 'p'.repeat(48), PLATFORM_RATE_LIMIT_PEPPER: 'l'.repeat(48),
 };
 
-export function arrangementHarness(repository?: ArrangementOrderRepository, dependencies: ArrangementPropertyDependencies & ArrangementRequestDependencies = {}) {
+export function arrangementHarness(repository?: ArrangementOrderRepository, dependencies: ArrangementPropertyDependencies & ArrangementRequestDependencies & ArrangementPersonalDependencies = {}) {
   const now = new Date().toISOString();
   const material = createSessionTokenMaterial(environment);
   const state = {

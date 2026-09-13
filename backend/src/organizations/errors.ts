@@ -1,4 +1,5 @@
 export type OrganizationErrorCode =
+  | 'PERSONAL_PROFILE_REQUIRED'
   | 'INVALID_REQUEST'
   | 'PROPERTY_REQUIRED'
   | 'PROPERTY_CONFLICT'
@@ -17,6 +18,7 @@ export type OrganizationErrorCode =
   | 'VERSION_CONFLICT';
 
 const statusByCode: Readonly<Record<OrganizationErrorCode, number>> = {
+  PERSONAL_PROFILE_REQUIRED: 422,
   INVALID_REQUEST: 400,
   PROPERTY_REQUIRED: 422,
   PROPERTY_CONFLICT: 409,

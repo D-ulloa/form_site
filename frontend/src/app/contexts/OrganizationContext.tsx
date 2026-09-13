@@ -16,7 +16,7 @@ export interface ConfirmedOrganizationContext {
     readonly user_id: string; readonly role: OrganizationRole;
     readonly arrangement_property_id?: string | null; readonly status: MembershipStatus; readonly version: number };
   readonly capabilities: readonly string[];
-  readonly home_destination: 'organization' | 'inquilino' | null;
+  readonly home_destination: 'organization' | 'inquilino' | 'personal' | null;
   readonly epoch: number;
 }
 

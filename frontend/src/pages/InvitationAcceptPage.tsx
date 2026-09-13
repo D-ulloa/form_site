@@ -1,5 +1,7 @@
+import axios from 'axios';
+import { PersonalAcceptanceForm, type PersonalProfileInput } from '../features/organizations/components/PersonalAcceptanceForm';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { AlertInline } from '../components/ui/AlertInline';
@@ -16,13 +18,21 @@ import type { InvitationResolution } from '../features/organizations/types';
 type PageState = 'resolving' | 'ready' | 'accepting' | 'accepted' | 'invalid' | 'unavailable';
 type AuthMode = 'register' | 'login';
 
-const roleLabel = { admin: 'administrador', member: 'miembro', viewer: 'lector', inquilino: 'inquilino' } as const;
+const roleLabel = { admin: 'administrador', member: 'miembro', viewer: 'lector', inquilino: 'inquilino', personal: 'Personal' } as const;
 
 export function InvitationAcceptPage() {
   const authentication = useAuthentication();
+  const location = useLocation();
+  return <InvitationPage key={`${location.key}:${authentication.session?.user?.id ?? 'anonymous'}`} />;
+}
+
+function InvitationPage() {
+  const authentication = useAuthentication();
   const navigate = useNavigate();
   const token = useRef<string | null>(null);
-  const initializationStarted = useRef(false);
+  const initialization = useRef<Promise<InvitationResolution> | null>(null);
+  const acceptance = useRef<AbortController | null>(null);
+  const mounted = useRef(false);
   const [state, setState] = useState<PageState>('resolving');
   const [resolution, setResolution] = useState<InvitationResolution | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('register');
@@ -33,20 +43,24 @@ export function InvitationAcceptPage() {
   const [authPending, setAuthPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState('');
 
   useEffect(() => {
-    if (initializationStarted.current) return;
-    initializationStarted.current = true;
-    const fragment = new URLSearchParams(window.location.hash.slice(1));
-    token.current = fragment.get('invitation_token');
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    const prepare = token.current
-      ? establishInvitationHandoff(token.current).then(() => { token.current = null; })
-      : Promise.resolve();
-    void prepare.then(() => resolveInvitation()).then((value) => {
-      setResolution(value);
-      setState('ready');
-    }).catch(() => setState('invalid'));
+    let active = true;
+    mounted.current = true;
+    if (!initialization.current) {
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      token.current = fragment.get('invitation_token');
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      const prepare = token.current
+        ? establishInvitationHandoff(token.current).then(() => { token.current = null; })
+        : Promise.resolve();
+      initialization.current = prepare.then(() => resolveInvitation());
+    }
+    void initialization.current.then(value => {
+      if (active) { setResolution(value); setState('ready'); }
+    }).catch(() => { if (active) setState('invalid'); });
+    return () => { active = false; mounted.current = false; acceptance.current?.abort(); };
   }, []);
 
   async function refreshAuthentication() {
@@ -86,14 +100,25 @@ export function InvitationAcceptPage() {
     }
   }
 
-  async function accept() {
-    setState('accepting');
+  async function accept(profile?: PersonalProfileInput) {
+    if (acceptance.current) return;
+    const controller = new AbortController();
+    acceptance.current = controller;
+    setAcceptError(''); setState('accepting');
     try {
-      const result = await acceptInvitation();
+      const result = await acceptInvitation(profile, controller.signal);
+      if (!mounted.current || controller.signal.aborted) return;
       setState('accepted');
       await authentication.refresh();
-      window.setTimeout(() => navigate(`/t/${result.organization_slug}`, { replace: true }), 0);
-    } catch { setState('unavailable'); }
+      if (mounted.current && !controller.signal.aborted) navigate(`/t/${encodeURIComponent(result.organization_slug)}`, { replace: true });
+    } catch (caught) {
+      if (!mounted.current || controller.signal.aborted) return;
+      const code = axios.isAxiosError(caught) ? caught.response?.data?.error : undefined;
+      setAcceptError(code === 'INVALID_REQUEST' || code === 'PERSONAL_PROFILE_REQUIRED'
+        ? 'Completá los tres datos de personal con valores válidos e intentá nuevamente.'
+        : 'Verificá la cuenta invitada y que la invitación siga vigente. Intentá nuevamente.');
+      setState('unavailable');
+    } finally { if (acceptance.current === controller) acceptance.current = null; }
   }
 
   return (
@@ -105,7 +130,7 @@ export function InvitationAcceptPage() {
         <div aria-live="polite" className="mt-5 text-slate-300">
           {state === 'resolving' && <p>Validando invitación…</p>}
           {state === 'invalid' && <AlertInline variant="error" title="Invitación no disponible">La invitación no es válida o ya no está disponible.</AlertInline>}
-          {state === 'unavailable' && <AlertInline variant="error" title="No se pudo aceptar">Verificá que hayas iniciado sesión con la dirección invitada e intentá nuevamente.</AlertInline>}
+          {state === 'unavailable' && <AlertInline variant="error" title="No se pudo aceptar">{acceptError}</AlertInline>}
           {state === 'accepted' && <p>La invitación fue aceptada. Abriendo la organización…</p>}
 
           {resolution && state !== 'invalid' && state !== 'accepted' && (
@@ -124,9 +149,10 @@ export function InvitationAcceptPage() {
               {authentication.status === 'authenticated' ? (
                 <div className="mt-6">
                   <p className="text-sm text-slate-400">Sesión iniciada como <strong className="text-slate-200">{authentication.session?.user?.email ?? 'cuenta autenticada'}</strong>.</p>
+                  {resolution.intended_role === 'personal' ? <PersonalAcceptanceForm pending={state === 'accepting'} onAccept={accept} /> :
                   <Button className="mt-4 w-full" aria-label="Aceptar invitación" loading={state === 'accepting'} onClick={() => void accept()}>
                     Aceptar invitación como {roleLabel[resolution.intended_role]}
-                  </Button>
+                  </Button>}
                   <button type="button" className="mt-3 w-full text-sm text-slate-400 hover:text-white"
                     onClick={() => void authentication.logout()}>Usar otra cuenta</button>
                 </div>

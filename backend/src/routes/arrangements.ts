@@ -1,3 +1,4 @@
+import { createArrangementPersonalRouter, type ArrangementPersonalDependencies } from './arrangementPersonal.js';
 import { createArrangementRequestsRouter, type ArrangementRequestDependencies } from './arrangementRequests.js';
 import { createArrangementPropertiesRouter, type ArrangementPropertyDependencies } from './arrangementProperties.js';
 import { Router } from 'express';
@@ -11,7 +12,7 @@ import { createPlatformRepository } from '../platform/platformRepository.js';
 import { createArrangementOrderRepository } from '../arrangements/arrangementOrderRepository.js';
 import { createListArrangementOrders } from '../services/listArrangementOrders.js';
 
-interface Dependencies extends ArrangementPropertyDependencies, ArrangementRequestDependencies {
+interface Dependencies extends ArrangementPropertyDependencies, ArrangementRequestDependencies, ArrangementPersonalDependencies {
   readonly list?: ReturnType<typeof createListArrangementOrders>;
   readonly limiter?: Pick<ReturnType<typeof createDistributedRateLimiter>, 'consume'>;
 }
@@ -53,6 +54,7 @@ export function createArrangementsRouter(
       }
     }
   });
+  router.use(createArrangementPersonalRouter(sessions, environment, dependencies));
   router.use(createArrangementPropertiesRouter(sessions, environment, dependencies));
   return router;
 }

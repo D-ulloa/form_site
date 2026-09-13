@@ -1,6 +1,8 @@
-export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquilino';
+export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquilino' | 'personal';
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type OrganizationCapability =
+  | 'personal.home.read'
+  | 'arrangements.personal.invite'
   | 'inquilino.home.read'
   | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'arrangements.status.update'
   | 'arrangements.read'

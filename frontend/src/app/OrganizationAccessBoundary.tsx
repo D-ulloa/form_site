@@ -1,20 +1,23 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useOrganization } from './contexts/OrganizationContext';
 
-/** Both routes use the server's destination and effective capabilities. */
-export function OrganizationAccessBoundary({ home }: { readonly home: 'organization' | 'inquilino' }) {
+type Home = 'organization' | 'inquilino' | 'personal';
+/** Screens mount only after the server's destination, role and capabilities agree. */
+export function OrganizationAccessBoundary({ home }: { readonly home: Home }) {
   const context = useOrganization();
-  const isInquilino = context.membership.role === 'inquilino';
-  const canEnter = context.membership.status === 'active' && context.home_destination === home
-    && (home === 'inquilino'
-      ? isInquilino && context.capabilities.includes('inquilino.home.read')
-      : !isInquilino && context.capabilities.includes('organization.read'));
-  if (canEnter) return <Outlet />;
-
+  const { membership, capabilities, home_destination } = context;
+  const active = membership.status === 'active';
+  const destinations: Record<Home, boolean> = {
+    personal: active && context.organization.status === 'active' && membership.role === 'personal'
+      && capabilities.includes('personal.home.read'),
+    inquilino: active && context.organization.status === 'active' && membership.role === 'inquilino'
+      && capabilities.includes('inquilino.home.read'),
+    organization: active && ['owner', 'admin', 'member', 'viewer'].includes(membership.role)
+      && capabilities.includes('organization.read'),
+  };
+  const confirmed = home_destination && destinations[home_destination] === true ? home_destination : null;
+  if (confirmed === home) return <Outlet />;
   const base = `/t/${encodeURIComponent(context.organization.slug)}`;
-  const destination = context.home_destination === 'inquilino' && isInquilino
-    && context.capabilities.includes('inquilino.home.read') ? `${base}/inquilino`
-    : context.home_destination === 'organization' && !isInquilino
-      && context.capabilities.includes('organization.read') ? base : '/';
+  const destination = confirmed === 'organization' ? base : confirmed ? `${base}/${confirmed}` : '/';
   return <Navigate to={destination} replace />;
 }

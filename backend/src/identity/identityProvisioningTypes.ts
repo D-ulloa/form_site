@@ -31,6 +31,7 @@ export interface PlatformProvisioningActor {
 }
 
 export interface InvitationProvisioningActor {
+  readonly personal_invitation_operation_id?: string;
   readonly actor_type: 'organization_invitation';
   readonly user_id: string;
   readonly membership_id: string;

@@ -149,7 +149,8 @@ export class SessionService {
       organization_display_name: organization.display_name, organization_status: organization.status,
       membership_id: membership.id, membership_status: membership.status, role: membership.role,
       capabilities: [...ROLE_CAPABILITIES[membership.role]].filter((capability) =>
-        hasOrganizationCapability(membership.role, membership.status, organization.status, capability)),
+        hasOrganizationCapability(membership.role, membership.status, organization.status, capability)
+        && (capability !== 'arrangements.personal.invite' || this.environment.PERSONAL_INVITATIONS_ENABLED === 'true')),
     }));
   }
 
@@ -160,7 +161,8 @@ export class SessionService {
       throw new IdentityAccessError('NOT_FOUND', 404);
     }
     const effective = new Set([...ROLE_CAPABILITIES[resolved.membership.role]].filter((item) =>
-      hasOrganizationCapability(resolved.membership.role, resolved.membership.status, resolved.organization.status, item)));
+      hasOrganizationCapability(resolved.membership.role, resolved.membership.status, resolved.organization.status, item)
+      && (item !== 'arrangements.personal.invite' || this.environment.PERSONAL_INVITATIONS_ENABLED === 'true')));
     if (capability && !effective.has(capability)) throw new IdentityAccessError('FORBIDDEN', 403);
     return {
       principal_type: 'member', request_id: requestId(request), session_id: session.id,
