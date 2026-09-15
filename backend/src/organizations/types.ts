@@ -4,6 +4,8 @@ export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type RecordVisibility = 'organization' | 'assigned_only';
 
 export type OrganizationCapability =
+  | 'arrangements.request.reject'
+  | 'personal.arrangements.read' | 'arrangements.assignment.manage' | 'arrangements.requester.read'
   | 'personal.home.read'
   | 'arrangements.personal.invite'
   | 'inquilino.home.read'

@@ -8,14 +8,14 @@ import { tenantQueryKey } from '../../../app/contexts/tenantState';
 import { listArrangementOrders } from '../services/arrangementsApi';
 
 export function useArrangementOrders(status: string) {
-  const { organization, epoch } = useOrganization();
+  const { organization, epoch, membership } = useOrganization();
   const { refresh } = useAuthentication();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const query = useInfiniteQuery({
-    queryKey: tenantQueryKey(organization.id, epoch, 'arrangements', 'orders', { status, limit: 25 }),
+    queryKey: tenantQueryKey(organization.id, epoch, 'arrangements', 'orders', membership.id, membership.role, { status, limit: 25 }),
     initialPageParam: null as string | null,
-    queryFn: ({ pageParam, signal }) => listArrangementOrders({ organizationId: organization.id, status, cursor: pageParam, signal }),
+    queryFn: ({ pageParam, signal }) => listArrangementOrders({ organizationId: organization.id, audience: membership.role === 'viewer' ? 'viewer' : 'manager', status, cursor: pageParam, signal }),
     getNextPageParam: page => page.next_cursor,
     retry: false,
     staleTime: 0,

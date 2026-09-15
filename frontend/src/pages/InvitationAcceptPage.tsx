@@ -1,3 +1,4 @@
+import { InquilinoAcceptanceForm, type InquilinoProfileInput } from '../features/organizations/components/InquilinoAcceptanceForm';
 import axios from 'axios';
 import { PersonalAcceptanceForm, type PersonalProfileInput } from '../features/organizations/components/PersonalAcceptanceForm';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -100,13 +101,13 @@ function InvitationPage() {
     }
   }
 
-  async function accept(profile?: PersonalProfileInput) {
+  async function accept(profile?: PersonalProfileInput, inquilinoProfile?: InquilinoProfileInput) {
     if (acceptance.current) return;
     const controller = new AbortController();
     acceptance.current = controller;
     setAcceptError(''); setState('accepting');
     try {
-      const result = await acceptInvitation(profile, controller.signal);
+      const result = await (inquilinoProfile ? acceptInvitation(profile, controller.signal, inquilinoProfile) : acceptInvitation(profile, controller.signal));
       if (!mounted.current || controller.signal.aborted) return;
       setState('accepted');
       await authentication.refresh();
@@ -114,7 +115,8 @@ function InvitationPage() {
     } catch (caught) {
       if (!mounted.current || controller.signal.aborted) return;
       const code = axios.isAxiosError(caught) ? caught.response?.data?.error : undefined;
-      setAcceptError(code === 'INVALID_REQUEST' || code === 'PERSONAL_PROFILE_REQUIRED'
+      setAcceptError(code === 'INQUILINO_PROFILE_REQUIRED' || (code === 'INVALID_REQUEST' && resolution?.intended_role === 'inquilino')
+        ? 'Ingresá un número de teléfono válido e intentá nuevamente.' : code === 'INVALID_REQUEST' || code === 'PERSONAL_PROFILE_REQUIRED'
         ? 'Completá los tres datos de personal con valores válidos e intentá nuevamente.'
         : 'Verificá la cuenta invitada y que la invitación siga vigente. Intentá nuevamente.');
       setState('unavailable');
@@ -149,7 +151,8 @@ function InvitationPage() {
               {authentication.status === 'authenticated' ? (
                 <div className="mt-6">
                   <p className="text-sm text-slate-400">Sesión iniciada como <strong className="text-slate-200">{authentication.session?.user?.email ?? 'cuenta autenticada'}</strong>.</p>
-                  {resolution.intended_role === 'personal' ? <PersonalAcceptanceForm pending={state === 'accepting'} onAccept={accept} /> :
+                  {resolution.intended_role === 'personal' ? <PersonalAcceptanceForm pending={state === 'accepting'} onAccept={profile => accept(profile)} /> : resolution.intended_role === 'inquilino'
+                    ? <InquilinoAcceptanceForm key={authentication.session?.user?.id} pending={state === 'accepting'} onAccept={profile => accept(undefined, profile)} /> :
                   <Button className="mt-4 w-full" aria-label="Aceptar invitación" loading={state === 'accepting'} onClick={() => void accept()}>
                     Aceptar invitación como {roleLabel[resolution.intended_role]}
                   </Button>}

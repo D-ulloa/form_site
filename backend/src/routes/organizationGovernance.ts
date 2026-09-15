@@ -196,6 +196,16 @@ export function createOrganizationGovernanceRouter(
     } catch (error) { sendError(response, error); }
   });
 
+  router.post('/invitations/acceptance-context', async (request, response) => {
+    try {
+      secureResponse(response);
+      const material = cookieValue(request); if (!material) throw new OrganizationDomainError('INVITATION_INVALID');
+      await limitPublic(request, 'member.invitation_resolve', material[0]);
+      const identity = await resolver.resolveInvitationIdentity(request);
+      response.json(await services.invitations.acceptanceContext(material[0], material[1], assertHandoffOrigin(request), identity));
+    } catch (error) { sendError(response, error); }
+  });
+
   router.post('/invitations/accept', async (request, response) => {
     try {
       secureResponse(response);
@@ -203,7 +213,7 @@ export function createOrganizationGovernanceRouter(
       await limitPublic(request, 'member.invitation_accept', material[0]);
       const identity = await resolver.resolveInvitationIdentity(request);
       const body = InvitationAcceptanceSchema.parse(request.body ?? {});
-      const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity, body.personal_profile);
+      const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity, body.personal_profile, body.inquilino_profile);
       response.set('Set-Cookie', clearHandoff);
       response.json({ organization_id: accepted.membership.organization_id,
         organization_slug: accepted.organization_slug, context_refresh_required: true });

@@ -1,3 +1,5 @@
+import { useOrganization } from '../../../app/contexts/OrganizationContext';
+import { useArrangementChanges } from '../hooks/useArrangementChanges';
 import { useState } from 'react';
 import { ArrangementPropertiesSection } from './ArrangementPropertiesSection';
 import { ArrangementRequestCard } from './ArrangementRequestCard';
@@ -8,6 +10,8 @@ import { useArrangementOrders } from '../hooks/useArrangementOrders';
 import { statusOptions } from '../services/arrangementRequestsApi';
 
 export function ArrangementOrdersDashboard() {
+  const { membership } = useOrganization();
+  const connection = useArrangementChanges();
   const [status, setStatus] = useState('');
   const query = useArrangementOrders(status);
   const orders = query.data?.pages.flatMap(page => page.items) ?? [];
@@ -16,8 +20,9 @@ export function ArrangementOrdersDashboard() {
     <div><h1 id="arrangements-title" className="text-2xl font-semibold tracking-tight text-slate-100">Gestión de arreglos</h1>
       <p className="mt-2 text-sm text-slate-400">Solicitudes de arreglo</p></div>
     <div className="min-w-0 sm:w-60"><Select label="Filtrar por estado" value={status}
-      options={[{ value: '', label: 'Todos' }, ...statusOptions.map(option => option.value === 'archived' ? { ...option, label: 'Archivados' } : option)]}
+      options={[{ value: '', label: 'Todos' }, ...statusOptions.map(option => option.value === 'archived' ? { ...option, label: 'Archivados' } : option.value === 'rejected' ? { ...option, label: 'Rechazadas' } : option)]}
       onChange={event => setStatus(event.target.value)} /></div>
+    {connection === 'reconnecting' && <p role="status" className="text-sm text-amber-200">Reconectando actualizaciones…</p>}
     {query.isError && <AlertInline title="No se pudieron cargar las órdenes">
       <p>{orders.length ? 'La lista está incompleta o desactualizada. Volvé a intentar para cargar los resultados.' : 'Volvé a intentar en unos momentos.'}</p>
       <Button variant="ghost" size="sm" disabled={query.isFetching} onClick={() => { void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch()); }}>Reintentar</Button>
@@ -26,7 +31,7 @@ export function ArrangementOrdersDashboard() {
     {!query.isPending && !query.isError && orders.length === 0 && <p role="status" className="surface rounded-2xl px-6 py-10 text-center text-sm text-slate-400">
       {status ? 'No hay solicitudes con este estado.' : 'No hay solicitudes en esta organización.'}</p>}
     {orders.length > 0 && <ul aria-label="Solicitudes de arreglo" className="flex min-w-0 flex-col gap-3">
-      {orders.map(order => <li key={order.id}><ArrangementRequestCard order={order} /></li>)}</ul>}
+      {orders.map(order => <li key={order.id}><ArrangementRequestCard key={`${order.id}:${order.version}`} order={order} audience={membership.role === 'viewer' ? 'viewer' : 'manager'} /></li>)}</ul>}
     {query.hasNextPage && !query.isError && <Button variant="ghost" className="self-center" disabled={query.isFetching} onClick={() => { void query.fetchNextPage(); }}>Cargar más</Button>}
     <ArrangementPropertiesSection />
   </section>;

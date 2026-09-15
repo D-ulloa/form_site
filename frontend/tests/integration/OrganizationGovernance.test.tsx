@@ -14,6 +14,7 @@ import { StrictMode } from 'react';
 
 vi.mock('../../src/features/organizations/services/organizationApi.ts', () => ({
   resolveInvitation: vi.fn(),
+  invitationAcceptanceContext: vi.fn().mockResolvedValue({ requires_inquilino_profile: false }),
   establishInvitationHandoff: vi.fn(),
   acceptInvitation: vi.fn(),
 }));

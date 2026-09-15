@@ -1,4 +1,4 @@
-import { PersonalProfileSchema, type PersonalProfile } from './personalProfile.js';
+import { PersonalProfileSchema, InquilinoProfileSchema, type InquilinoProfile, type PersonalProfile } from './personalProfile.js';
 import { hasOrganizationCapability } from './roleCapabilities.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -26,9 +26,11 @@ export interface InvitationWorkflowRepository {
   resolveHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string }):
     Promise<InvitationResolutionRecord | null>;
   acceptHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
-    identity: InvitationIdentityContext; personal_profile?: PersonalProfile }): Promise<OrganizationMembershipRecord>;
+    identity: InvitationIdentityContext; personal_profile?: PersonalProfile; inquilino_profile?: InquilinoProfile }): Promise<OrganizationMembershipRecord>;
   recoverAcceptedHandoff(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
     identity: InvitationIdentityContext }): Promise<OrganizationMembershipRecord | null>;
+  acceptanceContext?(input: { handle_hash: string; browser_binding_hash: string; origin_hash: string;
+    identity: InvitationIdentityContext }): Promise<{ requires_inquilino_profile: boolean }>;
   organizationSlug(organizationId: string): Promise<string>;
   recordWebhook(input: { event_id_hash: string; event_type: string; provider_reference_hash: string }): Promise<boolean>;
   listMembers(organizationId: string, membershipId: string, cursor: string | null, limit: number): Promise<readonly Record<string, unknown>[]>;
@@ -63,8 +65,8 @@ export function createInvitationWorkflowRepository(environment: NodeJS.ProcessEn
     async resolveHandoff(input) { const { data, error } = await client.rpc('spec37_resolve_invitation_handoff', {
       p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
       p_origin_hash: input.origin_hash }).maybeSingle(); if (error) failure(error); return data as InvitationResolutionRecord | null; },
-    async acceptHandoff(input) { const { data, error } = await client.rpc('spec44_accept_invitation_handoff', {
-      p_personal_profile: input.personal_profile ?? null,
+    async acceptHandoff(input) { const { data, error } = await client.rpc('spec45_accept_invitation_handoff', {
+      p_personal_profile: input.personal_profile ?? null, p_inquilino_profile: input.inquilino_profile ?? null,
       p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
       p_origin_hash: input.origin_hash, p_user_id: input.identity.user_id,
       p_verified_email_normalized: input.identity.verified_email, p_request_id: input.identity.request_id,
@@ -76,6 +78,15 @@ export function createInvitationWorkflowRepository(environment: NodeJS.ProcessEn
       }).maybeSingle();
       if (error) failure(error);
       return data as OrganizationMembershipRecord | null;
+    },
+    async acceptanceContext(input) {
+      const { data, error } = await client.rpc('spec45_invitation_acceptance_context', {
+        p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash, p_origin_hash: input.origin_hash,
+        p_user_id: input.identity.user_id, p_verified_email_normalized: input.identity.verified_email,
+      });
+      if (error) failure(error);
+      if (!data || typeof data.requires_inquilino_profile !== 'boolean') failure(null);
+      return { requires_inquilino_profile: data.requires_inquilino_profile };
     },
     async organizationSlug(organizationId) { const { data, error } = await client.from('organizations').select('slug')
       .eq('id', organizationId).single(); if (error || !data) failure(error ?? { message: 'NOT_FOUND' }); return String(data.slug); },
@@ -184,9 +195,16 @@ export class InvitationWorkflowService {
   resolveHandoff(handle: string, binding: string, origin: string) {
     return this.repository.resolveHandoff({ handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin) });
   }
-  async acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext, personalProfile?: PersonalProfile) {
+  acceptanceContext(handle: string, binding: string, origin: string, identity: InvitationIdentityContext) {
+    if (!this.repository.acceptanceContext) throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    return this.repository.acceptanceContext({ handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity });
+  }
+  async acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext, personalProfile?: PersonalProfile, inquilinoProfile?: InquilinoProfile) {
     const personal_profile = personalProfile === undefined ? undefined : PersonalProfileSchema.parse(personalProfile);
-    const input = { handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity, ...(personal_profile ? { personal_profile } : {}) };
+    const inquilino_profile = inquilinoProfile === undefined ? undefined : InquilinoProfileSchema.parse(inquilinoProfile);
+    if (personal_profile && inquilino_profile) throw new OrganizationDomainError('INVALID_REQUEST');
+    const input = { handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity,
+      ...(personal_profile ? { personal_profile } : {}), ...(inquilino_profile ? { inquilino_profile } : {}) };
     let membership: OrganizationMembershipRecord;
     try { membership = await this.repository.acceptHandoff(input); }
     catch (error) {

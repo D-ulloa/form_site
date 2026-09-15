@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { organizationContext, organizationSession } from '../fixtures/organizations';
 
 async function mockOrganizationAccess(page: Page, authenticated = true) {
+  await page.addInitScript(() => { window.EventSource = class { addEventListener() {} close() {} } as unknown as typeof EventSource; });
   const unexpectedRequests: string[] = [];
   const requestedPaths: string[] = [];
   await page.route('**/api/**', async route => {

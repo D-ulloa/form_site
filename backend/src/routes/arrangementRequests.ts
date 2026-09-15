@@ -1,3 +1,4 @@
+import { arrangementAudience, arrangementReadCapability } from '../services/arrangementAssignments.js';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { SessionService } from '../identity/sessionService.js';
@@ -24,8 +25,8 @@ export function createArrangementRequestsRouter(sessions: SessionService, enviro
     storage: createSupabaseAssetStorageAdapter(undefined, environment), detectContent: createAssetContentDetector(undefined, environment),
   }, environment);
   const secureMutation = createTenantMutationSecurity(sessions, environment);
-  async function actor(request: Request, capability: OrganizationCapability, policy: RateLimitPolicyKey) {
-    const context = await sessions.context(request, String(request.params.organization ?? ''), capability);
+  async function actor(request: Request, capability: OrganizationCapability, policy: RateLimitPolicyKey, touch = true) {
+    const context = await sessions.context(request, String((request.params as Record<string, string>).organization ?? ''), capability, touch);
     const scope = createOrganizationScope(context.organization.id);
     const limiter = dependencies.limiter ?? createDistributedRateLimiter(createPlatformRepository(undefined, environment), environment.PLATFORM_RATE_LIMIT_PEPPER ?? '');
     await limiter.consume({ scope, policy_key: policy, principal_type: context.principal_type, principal_id: context.membership.id });
@@ -47,10 +48,15 @@ export function createArrangementRequestsRouter(sessions: SessionService, enviro
     const read = tenant ? 'inquilino.arrangements.read' : 'arrangements.read';
     if (tenant || !legacyList) router.get(`${prefix}/orders`, async (request, response, next) => {
       // SPEC-39 clients retain their strict projection until the frontend upgrade.
-      if (!tenant && request.get('X-Arrangement-Contract') !== '2') { next(); return; }
+      if (!tenant && !['2', '3'].includes(request.get('X-Arrangement-Contract') ?? '')) { next(); return; }
       try {
         const { scope, context } = await actor(request, read, tenant ? 'arrangements.tenant.read' : 'arrangements.orders.read');
-        response.json(await service.list(scope, context, tenant, request.query));
+        if ((environment.ARRANGEMENT_REJECTION_ENABLED === 'true' || environment.ARRANGEMENT_REQUIRE_CURRENT_CLIENT === 'true') && request.get('X-Arrangement-Contract') !== '3') {
+          response.status(426).json({ error: 'CLIENT_UPDATE_REQUIRED' }); return;
+        }
+        response.json(request.get('X-Arrangement-Contract') === '3'
+          ? await service.listAssigned(scope, context, arrangementAudience(context), request.query)
+          : await service.list(scope, context, tenant, request.query));
       } catch (caught) { fail(response, caught); }
     });
     router.get(`${prefix}/orders/:orderId/assets/:assetId/view`, async (request, response) => {
@@ -63,8 +69,91 @@ export function createArrangementRequestsRouter(sessions: SessionService, enviro
   router.patch('/orders/:orderId/status', secureMutation, async (request, response) => {
     try {
       const { scope, context } = await actor(request, 'arrangements.status.update', 'arrangements.status.update');
-      response.json(await service.status(scope, context, String(request.params.orderId), request.body));
+      if (request.body?.status === 'rejected' && environment.ARRANGEMENT_REJECTION_ENABLED !== 'true') {
+        response.status(409).json({ error: 'FEATURE_DISABLED' }); return;
+      }
+      if ((environment.ARRANGEMENT_REJECTION_ENABLED === 'true' || environment.ARRANGEMENT_REQUIRE_CURRENT_CLIENT === 'true') && request.get('X-Arrangement-Contract') !== '3') {
+        response.status(426).json({ error: 'CLIENT_UPDATE_REQUIRED' }); return;
+      }
+      response.json(request.get('X-Arrangement-Contract') === '3'
+        ? await service.mutateAssignment(scope, context, String(request.params.orderId), 'status', request.body)
+        : await service.status(scope, context, String(request.params.orderId), request.body));
     } catch (caught) { fail(response, caught); }
+  });
+  router.get('/personal/orders', async (request, response) => {
+    try {
+      const { scope, context } = await actor(request, 'personal.arrangements.read', 'arrangements.tenant.read');
+      response.json(await service.listAssigned(scope, context, 'personal', request.query));
+    } catch (caught) { fail(response, caught); }
+  });
+  for (const audience of ['personal', 'tenant', 'internal'] as const) {
+    const prefix = audience === 'personal' ? '/personal' : audience === 'tenant' ? '/inquilino' : '';
+    const capability = audience === 'personal' ? 'personal.arrangements.read' : audience === 'tenant' ? 'inquilino.arrangements.read' : 'arrangements.read';
+    router.get(`${prefix}/orders/:orderId`, async (request, response) => {
+      try {
+        const { scope, context } = await actor(request, capability, 'arrangements.tenant.read');
+        response.json(await service.detail(scope, context, arrangementAudience(context), String(request.params.orderId)));
+      } catch (caught) { fail(response, caught); }
+    });
+  }
+  router.get('/personal/orders/:orderId/assets/:assetId/view', async (request, response) => {
+    try {
+      const { scope, context } = await actor(request, 'personal.arrangements.read', 'asset.signed_view');
+      response.json(await service.assignedView(scope, context, 'personal', String(request.params.orderId), String(request.params.assetId)));
+    } catch (caught) { fail(response, caught); }
+  });
+  router.get('/personal/assignees', async (request, response) => {
+    try {
+      const { scope, context } = await actor(request, 'arrangements.assignment.manage', 'arrangements.orders.read');
+      response.json(await service.assignees(scope, context, request.query));
+    } catch (caught) { fail(response, caught); }
+  });
+  for (const [method, path, action] of [['patch', 'assignment', 'assign'], ['delete', 'assignment', 'unassign'], ['post', 'reject', 'reject']] as const) {
+    router[method](`/orders/:orderId/${path}`, secureMutation, async (request, response) => {
+      try {
+        const { scope, context } = await actor(request, action === 'reject' ? 'arrangements.status.update' : 'arrangements.assignment.manage', 'arrangements.status.update');
+        if (action === 'reject' && environment.ARRANGEMENT_REJECTION_ENABLED !== 'true') {
+          response.status(409).json({ error: 'FEATURE_DISABLED' }); return;
+        }
+        response.json(await service.mutateAssignment(scope, context, String(request.params.orderId), action, request.body));
+      } catch (caught) { fail(response, caught); }
+    });
+  }
+  router.get('/changes', async (request, response) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let closed = false;
+    const stop = () => { closed = true; clearTimeout(timer); if (!response.writableEnded) response.end(); };
+    response.on('close', stop);
+    try {
+      const initial = await sessions.context(request, String((request.params as Record<string, string>).organization ?? ''), undefined, false);
+      const audience = arrangementAudience(initial);
+      const { scope, context } = await actor(request, arrangementReadCapability(audience), 'arrangements.changes', false);
+      const initialRevision = await service.changes(scope, context, audience);
+      if (closed) return;
+      response.status(200).set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
+      response.flushHeaders();
+      const emit = (event: string, data: unknown) => response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      emit('ready', initialRevision);
+      let revision = initialRevision.revision;
+      const binding = (value: typeof context) => JSON.stringify([value.session_id, value.user_id, value.organization.id, value.organization.status,
+        value.membership.id, value.membership.role, value.membership.status, value.membership.arrangement_property_id]);
+      const bound = binding(context); const started = Date.now();
+      const tick = async () => {
+        try {
+          if (closed) return;
+          const current = await sessions.context(request, String((request.params as Record<string, string>).organization ?? ''), arrangementReadCapability(audience), false);
+          if (binding(current) !== bound) { emit('revoked', {}); stop(); return; }
+          const next = await service.changes(scope, current, audience);
+          if (closed) return;
+          if (next.revision !== revision) { revision = next.revision; emit('invalidate', next); }
+          if (Date.now() - started >= 20_000) { emit('renew', {}); stop(); return; }
+          timer = setTimeout(() => { void tick(); }, 500);
+        } catch (caught) {
+          if (!closed) { emit(caught instanceof IdentityAccessError || caught instanceof ArrangementRequestError ? 'revoked' : 'unavailable', {}); stop(); }
+        }
+      };
+      timer = setTimeout(() => { void tick(); }, 500);
+    } catch (caught) { if (!closed) { if (!response.headersSent) fail(response, caught); stop(); } }
   });
   router.post('/inquilino/order-drafts', secureMutation, async (request, response) => {
     try {

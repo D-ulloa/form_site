@@ -3,9 +3,9 @@ import { z } from 'zod';
 const prefix = import.meta.env.DEV ? '' : '/_/backend';
 export const statusOptions = [
   { value: 'open', label: 'Sin procesar' }, { value: 'in_progress', label: 'En proceso' },
-  { value: 'solved', label: 'Solucionado' }, { value: 'archived', label: 'Archivada' },
+  { value: 'solved', label: 'Solucionado' }, { value: 'archived', label: 'Archivada' }, { value: 'rejected', label: 'Rechazada' },
 ];
-export const Status = z.enum(['open', 'in_progress', 'solved', 'archived']);
+export const Status = z.enum(['open', 'in_progress', 'solved', 'archived', 'rejected']);
 export const RequestRecord = z.object({
   id: z.uuid(), organization_id: z.uuid(), name: z.string().min(1).max(200), description: z.string().min(1).max(5000).nullable(), status: Status,
   property: z.object({ id: z.uuid(), name: z.string().min(1).max(200) }).strict().nullable(),
@@ -13,6 +13,11 @@ export const RequestRecord = z.object({
   legacy: z.boolean(), created_by_you: z.boolean(),
   assets: z.array(z.object({ id: z.uuid(), display_filename: z.string().min(1).max(120), mime: z.string(), bytes: z.number().int().positive() }).strict()).max(40),
 }).strict();
+const Contact = z.object({ name: z.string().nullable(), email: z.string().nullable(), contact_number: z.string().nullable() }).strict();
+export const PersonalRequest = RequestRecord.extend({ requester: Contact.nullable() });
+export const ManagerRequest = PersonalRequest.extend({ assignee: z.object({ id: z.uuid(), name: z.string().nullable(),
+  occupation: z.string().nullable(), available: z.boolean() }).strict().nullable() });
+export type ArrangementAudience = 'manager' | 'viewer' | 'tenant' | 'personal';
 export type ArrangementRequest = z.infer<typeof RequestRecord>;
 export function requestBase(org: string) { return `${prefix}/api/organizations/${encodeURIComponent(org)}/arrangements`; }
 function csrf() {
@@ -21,19 +26,19 @@ function csrf() {
 }
 export async function requestMutation(org: string, path: string, body: unknown, signal: AbortSignal, key?: string, method: 'post' | 'patch' = 'post'): Promise<unknown> {
   return (await axios[method](`${requestBase(org)}${path}`, body, { withCredentials: true, signal,
-    headers: { ...csrf(), ...(key ? { 'Idempotency-Key': key } : {}) } })).data;
+    headers: { 'X-Arrangement-Contract': '3', ...csrf(), ...(key ? { 'Idempotency-Key': key } : {}) } })).data;
 }
 export async function tenantRequests(org: string, property: string, cursor: string | null, signal: AbortSignal) {
-  const { data } = await axios.get(`${requestBase(org)}/inquilino/orders`, { withCredentials: true, signal, params: { limit: 25, ...(cursor ? { cursor } : {}) } });
+  const { data } = await axios.get(`${requestBase(org)}/inquilino/orders`, { withCredentials: true, signal, headers: { 'X-Arrangement-Contract': '3' }, params: { limit: 25, ...(cursor ? { cursor } : {}) } });
   const page = z.object({ organization_id: z.literal(org), items: z.array(RequestRecord).max(100), available_statuses: z.array(Status), next_cursor: z.string().nullable() }).strict().parse(data);
   if (page.items.some(item => item.organization_id !== org || item.legacy || item.property?.id !== property)) throw new Error('INVALID_RESPONSE');
   return page;
 }
 export async function updateRequestStatus(org: string, order: { id: string; version?: number }, status: string, signal: AbortSignal) {
-  return RequestRecord.parse(await requestMutation(org, `/orders/${order.id}/status`, { status, expected_version: order.version ?? 1 }, signal, undefined, 'patch'));
+  return ManagerRequest.parse(await requestMutation(org, `/orders/${order.id}/status`, { status, expected_version: order.version ?? 1 }, signal, undefined, 'patch'));
 }
-export async function requestAssetView(org: string, tenant: boolean, order: string, asset: string, signal: AbortSignal) {
-  const { data } = await axios.get(`${requestBase(org)}${tenant ? '/inquilino' : ''}/orders/${order}/assets/${asset}/view`, { withCredentials: true, signal });
+export async function requestAssetView(org: string, audience: ArrangementAudience, order: string, asset: string, signal: AbortSignal) {
+  const { data } = await axios.get(`${requestBase(org)}${audience === 'tenant' ? '/inquilino' : audience === 'personal' ? '/personal' : ''}/orders/${order}/assets/${asset}/view`, { withCredentials: true, signal });
   const result = z.object({ signed_url: z.url(), expires_at: z.string() }).strict().parse(data);
   const url = new URL(result.signed_url);
   if (url.protocol !== 'https:' && !(import.meta.env.DEV && url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname))) throw new Error('INVALID_RESPONSE');
@@ -46,6 +51,10 @@ export function requestErrorCode(error: unknown): string | undefined {
 export function requestError(error: unknown): string {
   const code = requestErrorCode(error);
   const messages: Record<string, string> = {
+    ASSIGNEE_UNAVAILABLE: 'Esta persona ya no está disponible. Actualizá las opciones y elegí otra.',
+    INVALID_TRANSITION: 'El estado cambió. Revisá la solicitud antes de continuar.',
+    CLIENT_UPDATE_REQUIRED: 'Hay una nueva versión. Actualizá esta página para continuar.',
+    FEATURE_DISABLED: 'Esta acción todavía no está habilitada.',
     VERSION_CONFLICT: 'Alguien actualizó esta solicitud. La lista se actualizará; revisá el estado antes de volver a guardar.',
     PROPERTY_REQUIRED: 'No tenés una propiedad vinculada. Contactá a la administración.',
     UPLOAD_INVALID: 'No se pudo verificar un archivo. Revisá su formato y volvé a intentar la carga.',

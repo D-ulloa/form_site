@@ -46,14 +46,14 @@ for(const mode of ['new','existing'] as const) test(`SPEC-44 ${mode} account: in
     await target.getByLabel('Ocupación').fill(' Electricista ');
     const accepted=target.waitForResponse(r=>r.url().endsWith('/invitations/accept'));
     await target.getByRole('button',{name:'Aceptar invitación',exact:true}).click();expect((await accepted).status()).toBe(200);
-    await expect(target).toHaveURL('/t/azar/personal');await expect(target.getByRole('main')).toHaveText('Inicio');
+    await expect(target).toHaveURL('/t/azar/personal');await expect(target.getByRole('main')).toContainText('Mis órdenes asignadas');
     await expect(target.getByRole('button')).toHaveCount(1);await expect(target.getByRole('link')).toHaveCount(0);
     expect(await target.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await target.screenshot({path:testInfo.outputPath('personal-home-mobile.png'),fullPage:true});
     const persisted=JSON.parse(sql(`select json_build_object('name',m.personal_name,'contact',m.personal_contact_number,'occupation',m.personal_occupation,'global',p.display_name,'user',m.user_id,'version',m.version) from public.organization_memberships m join auth.users u on u.id=m.user_id join public.user_profiles p on p.user_id=u.id where u.email=${q(email)} and m.role='personal'`));
     expect(persisted).toMatchObject({name:'Nombre local',contact:'+58 00123-45',occupation:'Electricista',global:mode==='new'?'Nombre global':'existing-personal'});
     const context=await (await invited.request.get('/api/organizations/azar/context')).json();
-    expect(context.capabilities).toEqual(['personal.home.read']);expect(JSON.stringify(context)).not.toContain('Electricista');
+    expect(context.capabilities).toEqual(['personal.home.read', 'personal.arrangements.read']);expect(JSON.stringify(context)).not.toContain('Electricista');
     for(const path of ['arrangements/orders','arrangements/properties','members','invitations','settings']) {
       expect((await invited.request.get(`/api/organizations/20000000-0000-4000-8000-000000000001/${path}`)).status()).toBe(403);
     }

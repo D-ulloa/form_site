@@ -1,4 +1,6 @@
 export interface ArrangementOrder {
+  readonly requester?: { readonly name: string | null; readonly email: string | null; readonly contact_number: string | null } | null;
+  readonly assignee?: { readonly id: string; readonly name: string | null; readonly occupation: string | null; readonly available: boolean } | null;
   readonly id: string;
   readonly name: string;
   readonly status: string;

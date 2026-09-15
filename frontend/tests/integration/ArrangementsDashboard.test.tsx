@@ -33,7 +33,9 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
     data = { ...context, capabilities };
   } else if (path.endsWith('/arrangements/properties')) data = { organization_id: path.includes(B) ? B : A, items: [], next_cursor: null };
   else if (path.endsWith('/arrangements/orders')) data = await resolveOrders(config);
-  else if (path.endsWith('/status') && config.method === 'patch') data = await mutateOrder(config);
+  else if (path.endsWith('/personal/assignees')) data = { organization_id: A,
+    items: [{ id: '30000000-0000-4000-8000-000000000009', name: 'Técnico', occupation: 'Mantenimiento' }], next_cursor: null };
+  else if (['/status', '/assignment', '/reject'].some(suffix => path.endsWith(suffix)) && ['patch', 'delete', 'post'].includes(config.method ?? '')) data = await mutateOrder(config);
   else throw new Error(`Unexpected request ${path}`);
   return { data, status: 200, statusText: 'OK', config, headers: {} };
 });
@@ -48,6 +50,8 @@ function navigate(path: string) {
 const requests = () => adapter.mock.calls.filter(([config]) => config.url?.endsWith('/arrangements/orders'));
 
 beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value() { this.setAttribute('open', ''); } });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value() { this.removeAttribute('open'); } });
   authenticated = true;
   capabilities = ['organization.read', 'arrangements.read'];
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -72,7 +76,7 @@ describe('SPEC-39 arrangement dashboard', () => {
     fireEvent.change(filter, { target: { value: 'in_progress' } });
     await waitFor(() => expect(screen.queryByText('Ventana')).toBeNull());
     expect(await screen.findByText('Puerta')).toBeTruthy();
-    expect(within(filter).getAllByRole('option').map(option => option.textContent)).toEqual(['Todos', 'Sin procesar', 'En proceso', 'Solucionado', 'Archivados']);
+    expect(within(filter).getAllByRole('option').map(option => option.textContent)).toEqual(['Todos', 'Sin procesar', 'En proceso', 'Solucionado', 'Archivados', 'Rechazadas']);
     fireEvent.change(filter, { target: { value: '' } });
     expect(await screen.findByText('Ventana')).toBeTruthy();
     expect(requests().every(([config]) => config.withCredentials && config.signal
@@ -201,4 +205,35 @@ it('explains a version conflict and refreshes the current state before another w
   fireEvent.click(screen.getByRole('button', { name: 'Guardar estado' }));
   await screen.findByText(/Alguien actualizó esta solicitud/);
   await waitFor(() => expect(screen.getAllByText('Solucionado')).toHaveLength(3));
+});
+
+it.each(['assign', 'unassign', 'reject'])('refreshes an obsolete order after %s fails without retrying the write', async action => {
+  capabilities = ['organization.read', 'arrangements.read', 'arrangements.assignment.manage', 'arrangements.request.reject', 'arrangements.requester.read'];
+  const assignee = { id: '30000000-0000-4000-8000-000000000009', name: 'Técnico', occupation: 'Mantenimiento', available: true };
+  let current = { ...first, organization_id: A, description: 'Solicitud concurrente', status: 'in_progress',
+    property: { id: '40000000-0000-4000-8000-000000000001', name: 'Casa' }, requester: null,
+    assignee: assignee as typeof assignee | null, created_at: null, submitted_at: null, updated_at: null,
+    version: 2, legacy: false, created_by_you: false, assets: [] };
+  resolveOrders = async () => ({ ...page, items: [current], available_statuses: ['open', 'in_progress', 'solved', 'archived', 'rejected'] });
+  let writes = 0;
+  mutateOrder = async config => {
+    writes += 1;
+    expect(JSON.parse(config.data).expected_version).toBe(2);
+    current = { ...current, status: 'solved', version: 3, assignee: null };
+    throw new AxiosError('Conflict', 'ERR_BAD_RESPONSE', config, undefined,
+      { data: { error: 'VERSION_CONFLICT' }, status: 409, statusText: 'Conflict', config, headers: {} });
+  };
+  renderDashboard(); await screen.findByText('Solicitud concurrente');
+  if (action === 'assign') {
+    fireEvent.click(screen.getByRole('button', { name: 'Reasignar personal' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Guardar asignación' }));
+  } else if (action === 'unassign') fireEvent.click(screen.getByRole('button', { name: 'Quitar asignación' }));
+  else {
+    fireEvent.click(screen.getByRole('button', { name: 'Rechazar solicitud' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar rechazo' }));
+  }
+  await waitFor(() => expect(screen.getAllByText('Solucionado')).toHaveLength(2));
+  expect(screen.queryByRole('button', { name: 'Reasignar personal' })).toBeNull();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(writes).toBe(1);
 });

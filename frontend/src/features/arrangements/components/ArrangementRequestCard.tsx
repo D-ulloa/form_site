@@ -1,3 +1,5 @@
+import { ArrangementAssignmentControls } from './ArrangementAssignmentControls';
+import type { ArrangementAudience } from '../services/arrangementRequestsApi';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOrganization } from '../../../app/contexts/OrganizationContext';
@@ -8,12 +10,13 @@ import type { ArrangementOrder } from '../types';
 import { useArrangementOperation } from '../hooks/useArrangementProperties';
 import { requestAssetView, requestError, statusOptions, updateRequestStatus } from '../services/arrangementRequestsApi';
 
-export function ArrangementRequestCard({ order, tenant = false }: { order: ArrangementOrder; tenant?: boolean }) {
+export function ArrangementRequestCard({ order, audience }: { order: ArrangementOrder; audience: ArrangementAudience }) {
   const { organization, epoch, capabilities } = useOrganization();
   const client = useQueryClient();
   const operation = useArrangementOperation(requestError);
+  const tenant = audience === 'tenant';
   const [status, setStatus] = useState(order.status);
-  const writable = !tenant && capabilities.includes('arrangements.status.update');
+  const writable = audience === 'manager' && capabilities.includes('arrangements.status.update');
   async function refresh() { await client.invalidateQueries({ queryKey: tenantQueryKey(organization.id, epoch, 'arrangements', 'orders') }); }
   return <article className="surface min-w-0 rounded-2xl p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -31,7 +34,7 @@ export function ArrangementRequestCard({ order, tenant = false }: { order: Arran
       {order.assets.map(asset => <li key={asset.id} className="min-w-0">
         <Button variant="ghost" size="sm" className="max-w-full text-left [overflow-wrap:anywhere]" disabled={operation.pending}
           onClick={() => { void operation.run(async signal => {
-            const link = await requestAssetView(organization.id, tenant, order.id, asset.id, signal);
+            const link = await requestAssetView(organization.id, audience, order.id, asset.id, signal);
             return link;
           }, link => {
             const anchor = document.createElement('a'); anchor.href = link.signed_url; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
@@ -45,10 +48,16 @@ export function ArrangementRequestCard({ order, tenant = false }: { order: Arran
         finally { if (!signal.aborted) void refresh(); }
       }, () => {});
     }}>
-      <div className="min-w-0 flex-1"><Select id={`status-${order.id}`} label="Estado de la solicitud" options={statusOptions} value={status}
+      <div className="min-w-0 flex-1"><Select id={`status-${order.id}`} label="Estado de la solicitud" options={statusOptions.filter(option => order.status === 'rejected' ? ['open', 'rejected'].includes(option.value) : option.value !== 'rejected')} value={status}
         disabled={operation.pending} onChange={event => setStatus(event.target.value)} /></div>
       <Button type="submit" disabled={operation.pending || status === order.status}>Guardar estado</Button>
     </form>}
+    {(audience === 'manager' || audience === 'personal') && 'requester' in order && <dl aria-label="Contacto del solicitante" className="mt-5 grid gap-2 text-sm [overflow-wrap:anywhere]">
+      <div><dt className="text-slate-400">Solicitante</dt><dd>{order.requester?.name ?? 'No disponible'}</dd></div>
+      <div><dt className="text-slate-400">Correo</dt><dd>{order.requester?.email ?? 'No disponible'}</dd></div>
+      <div><dt className="text-slate-400">Teléfono</dt><dd>{order.requester?.contact_number ?? 'No disponible'}</dd></div>
+    </dl>}
+    {audience === 'manager' && <ArrangementAssignmentControls order={order} />}
     {operation.error && <p role="alert" className="mt-3 text-sm text-red-300">{operation.error}</p>}
   </article>;
 }

@@ -5,13 +5,13 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 7 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 8 as const;
 
 const capabilities = {
-  personal: ['personal.home.read'],
+  personal: ['personal.home.read', 'personal.arrangements.read'],
   inquilino: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create'],
   owner: [
-    'arrangements.personal.invite',
+    'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
     'arrangements.status.update',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
@@ -25,7 +25,7 @@ const capabilities = {
     'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
   ],
   admin: [
-    'arrangements.personal.invite',
+    'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
     'arrangements.status.update',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
@@ -37,7 +37,7 @@ const capabilities = {
     'files.read', 'integrations.read', 'audit.read',
   ],
   member: [
-    'arrangements.personal.invite',
+    'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
     'arrangements.status.update',
     'arrangements.read', 'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
     'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',

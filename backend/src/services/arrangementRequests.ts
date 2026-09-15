@@ -1,3 +1,4 @@
+import { createArrangementAssignmentsService } from './arrangementAssignments.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { createRequestCursorCodec } from '../arrangements/requestCursor.js';
@@ -59,6 +60,7 @@ export function createArrangementRequestsService(repository: ArrangementRequestR
     return { context, service };
   }
   return {
+    ...createArrangementAssignmentsService(repository, dependencies.storage, environment),
     async list(scope: OrganizationScope, actor: OrganizationActorContext, tenant: boolean, raw: unknown) {
       authorize(scope, actor, tenant);
       const query = Query.parse(raw);

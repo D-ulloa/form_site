@@ -13,7 +13,13 @@ export const PersonalProfileSchema = z.object({
   contact_number: profileText(64),
   occupation: profileText(120),
 }).strict();
-export const InvitationAcceptanceSchema = z.object({ personal_profile: PersonalProfileSchema.optional() }).strict();
+export const InquilinoProfileSchema = z.object({ contact_number: z.string().trim().max(64)
+  .refine(value => /^\+?[0-9 ()-]+$/u.test(value) && (value.match(/[0-9]/g)?.length ?? 0) >= 7
+    && (value.match(/[0-9]/g)?.length ?? 0) <= 15, 'INVALID_REQUEST') }).strict();
+export type InquilinoProfile = z.infer<typeof InquilinoProfileSchema>;
+export const InvitationAcceptanceSchema = z.object({ personal_profile: PersonalProfileSchema.optional(),
+  inquilino_profile: InquilinoProfileSchema.optional() }).strict()
+  .refine(value => !(value.personal_profile && value.inquilino_profile), 'INVALID_REQUEST');
 export type PersonalProfile = z.infer<typeof PersonalProfileSchema>;
 
 /** A row returned by a privileged RPC must never become a public profile projection. */

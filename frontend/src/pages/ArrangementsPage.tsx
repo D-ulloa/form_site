@@ -28,9 +28,9 @@ export function ArrangementsPage() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
-        <PersonalInvitationSection key={`${organization.id}:${epoch}`} />
+        <PersonalInvitationSection key={`personal-invitations:${organization.id}:${epoch}`} />
         {capabilities.includes('arrangements.read')
-          ? <ArrangementOrdersDashboard key={`${organization.id}:${epoch}`} />
+          ? <ArrangementOrdersDashboard key={`orders:${organization.id}:${epoch}`} />
           : <AlertInline>No tenés acceso a las órdenes de esta organización.</AlertInline>}
       </main>
     </div>

@@ -41,9 +41,9 @@ export async function resolveInvitation(): Promise<InvitationResolution> {
     .refine(value => value.intended_role !== 'personal' || value.arrangement_property == null).parse(response.data);
 }
 
-export async function acceptInvitation(personalProfile?: { name: string; contact_number: string; occupation: string }, signal?: AbortSignal): Promise<{ organization_id: string; organization_slug: string }> {
+export async function acceptInvitation(personalProfile?: { name: string; contact_number: string; occupation: string }, signal?: AbortSignal, inquilinoProfile?: { contact_number: string }): Promise<{ organization_id: string; organization_slug: string }> {
   const response = await api.post<{ organization_id: string; organization_slug: string }>('/invitations/accept',
-    personalProfile ? { personal_profile: personalProfile } : {}, { signal });
+    personalProfile ? { personal_profile: personalProfile } : inquilinoProfile ? { inquilino_profile: inquilinoProfile } : {}, { signal });
   return response.data;
 }
 
@@ -99,4 +99,9 @@ export async function listOrganizationInvitations(
     params: cursor ? { cursor } : undefined,
   });
   return response.data as { items: OrganizationInvitationSummary[]; next_cursor: string | null };
+}
+
+export async function invitationAcceptanceContext(signal: AbortSignal) {
+  return z.object({ requires_inquilino_profile: z.boolean() }).strict()
+    .parse((await api.post('/invitations/acceptance-context', {}, { signal })).data);
 }

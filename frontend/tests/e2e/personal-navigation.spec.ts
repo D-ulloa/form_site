@@ -9,6 +9,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     let denied = false;
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+    await page.addInitScript(() => { window.EventSource = class { addEventListener() {} close() {} } as unknown as typeof EventSource; });
     await page.route('**/api/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path === '/api/auth/session') {
@@ -17,12 +18,14 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
       } else if (path.endsWith('/context')) {
         const context = organizationContext('azar');
         await route.fulfill({ json: { ...context, membership: { ...context.membership, role: 'personal' },
-          capabilities: denied ? [] : ['personal.home.read'], home_destination: denied ? null : 'personal' } });
+          capabilities: denied ? [] : ['personal.home.read', 'personal.arrangements.read'], home_destination: denied ? null : 'personal' } });
+      } else if (path.endsWith('/personal/orders')) {
+        await route.fulfill({ json: { organization_id: organizationContext('azar').organization.id, items: [], available_statuses: ['open', 'in_progress', 'solved', 'archived', 'rejected'], next_cursor: null } });
       } else { unexpected.push(path); await route.fulfill({ status: 500 }); }
     });
     await page.goto('/t/azar');
     await expect(page).toHaveURL('/t/azar/personal');
-    await expect(page.getByRole('main')).toHaveText('Inicio');
+    await expect(page.getByRole('main')).toContainText('Mis órdenes asignadas');
     await expect(page.getByRole('button')).toHaveCount(1);
     await expect(page.getByRole('link')).toHaveCount(0);
     await page.getByRole('button', { name: 'Cerrar sesión' }).focus();
@@ -30,11 +33,11 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('personal-home.png'), fullPage: true });
     await page.reload();
-    await expect(page.getByRole('main')).toHaveText('Inicio');
+    await expect(page.getByRole('main')).toContainText('Mis órdenes asignadas');
     for (const path of ['arrangements', 'inquilino', 'contracts/admin', 'properties/new', 'settings/members', 'settings/invitations', 'settings/organization', 'settings/lifecycle']) {
       await page.goto(`/t/azar/${path}`);
       await expect(page).toHaveURL('/t/azar/personal');
-      await expect(page.getByRole('main')).toHaveText('Inicio');
+      await expect(page.getByRole('main')).toContainText('Mis órdenes asignadas');
     }
     denied = true;
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));

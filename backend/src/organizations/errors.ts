@@ -1,4 +1,5 @@
 export type OrganizationErrorCode =
+  | 'INQUILINO_PROFILE_REQUIRED'
   | 'PERSONAL_PROFILE_REQUIRED'
   | 'INVALID_REQUEST'
   | 'PROPERTY_REQUIRED'
@@ -19,6 +20,7 @@ export type OrganizationErrorCode =
 
 const statusByCode: Readonly<Record<OrganizationErrorCode, number>> = {
   PERSONAL_PROFILE_REQUIRED: 422,
+  INQUILINO_PROFILE_REQUIRED: 422,
   INVALID_REQUEST: 400,
   PROPERTY_REQUIRED: 422,
   PROPERTY_CONFLICT: 409,

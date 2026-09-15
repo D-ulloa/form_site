@@ -19,7 +19,7 @@ let contextStatus: number;
 function personal(slug: OrganizationSlug = 'azar'): ReturnType<typeof organizationContext> {
   const context = organizationContext(slug);
   return { ...context, membership: { ...context.membership, role: 'personal' },
-    capabilities: ['personal.home.read'], home_destination: 'personal' };
+    capabilities: ['personal.home.read', 'personal.arrangements.read'], home_destination: 'personal' };
 }
 const adapter = vi.fn<AxiosAdapter>(async config => {
   const path = config.url ?? '';
@@ -31,7 +31,8 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
   else if (/^\/api\/organizations\/[^/]+\/context$/u.test(path)) {
     status = contextStatus;
     if (status === 200) data = await resolveContext(path.split('/')[3]);
-  } else throw new Error(`Unexpected product request: ${path}`);
+  } else if (path.endsWith('/personal/orders')) data = { organization_id: path.split('/')[3], items: [], available_statuses: ['open', 'in_progress', 'solved', 'archived', 'rejected'], next_cursor: null };
+  else throw new Error(`Unexpected product request: ${path}`);
   const response = { data, status, statusText: String(status), config, headers: {} };
   if (status !== 200) throw new AxiosError('Rejected', 'ERR_BAD_RESPONSE', config, undefined, response);
   return response;
@@ -44,16 +45,16 @@ function mount(path: string) {
 function navigate(path: string) {
   act(() => { window.history.pushState(null, '', path); window.dispatchEvent(new PopStateEvent('popstate')); });
 }
-function assertEmptyHome() {
+function assertPersonalHome() {
   const main = screen.getByRole('main');
   expect(within(main).getByRole('heading', { name: 'Inicio', level: 1 })).toBeTruthy();
-  expect(main.textContent).toBe('Inicio');
+  expect(main.textContent).toContain('Mis órdenes asignadas');
   expect(within(main).queryByRole('button')).toBeNull();
   expect(screen.queryByRole('link')).toBeNull();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getAllByRole('button')).toHaveLength(1);
   expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeTruthy();
-  expect(paths().every(path => path.startsWith('/api/auth/') || path.endsWith('/context'))).toBe(true);
+  expect(paths().every(path => path.startsWith('/api/auth/') || path.endsWith('/context') || path.endsWith('/personal/orders'))).toBe(true);
 }
 beforeEach(() => {
   session = structuredClone(organizationSession);
@@ -71,14 +72,14 @@ it.each(['', '/personal', '/arrangements', '/properties/new', '/properties/succe
   expect(screen.queryByRole('button', { name: /^Agregar nueva propiedad/u })).toBeNull();
   await screen.findByRole('heading', { name: 'Inicio' });
   expect(window.location.pathname).toBe('/t/azar/personal');
-  assertEmptyHome();
+  assertPersonalHome();
 });
 
 it('selects the destination from confirmed context, even when the session summary has an old role', async () => {
   mount('/');
   fireEvent.click(await screen.findByRole('link', { name: /Azar/u }));
   await screen.findByRole('heading', { name: 'Inicio' });
-  assertEmptyHome();
+  assertPersonalHome();
   expect(window.location.pathname).toBe('/t/azar/personal');
 });
 
@@ -91,7 +92,7 @@ it('uses the normal login flow after joining, without an invitation', async () =
   fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
   fireEvent.click(await screen.findByRole('link', { name: /Azar/u }));
   await screen.findByRole('heading', { name: 'Inicio' });
-  assertEmptyHome();
+  assertPersonalHome();
   expect(paths().some(path => path.includes('invitation'))).toBe(false);
 });
 
@@ -112,7 +113,7 @@ it('isolates different roles in A and B and removes cached product data', async 
   expect(screen.queryByRole('button', { name: /^Agregar nueva propiedad/u })).toBeNull();
   await screen.findByRole('heading', { name: 'Inicio' });
   expect(queryClient.getQueryData(['solar', 'private-data'])).toBeUndefined();
-  assertEmptyHome();
+  assertPersonalHome();
 });
 
 it.each([401, 403, 404, 503])('fails closed on context HTTP %s', async code => {
@@ -155,7 +156,7 @@ it('rechecks a role change within the same session when authentication refreshes
   session = structuredClone(organizationSession);
   act(() => window.dispatchEvent(new Event('form-site-auth-refresh')));
   await screen.findByRole('heading', { name: 'Inicio' });
-  assertEmptyHome();
+  assertPersonalHome();
 });
 
 it('discards an old context response after switching organizations', async () => {
@@ -168,7 +169,7 @@ it('discards an old context response after switching organizations', async () =>
   await screen.findByRole('heading', { name: 'Inicio' });
   await act(async () => release(organizationContext('azar')));
   expect(window.location.pathname).toBe('/t/solar/personal');
-  assertEmptyHome();
+  assertPersonalHome();
 });
 
 it('rejects context for another identity', async () => {
