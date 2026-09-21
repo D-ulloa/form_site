@@ -30,7 +30,7 @@ export function mapToSheetRow(
 ): (string | number | boolean)[] {
   return [
     // ── System columns ──────────────────────────────────────────
-
+    payload['Tipo de contrato'],
     payload.Pais,
     payload.Provincia,
     payload.Localidad,
@@ -40,7 +40,7 @@ export function mapToSheetRow(
     payload['Piso | Mza | Denominacion'],
     payload['Depto | Lote |'],
     payload.Referencia,
-    payload['Tipo de contrato'],
+
 
     // ── Property fields (scheme_reworked.json order) ─────────────────
     payload['Tipo de Inmueble'],
