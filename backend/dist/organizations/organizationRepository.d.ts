@@ -1,8 +1,9 @@
+import type { OrganizationScope } from '../platform/scope.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MembershipMutationRepository } from './membershipService.js';
 import type { OrganizationSettingsRepository } from './organizationSettingsService.js';
 import type { UserProfileRepository } from './userProfileService.js';
-import type { InvitationIdentityContext, OrganizationMembershipRecord, OrganizationRecord, OrganizationSettingsRecord, PlatformActorContext } from './types.js';
+import type { InvitationIdentityContext, OrganizationMembershipRecord, OrganizationRecord, OrganizationRole, OrganizationSettingsRecord, PlatformActorContext } from './types.js';
 export interface CreateOrganizationPersistenceInput {
     readonly organization_id: string;
     readonly slug: string;
@@ -17,10 +18,12 @@ export interface CreateOrganizationPersistenceInput {
     readonly actor: PlatformActorContext;
 }
 export interface CreateInvitationPersistenceInput {
+    readonly arrangement_property_id?: string;
+    readonly operation_id?: string;
     readonly invitation_id: string;
     readonly organization_id: string;
     readonly email_normalized: string;
-    readonly intended_role: 'admin' | 'member' | 'viewer';
+    readonly intended_role: Exclude<OrganizationRole, 'owner'>;
     readonly token_hash: string;
     readonly token_prefix: string;
     readonly expires_at: string;
@@ -30,10 +33,12 @@ export interface CreateInvitationPersistenceInput {
     readonly request_id: string;
 }
 export interface InvitationRecord {
+    readonly arrangement_property_id?: string | null;
+    readonly link_issued?: boolean;
     readonly id: string;
     readonly organization_id: string;
-    readonly email_normalized: string;
-    readonly intended_role: 'admin' | 'member' | 'viewer';
+    readonly email_normalized?: string;
+    readonly intended_role: Exclude<OrganizationRole, 'owner'>;
     readonly status: 'pending' | 'accepted' | 'revoked' | 'replaced';
     readonly expires_at: string;
     readonly delivery_state: 'pending' | 'accepted_by_provider' | 'delivered' | 'failed' | 'bounced' | 'complained';
@@ -42,12 +47,25 @@ export interface InvitationRecord {
     readonly version: number;
 }
 export interface InvitationResolutionRecord {
+    readonly arrangement_property?: {
+        readonly id: string;
+        readonly name: string;
+    } | null;
     readonly organization_display_name: string;
     readonly email_masked: string;
-    readonly intended_role: 'admin' | 'member' | 'viewer';
+    readonly intended_role: Exclude<OrganizationRole, 'owner'>;
     readonly expires_at: string;
 }
 export interface OrganizationGovernanceRepository {
+    preparePropertyInvitation(scope: OrganizationScope, input: {
+        actor_id: string;
+        property_id: string;
+        email: string;
+        idempotency_key: string;
+    }): Promise<{
+        operation_id: string;
+        invitation: InvitationRecord | null;
+    }>;
     createOrganization(input: CreateOrganizationPersistenceInput): Promise<OrganizationRecord>;
     createInvitation(input: CreateInvitationPersistenceInput): Promise<InvitationRecord>;
     resolveInvitation(rawToken: string): Promise<InvitationResolutionRecord | null>;

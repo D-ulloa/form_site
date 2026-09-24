@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ArrangementStatus, RequestRecord, type ArrangementRequestRepository, ArrangementRequestError } from '../arrangements/requestRepository.js';
+import { ArrangementStatus, RequestRecord, WorkReport, type ArrangementRequestRepository, ArrangementRequestError } from '../arrangements/requestRepository.js';
 import { createRequestCursorCodec } from '../arrangements/requestCursor.js';
 import { requireArrangementAuthority } from './arrangementProperties.js';
 import type { OrganizationActorContext, OrganizationCapability } from '../organizations/types.js';
@@ -14,6 +14,7 @@ export const PersonalRequest = RequestRecord.extend({ requester: Contact.nullabl
 export const ManagerRequest = PersonalRequest.extend({ assignee: Assignee.nullable() });
 const Candidate = z.object({ id: z.uuid(), name: z.string().min(1).max(120), occupation: z.string().min(1).max(120) }).strict();
 const Version = z.number().int().positive().max(2147483647);
+const WorkReportMutation = z.object({ id: z.uuid(), status: ArrangementStatus, version: Version, work_report: WorkReport }).strict();
 const Query = z.object({ limit: z.string().regex(/^[1-9][0-9]{0,2}$/u).transform(Number).refine(n => n <= 100).optional(),
   cursor: z.string().min(1).max(1024).optional(), status: ArrangementStatus.optional() }).strict();
 export function arrangementAudience(actor: OrganizationActorContext): ArrangementAudience {
@@ -35,6 +36,7 @@ export function createArrangementAssignmentsService(repository: ArrangementReque
   }
   const schema = (audience: ArrangementAudience) => audience === 'manager' ? ManagerRequest : audience === 'personal' ? PersonalRequest : RequestRecord;
   const call = (scope: OrganizationScope, actor: OrganizationActorContext, action: string, input: Record<string, unknown>) => repository.call(scope, actor, `v3.${action}`, input);
+  const callReport = (scope: OrganizationScope, actor: OrganizationActorContext, action: string, input: Record<string, unknown>) => repository.call(scope, actor, `v4.${action}`, input);
   return {
     async listAssigned(scope: OrganizationScope, actor: OrganizationActorContext, audience: ArrangementAudience, raw: unknown) {
       authority(scope, actor, audience);
@@ -87,6 +89,24 @@ export function createArrangementAssignmentsService(repository: ArrangementReque
     async changes(scope: OrganizationScope, actor: OrganizationActorContext, audience: ArrangementAudience) {
       authority(scope, actor, audience);
       return parse(z.object({ revision: z.string().regex(/^\d+$/u) }).strict(), await call(scope, actor, `${prefix(audience)}.changes`, {}));
+    },
+    async saveWorkReport(scope: OrganizationScope, actor: OrganizationActorContext, orderId: string, raw: unknown) {
+      authority(scope, actor, 'personal', 'personal.arrangements.report.write');
+      const body = z.object({ body: z.string().min(1).max(10000), expected_version: Version }).strict().parse(raw);
+      return parse(WorkReportMutation.extend({ id: z.literal(z.uuid().parse(orderId)) }),
+        await callReport(scope, actor, 'personal.report.save', { ...body, order_id: orderId }));
+    },
+    async submitWorkReport(scope: OrganizationScope, actor: OrganizationActorContext, orderId: string, raw: unknown) {
+      authority(scope, actor, 'personal', 'personal.arrangements.report.write');
+      const body = z.object({ expected_version: Version, report_version: Version }).strict().parse(raw);
+      return parse(WorkReportMutation.extend({ id: z.literal(z.uuid().parse(orderId)) }),
+        await callReport(scope, actor, 'personal.report.submit', { ...body, order_id: orderId }));
+    },
+    async acceptWorkReport(scope: OrganizationScope, actor: OrganizationActorContext, orderId: string, raw: unknown) {
+      authority(scope, actor, 'tenant', 'inquilino.arrangements.accept');
+      const body = z.object({ expected_version: Version }).strict().parse(raw);
+      return parse(RequestRecord.extend({ id: z.literal(z.uuid().parse(orderId)), organization_id: z.literal(scope.organization_id) }),
+        await callReport(scope, actor, 'inquilino.accept', { ...body, order_id: orderId }));
     },
   };
 }

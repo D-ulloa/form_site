@@ -1,10 +1,10 @@
 import type { OrganizationScope } from '../platform/scope.js';
-export type AssetCategory = 'contract_dni' | 'contract_evidence' | 'property_image' | 'property_video' | 'organization_logo' | 'export';
+export type AssetCategory = 'contract_dni' | 'contract_evidence' | 'property_image' | 'property_video' | 'organization_logo' | 'export' | 'arrangement_image' | 'arrangement_video';
 export type AssetState = 'pending' | 'uploaded' | 'verifying' | 'verified' | 'quarantined' | 'attached' | 'deleting' | 'deleted' | 'deletion_failed';
 export type UploadSessionState = 'open' | 'finalizing' | 'consumed' | 'expired' | 'revoked' | 'failed';
 export type UploadIntentState = 'pending' | 'url_issued' | 'uploaded' | 'verified' | 'consumed' | 'expired' | 'rejected';
 export type AssetPrincipalType = 'member' | 'organization_api_key' | 'external_contract_link' | 'platform_support' | 'system_worker' | 'migration';
-export type AssetOwnerType = 'contract_entry' | 'property_draft' | 'property_revision' | 'organization_branding' | 'export';
+export type AssetOwnerType = 'contract_entry' | 'property_draft' | 'property_revision' | 'organization_branding' | 'export' | 'arrangement_order';
 export interface AssetPrincipal {
     readonly type: AssetPrincipalType;
     readonly reference_id: string | null;

@@ -1,0 +1,57 @@
+import { z } from 'zod';
+import { createPlatformServiceRoleClient } from '../platform/serviceRoleClient.js';
+import { PlatformError } from '../platform/errors.js';
+export const ArrangementStatus = z.enum(['open', 'in_progress', 'solved', 'archived', 'rejected']);
+export const WorkReportStatus = z.enum(['draft', 'submitted', 'accepted']);
+export const WorkReport = z.object({
+    status: WorkReportStatus, body: z.string().min(1).max(10000), version: z.number().int().positive(),
+    created_at: z.iso.datetime({ offset: true }), updated_at: z.iso.datetime({ offset: true }),
+    submitted_at: z.iso.datetime({ offset: true }).nullable(), accepted_at: z.iso.datetime({ offset: true }).nullable(),
+    created_by: z.object({ id: z.uuid(), name: z.string().max(120) }).strict().nullable(),
+}).strict();
+export const RequestRecord = z.object({
+    id: z.uuid(), organization_id: z.uuid(), name: z.string().min(1).max(200), description: z.string().min(1).max(5000).nullable(),
+    status: ArrangementStatus, property: z.object({ id: z.uuid(), name: z.string().min(1).max(200) }).strict().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(), submitted_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable(), version: z.number().int().positive(),
+    legacy: z.boolean(), created_by_you: z.boolean().nullable().transform(value => value ?? false),
+    assets: z.array(z.object({ id: z.uuid(), display_filename: z.string().min(1).max(120),
+        mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime']),
+        bytes: z.number().int().positive().max(104857600) }).strict()).max(40),
+    work_report: WorkReport.nullable(),
+}).strict();
+export class ArrangementRequestError extends Error {
+    code;
+    status;
+    current;
+    constructor(code, status, current) {
+        super(code);
+        this.code = code;
+        this.status = status;
+        this.current = current;
+    }
+}
+export function createArrangementRequestRepository(clientOverride, environment = process.env) {
+    return {
+        async call(scope, actor, action, input) {
+            const rpc = action.startsWith('v4.') ? 'spec46_arrangements' : action.startsWith('v3.') ? 'spec45_arrangements' : 'spec43_arrangements';
+            const { data, error } = await (clientOverride ?? createPlatformServiceRoleClient(environment)).rpc(rpc, {
+                p_organization_id: scope.organization_id, p_actor_membership_id: actor.membership.id,
+                p_action: action.replace(/^v[34]\./u, ''), p_input: input, p_request_id: actor.request_id,
+            });
+            if (error) {
+                const errors = { ASSIGNEE_UNAVAILABLE: 409, INVALID_TRANSITION: 409, NOT_FOUND: 404, FORBIDDEN: 403, PROPERTY_REQUIRED: 409,
+                    IDEMPOTENCY_CONFLICT: 409, SESSION_INVALID: 409, DRAFT_EXPIRED: 409, UPLOAD_INCOMPLETE: 409,
+                    UPLOAD_INVALID: 400, INVALID_REQUEST: 400, QUOTA_EXCEEDED: 409, TENANT_REQUIRED: 409 };
+                if (Object.hasOwn(errors, error.message))
+                    throw new ArrangementRequestError(error.message, errors[error.message]);
+                throw new PlatformError('DEPENDENCY_UNAVAILABLE');
+            }
+            const conflict = z.object({ error: z.literal('VERSION_CONFLICT'), current: z.object({ id: z.uuid(), status: ArrangementStatus, version: z.number().int().positive() }) }).safeParse(data);
+            if (conflict.success)
+                throw new ArrangementRequestError('VERSION_CONFLICT', 409, conflict.data.current);
+            return data;
+        },
+    };
+}
+//# sourceMappingURL=requestRepository.js.map

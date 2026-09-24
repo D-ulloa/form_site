@@ -12,11 +12,12 @@ export interface ProvisioningOperationRecord {
     readonly provider_ambiguity_phase: 'resolve' | 'create' | null;
 }
 export interface IdentityProvisioningRepository {
-    assertActor(actor: IdentityProvisioningActor, purpose: IdentityProvisioningPurpose): Promise<void>;
+    assertActor(actor: IdentityProvisioningActor, purpose: IdentityProvisioningPurpose, email?: string): Promise<void>;
     claim(input: {
         readonly idempotency_key: string;
         readonly payload_fingerprint: string;
         readonly email_fingerprint: string;
+        readonly email_normalized?: string;
         readonly purpose: IdentityProvisioningPurpose;
         readonly request_id: string;
         readonly actor: IdentityProvisioningActor;

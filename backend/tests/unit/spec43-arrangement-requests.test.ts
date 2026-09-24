@@ -7,10 +7,14 @@ import { ROLE_CAPABILITIES, ROLE_CAPABILITY_REGISTRY_VERSION } from '../../src/o
 import { A, B, ORDER } from '../fixtures/arrangements.js';
 
 test('SPEC43 capability matrix has scoped tenant operations and member status writes', () => {
-  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 8);
+  assert.equal(ROLE_CAPABILITY_REGISTRY_VERSION, 9);
   for (const role of ['owner', 'admin', 'member'] as const) assert.equal(ROLE_CAPABILITIES[role].has('arrangements.status.update'), true);
   assert.equal(ROLE_CAPABILITIES.viewer.has('arrangements.status.update'), false);
-  assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create']);
+  assert.equal(ROLE_CAPABILITIES.personal.has('personal.arrangements.report.write'), true);
+  assert.equal(ROLE_CAPABILITIES.inquilino.has('inquilino.arrangements.accept'), true);
+  assert.equal(ROLE_CAPABILITIES.viewer.has('arrangements.work_report.read'), true);
+  assert.equal(ROLE_CAPABILITIES.personal.has('arrangements.status.update'), false);
+  assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create', 'inquilino.arrangements.accept']);
 });
 test('SPEC43 tuple cursor binds tenant property, organization, filter, limit and handles legacy null dates', () => {
   const binding = { organization_id: A, property_id: ORDER, status: null, limit: 25 };

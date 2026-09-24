@@ -6,10 +6,12 @@ export type RecordVisibility = 'organization' | 'assigned_only';
 export type OrganizationCapability =
   | 'arrangements.request.reject'
   | 'personal.arrangements.read' | 'arrangements.assignment.manage' | 'arrangements.requester.read'
+  | 'personal.arrangements.report.write'
   | 'personal.home.read'
   | 'arrangements.personal.invite'
+  | 'arrangements.work_report.read'
   | 'inquilino.home.read'
-  | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'arrangements.status.update'
+  | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'inquilino.arrangements.accept' | 'arrangements.status.update'
   | 'arrangements.read'
   | 'arrangements.properties.create'
   | 'arrangements.inquilinos.manage'

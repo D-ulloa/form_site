@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { SessionService } from '../identity/sessionService.js';
+import { publicOrganizationContext } from '../identity/organizationHome.js';
 import { IdentityAccessError, IdentityConfigurationError, assertCsrf, assertMutationOrigin, clearSessionCookies, serializeSessionCookies, invitationHandoffCookiePath, } from '../identity/sessionSecurity.js';
 import { SelfServiceOnboardingError } from '../onboarding/selfServiceOnboardingTypes.js';
 import { normalizeOrganizationEmail } from '../organizations/validation.js';
@@ -361,8 +362,7 @@ export function createOrganizationContextRouter(service, repository, environment
     router.get('/organizations/:organization/context', async (request, response) => {
         try {
             const context = await service.context(request, String(request.params.organization ?? ''));
-            response.json({ organization: context.organization, membership: context.membership,
-                capabilities: [...context.capabilities], context_epoch_hint: context.session_id });
+            response.json(publicOrganizationContext(context));
         }
         catch (error) {
             safeError(response, error);

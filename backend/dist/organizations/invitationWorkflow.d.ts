@@ -1,3 +1,4 @@
+import { type InquilinoProfile, type PersonalProfile } from './personalProfile.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InvitationDeliveryAdapter, InvitationDeliveryConfiguration } from './invitationDelivery.js';
 import type { InvitationIdentityContext, OrganizationActorContext, OrganizationMembershipRecord } from './types.js';
@@ -8,7 +9,8 @@ export interface InvitationDeliveryReceipt {
     readonly delivery_state: string;
     readonly delivery_method: 'share_link' | 'email';
     readonly expires_at: string;
-    readonly next_action: 'copy_or_revoke' | 'wait' | 'resend_or_revoke';
+    readonly arrangement_property_id?: string | null;
+    readonly next_action: 'copy_or_revoke' | 'rotate_or_revoke' | 'none' | 'wait' | 'resend_or_revoke';
     readonly share_url?: string;
 }
 export interface InvitationHandoffMaterial {
@@ -50,7 +52,23 @@ export interface InvitationWorkflowRepository {
         browser_binding_hash: string;
         origin_hash: string;
         identity: InvitationIdentityContext;
+        personal_profile?: PersonalProfile;
+        inquilino_profile?: InquilinoProfile;
     }): Promise<OrganizationMembershipRecord>;
+    recoverAcceptedHandoff(input: {
+        handle_hash: string;
+        browser_binding_hash: string;
+        origin_hash: string;
+        identity: InvitationIdentityContext;
+    }): Promise<OrganizationMembershipRecord | null>;
+    acceptanceContext?(input: {
+        handle_hash: string;
+        browser_binding_hash: string;
+        origin_hash: string;
+        identity: InvitationIdentityContext;
+    }): Promise<{
+        requires_inquilino_profile: boolean;
+    }>;
     organizationSlug(organizationId: string): Promise<string>;
     recordWebhook(input: {
         event_id_hash: string;
@@ -86,6 +104,9 @@ export declare class InvitationWorkflowService {
     constructor(repository: InvitationWorkflowRepository, delivery: InvitationDeliveryAdapter, config: InvitationDeliveryConfiguration, now?: () => Date);
     invalidate(invitationId: string): Promise<void>;
     private acceptanceUrl;
+    configuredDeliveryMethod(): 'share_link' | 'email';
+    assertManualAvailable(): void;
+    replayedLink(invitation: InvitationRecord): InvitationDeliveryReceipt;
     manualLink(invitation: InvitationRecord, rawToken: string): InvitationDeliveryReceipt;
     deliver(invitation: InvitationRecord, rawToken: string, input: {
         organization_display_name: string;
@@ -100,7 +121,10 @@ export declare class InvitationWorkflowService {
     completeRegistration(handle: string, binding: string, origin: string, userId: string, displayName: string, requestId: string): Promise<void>;
     createHandoff(rawToken: string, browserBinding: string | null, origin: string): Promise<InvitationHandoffMaterial>;
     resolveHandoff(handle: string, binding: string, origin: string): Promise<InvitationResolutionRecord | null>;
-    acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext): Promise<{
+    acceptanceContext(handle: string, binding: string, origin: string, identity: InvitationIdentityContext): Promise<{
+        requires_inquilino_profile: boolean;
+    }>;
+    acceptHandoff(handle: string, binding: string, origin: string, identity: InvitationIdentityContext, personalProfile?: PersonalProfile, inquilinoProfile?: InquilinoProfile): Promise<{
         membership: OrganizationMembershipRecord;
         organization_slug: string;
     }>;

@@ -1,3 +1,4 @@
+import type { OrganizationRole } from './types.js';
 export type InvitationDeliveryOutcome = 'accepted_by_provider' | 'rejected' | 'ambiguous';
 export interface InvitationDeliveryMessage {
     readonly attempt_id: string;
@@ -5,7 +6,7 @@ export interface InvitationDeliveryMessage {
     readonly recipient: string;
     readonly organization_display_name: string;
     readonly inviter_display_name: string;
-    readonly intended_role: 'admin' | 'member' | 'viewer';
+    readonly intended_role: Exclude<OrganizationRole, 'owner'>;
     readonly expires_at: string;
     readonly acceptance_url: string;
     readonly locale: string;

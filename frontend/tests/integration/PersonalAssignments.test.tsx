@@ -10,9 +10,13 @@ import { invitationAcceptanceContext } from '../../src/features/organizations/se
 const org = '20000000-0000-4000-8000-000000000001';
 const id = '50000000-0000-4000-8000-000000000001';
 vi.mock('../../src/app/contexts/OrganizationContext', () => ({ useOrganization: () => ({ organization: { id: org },
-  membership: { id: '30000000-0000-4000-8000-000000000009', role: 'personal' }, epoch: 1, capabilities: ['personal.arrangements.read'] }) }));
+  membership: { id: '30000000-0000-4000-8000-000000000009', role: 'personal' }, epoch: 1,   capabilities: ['personal.arrangements.read', 'personal.arrangements.report.write'] }) }));
 vi.mock('../../src/app/contexts/AuthenticationContext', () => ({ useAuthentication: () => ({ refresh: vi.fn() }) }));
 vi.mock('../../src/features/arrangements/services/arrangementAssignmentsApi', () => ({ personalOrders: vi.fn() }));
+vi.mock('../../src/features/arrangements/services/arrangementRequestsApi', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/features/arrangements/services/arrangementRequestsApi')>()),
+  saveWorkReport: vi.fn(), submitWorkReport: vi.fn(), acceptWorkReport: vi.fn(), updateRequestStatus: vi.fn(),
+}));
 vi.mock('../../src/features/organizations/services/organizationApi', () => ({ invitationAcceptanceContext: vi.fn() }));
 class FakeEvents extends EventTarget {
   static current: FakeEvents;
@@ -33,6 +37,7 @@ it('shows assigned contact with no internal controls and removes it on invalidat
   vi.mocked(personalOrders).mockResolvedValue(page([row])); dashboard();
   expect(await screen.findByText('Inquilino autor')).toBeTruthy();
   expect(screen.getByText('+58 412 1234567')).toBeTruthy();
+  expect(screen.getByLabelText('Reporte de trabajo')).toBeTruthy();
   expect(screen.queryByRole('button', { name: /Asignar|Rechazar|Guardar estado/ })).toBeNull();
   vi.mocked(personalOrders).mockResolvedValue(page([]));
   await act(async () => { FakeEvents.current.dispatchEvent(new MessageEvent('invalidate', { data: JSON.stringify({ revision: String(Date.now()) }) })); });

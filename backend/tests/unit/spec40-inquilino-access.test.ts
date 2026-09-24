@@ -22,7 +22,7 @@ const config = { enabled: true, delivery_method: 'share_link' as const, adapter:
 const forbidden = (error: unknown) => error instanceof OrganizationDomainError && error.code === 'FORBIDDEN';
 
 test('SPEC-40 grants only tenant capabilities and no internal inheritance', () => {
-  assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create']);
+  assert.deepEqual([...ROLE_CAPABILITIES.inquilino], ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create', 'inquilino.arrangements.accept']);
   for (const capability of ROLE_CAPABILITIES.owner) {
     assert.equal(hasOrganizationCapability('inquilino', 'active', 'active', capability), false, capability);
   }
@@ -43,7 +43,7 @@ test('SPEC-40 context projects only home authority and revalidates membership li
   state.membership = { ...state.membership, role: 'inquilino' };
   const result = await request(app).get('/api/organizations/azar/context').set('Cookie', cookie).expect(200);
   assert.equal(result.body.home_destination, 'inquilino');
-  assert.deepEqual(result.body.capabilities, ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create']);
+  assert.deepEqual(result.body.capabilities, ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create', 'inquilino.arrangements.accept']);
   assert.deepEqual(Object.keys(result.body.organization).sort(), ['display_name', 'id', 'slug', 'status']);
   assert.deepEqual(Object.keys(result.body.membership).sort(), ['arrangement_property_id', 'id', 'organization_id', 'role', 'status', 'user_id', 'version']);
   assert.equal(result.headers['cache-control'], 'no-store');

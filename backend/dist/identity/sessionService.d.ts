@@ -21,7 +21,7 @@ export declare class SessionService {
     }>;
     apiKeyContext(request: Request, organizationId: string, requiredScope: string): Promise<OrganizationApiKeyContext>;
     memberships(userId: string): Promise<readonly SessionMembershipSummary[]>;
-    context(request: Request, organizationIdOrSlug: string, capability?: OrganizationCapability): Promise<OrganizationRequestContext>;
+    context(request: Request, organizationIdOrSlug: string, capability?: OrganizationCapability, touch?: boolean): Promise<OrganizationRequestContext>;
     logout(request: Request): Promise<void>;
     rotate(request: Request): Promise<{
         session: AppSessionRecord;

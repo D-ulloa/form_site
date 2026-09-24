@@ -1,3 +1,6 @@
+import { InvitationAcceptanceSchema, publicMembership } from '../organizations/personalProfile.js';
+import { z } from 'zod';
+import { OrganizationValidationError } from '../organizations/validation.js';
 import { Router } from 'express';
 import { OrganizationDomainError } from '../organizations/errors.js';
 import { invitationDeliveryConfiguration, verifyResendWebhook } from '../organizations/invitationDelivery.js';
@@ -19,6 +22,14 @@ function secureResponse(response) {
 }
 function sendError(response, error) {
     secureResponse(response);
+    if (error instanceof z.ZodError || error instanceof OrganizationValidationError) {
+        response.status(400).json({ error: 'INVALID_REQUEST' });
+        return;
+    }
+    if (error instanceof IdentityAccessError) {
+        response.status(error.status).json({ error: error.code });
+        return;
+    }
     if (error instanceof OrganizationDomainError) {
         response.status(error.http_status).json({ error: error.code });
         return;
@@ -107,6 +118,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
                 throw new OrganizationDomainError('INVITATION_INVALID');
             await limitPublic(request, 'member.invitation_register', material[0]);
             const origin = assertHandoffOrigin(request);
+            z.object({ password: z.string(), display_name: z.string() }).strict().parse(request.body);
             const password = typeof request.body?.password === 'string' ? request.body.password : '';
             const rawDisplayName = typeof request.body?.display_name === 'string' ? request.body.display_name.trim() : '';
             if (password.length < 12 || password.length > 1024
@@ -158,6 +170,20 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
             sendError(response, error);
         }
     });
+    router.post('/invitations/acceptance-context', async (request, response) => {
+        try {
+            secureResponse(response);
+            const material = cookieValue(request);
+            if (!material)
+                throw new OrganizationDomainError('INVITATION_INVALID');
+            await limitPublic(request, 'member.invitation_resolve', material[0]);
+            const identity = await resolver.resolveInvitationIdentity(request);
+            response.json(await services.invitations.acceptanceContext(material[0], material[1], assertHandoffOrigin(request), identity));
+        }
+        catch (error) {
+            sendError(response, error);
+        }
+    });
     router.post('/invitations/accept', async (request, response) => {
         try {
             secureResponse(response);
@@ -166,7 +192,8 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
                 throw new OrganizationDomainError('INVITATION_INVALID');
             await limitPublic(request, 'member.invitation_accept', material[0]);
             const identity = await resolver.resolveInvitationIdentity(request);
-            const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity);
+            const body = InvitationAcceptanceSchema.parse(request.body ?? {});
+            const accepted = await services.invitations.acceptHandoff(material[0], material[1], assertHandoffOrigin(request), identity, body.personal_profile, body.inquilino_profile);
             response.set('Set-Cookie', clearHandoff);
             response.json({ organization_id: accepted.membership.organization_id,
                 organization_slug: accepted.organization_slug, context_refresh_required: true });
@@ -180,12 +207,12 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
             secureResponse(response);
             const actor = await scopedActor(request, resolver);
             await limitActor(request, actor, 'member.invitation_create');
-            const body = request.body;
-            if (typeof body.email !== 'string' || !['admin', 'member', 'viewer'].includes(String(body.intended_role))) {
-                response.status(400).json({ error: 'INVALID_REQUEST' });
-                return;
-            }
+            const body = z.object({ email: z.string().min(3).max(320),
+                intended_role: z.enum(['admin', 'member', 'viewer', 'inquilino']), arrangement_property_id: z.uuid().optional(),
+            }).strict().parse(request.body);
             const result = await services.organizations.inviteMember({
+                ...(body.arrangement_property_id ? { arrangement_property_id: body.arrangement_property_id } : {}),
+                ...(request.get('Idempotency-Key') ? { idempotency_key: request.get('Idempotency-Key') } : {}),
                 email: body.email,
                 intended_role: body.intended_role,
                 inviter_display_name: actor.display_name,
@@ -291,11 +318,11 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
             secureResponse(response);
             const actor = await scopedActor(request, resolver);
             const role = request.body?.role;
-            if (!['admin', 'member', 'viewer'].includes(role) || !Number.isInteger(request.body?.expected_version)) {
+            if (!['admin', 'member', 'viewer', 'inquilino'].includes(role) || !Number.isInteger(request.body?.expected_version)) {
                 response.status(400).json({ error: 'INVALID_REQUEST' });
                 return;
             }
-            response.json(await services.memberships.changeRole(valueAt(request.params.userId), role, request.body.expected_version, actor));
+            response.json(publicMembership(await services.memberships.changeRole(valueAt(request.params.userId), role, request.body.expected_version, actor)));
         }
         catch (error) {
             sendError(response, error);
@@ -305,7 +332,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
         try {
             secureResponse(response);
             const actor = await scopedActor(request, resolver);
-            response.json(await services.memberships.changeStatus(valueAt(request.params.userId), 'suspended', Number(request.body?.expected_version), String(request.body?.reason_code ?? ''), actor));
+            response.json(publicMembership(await services.memberships.changeStatus(valueAt(request.params.userId), 'suspended', Number(request.body?.expected_version), String(request.body?.reason_code ?? ''), actor)));
         }
         catch (error) {
             sendError(response, error);
@@ -315,7 +342,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
         try {
             secureResponse(response);
             const actor = await scopedActor(request, resolver);
-            response.json(await services.memberships.changeStatus(valueAt(request.params.userId), 'active', Number(request.body?.expected_version), '', actor));
+            response.json(publicMembership(await services.memberships.changeStatus(valueAt(request.params.userId), 'active', Number(request.body?.expected_version), '', actor)));
         }
         catch (error) {
             sendError(response, error);
@@ -325,7 +352,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
         try {
             secureResponse(response);
             const actor = await scopedActor(request, resolver);
-            response.json(await services.memberships.changeStatus(valueAt(request.params.userId), 'removed', Number(request.body?.expected_version), String(request.body?.reason_code ?? ''), actor));
+            response.json(publicMembership(await services.memberships.changeStatus(valueAt(request.params.userId), 'removed', Number(request.body?.expected_version), String(request.body?.reason_code ?? ''), actor)));
         }
         catch (error) {
             sendError(response, error);
@@ -336,7 +363,7 @@ export function createOrganizationGovernanceRouter(resolver, services, publicBas
             secureResponse(response);
             const actor = await scopedActor(request, resolver);
             const body = request.body;
-            response.json(await services.memberships.transferOwnership(String(body.target_user_id ?? ''), body.source_owner_role_after_transfer, Number(body.expected_organization_version), Number(body.expected_target_membership_version), body.confirmed === true, actor));
+            response.json((await services.memberships.transferOwnership(String(body.target_user_id ?? ''), body.source_owner_role_after_transfer, Number(body.expected_organization_version), Number(body.expected_target_membership_version), body.confirmed === true, actor)).map(publicMembership));
         }
         catch (error) {
             sendError(response, error);

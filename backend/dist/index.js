@@ -1,4 +1,5 @@
 import express from 'express';
+import { createArrangementsRouter } from './routes/arrangements.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import propertiesRouter, { createTenantPropertyCompatibilityRouter } from './routes/properties.js';
@@ -87,6 +88,7 @@ const governanceServices = {
 };
 app.use('/api/auth', createIdentityRouter(sessionService, createSupabaseIdentityProvider(process.env), process.env, selfServiceOnboarding, selfServiceRegistrationRateLimiter));
 app.use('/api', createOrganizationContextRouter(sessionService, identityRepository, process.env));
+app.use('/api/organizations/:organization/arrangements', createArrangementsRouter(sessionService, process.env, { organizations: governanceServices.organizations, personal: governanceServices.organizations }));
 app.use('/api/organizations/:organization/contracts', createTenantContractEntriesRouter(sessionService, undefined, process.env, createContractMakeDeliveryRunner(process.env)));
 app.use('/api/organizations/:organization/properties/legacy', createTenantPropertyCompatibilityRouter(sessionService, process.env));
 app.use('/api', createTenantMutationSecurity(sessionService, process.env), createOrganizationGovernanceRouter(contextResolver, governanceServices, invitationConfig.public_base_url || 'https://invalid.example', invitationRateLimiter));

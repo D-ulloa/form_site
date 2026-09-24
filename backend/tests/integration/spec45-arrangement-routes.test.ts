@@ -15,7 +15,7 @@ function harness() {
     if (action.endsWith('.assignees')) return { organization_id: A, items: [] };
     if (action.endsWith('.list')) return { organization_id: scope.organization_id, property_id: actor.membership.role === 'inquilino' ? ORDER : null, items: [] };
     return { id: ORDER, organization_id: A, name: 'Request', description: 'Request', status: 'in_progress', property: { id: ORDER, name: 'Casa' },
-      created_at: null, submitted_at: null, updated_at: null, version: 3, legacy: false, created_by_you: false, assets: [], requester: null,
+      created_at: null, submitted_at: null, updated_at: null, version: 3, legacy: false, created_by_you: false, assets: [], work_report: null, requester: null,
       ...(actor.membership.role === 'personal' ? {} : { assignee: null }) };
   } }, { storage: {} as never, detectContent: async () => ({ detected_mime: 'image/png' }) }, environment);
   return { ...arrangementHarness(undefined, { requests: service }), calls };

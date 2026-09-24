@@ -1,0 +1,1 @@
+{"version":3,"file":"contentDetector.d.ts","sourceRoot":"","sources":["../../src/assets/contentDetector.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,uBAAuB,CAAC;AAG5D,wGAAwG;AACxG,wBAAgB,0BAA0B,CAAC,cAAc,CAAC,EAAE,cAAc,EAAE,WAAW,GAAE,MAAM,CAAC,UAAwB,IACxG,QAAQ,MAAM,EAAE,MAAM,MAAM;;;GAO3C;AAED,wBAAsB,gBAAgB,CAAC,KAAK,EAAE,UAAU;;;GAIvD"}

@@ -80,6 +80,24 @@ export function createArrangementRequestsRouter(sessions: SessionService, enviro
         : await service.status(scope, context, String(request.params.orderId), request.body));
     } catch (caught) { fail(response, caught); }
   });
+  router.put('/orders/:orderId/work-report', secureMutation, async (request, response) => {
+    try {
+      const { scope, context } = await actor(request, 'personal.arrangements.report.write', 'arrangements.report.write');
+      response.json(await service.saveWorkReport(scope, context, String(request.params.orderId), request.body));
+    } catch (caught) { fail(response, caught); }
+  });
+  router.post('/orders/:orderId/work-report/submit', secureMutation, async (request, response) => {
+    try {
+      const { scope, context } = await actor(request, 'personal.arrangements.report.write', 'arrangements.report.submit');
+      response.json(await service.submitWorkReport(scope, context, String(request.params.orderId), request.body));
+    } catch (caught) { fail(response, caught); }
+  });
+  router.post('/orders/:orderId/work-report/accept', secureMutation, async (request, response) => {
+    try {
+      const { scope, context } = await actor(request, 'inquilino.arrangements.accept', 'arrangements.report.accept');
+      response.json(await service.acceptWorkReport(scope, context, String(request.params.orderId), request.body));
+    } catch (caught) { fail(response, caught); }
+  });
   router.get('/personal/orders', async (request, response) => {
     try {
       const { scope, context } = await actor(request, 'personal.arrangements.read', 'arrangements.tenant.read');

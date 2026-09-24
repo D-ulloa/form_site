@@ -1,14 +1,10 @@
+import { PersonalProfileSchema, InquilinoProfileSchema } from './personalProfile.js';
+import { hasOrganizationCapability } from './roleCapabilities.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { createPlatformServiceRoleClient } from '../platform/serviceRoleClient.js';
-import { OrganizationDomainError } from './errors.js';
+import { mapOrganizationPersistenceError, OrganizationDomainError } from './errors.js';
 function failure(error) {
-    if (error?.message.includes('FORBIDDEN'))
-        throw new OrganizationDomainError('FORBIDDEN');
-    if (error?.message.includes('NOT_FOUND'))
-        throw new OrganizationDomainError('NOT_FOUND');
-    if (error?.message.includes('INVITATION_INVALID'))
-        throw new OrganizationDomainError('INVITATION_INVALID');
-    throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    return mapOrganizationPersistenceError(error ?? { message: 'DEPENDENCY_NOT_READY' });
 }
 export function createInvitationWorkflowRepository(environment = process.env, clientOverride) {
     const client = clientOverride ?? createPlatformServiceRoleClient(environment);
@@ -54,7 +50,8 @@ export function createInvitationWorkflowRepository(environment = process.env, cl
             return data;
         },
         async acceptHandoff(input) {
-            const { data, error } = await client.rpc('spec37_accept_invitation_handoff', {
+            const { data, error } = await client.rpc('spec45_accept_invitation_handoff', {
+                p_personal_profile: input.personal_profile ?? null, p_inquilino_profile: input.inquilino_profile ?? null,
                 p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash,
                 p_origin_hash: input.origin_hash, p_user_id: input.identity.user_id,
                 p_verified_email_normalized: input.identity.verified_email, p_request_id: input.identity.request_id,
@@ -62,6 +59,26 @@ export function createInvitationWorkflowRepository(environment = process.env, cl
             if (error || !data)
                 failure(error ?? { message: 'INVITATION_INVALID' });
             return data;
+        },
+        async recoverAcceptedHandoff(input) {
+            const { data, error } = await client.rpc('spec42_recover_accepted_handoff', {
+                p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash, p_origin_hash: input.origin_hash,
+                p_user_id: input.identity.user_id, p_verified_email_normalized: input.identity.verified_email,
+            }).maybeSingle();
+            if (error)
+                failure(error);
+            return data;
+        },
+        async acceptanceContext(input) {
+            const { data, error } = await client.rpc('spec45_invitation_acceptance_context', {
+                p_handle_hash: input.handle_hash, p_browser_binding_hash: input.browser_binding_hash, p_origin_hash: input.origin_hash,
+                p_user_id: input.identity.user_id, p_verified_email_normalized: input.identity.verified_email,
+            });
+            if (error)
+                failure(error);
+            if (!data || typeof data.requires_inquilino_profile !== 'boolean')
+                failure(null);
+            return { requires_inquilino_profile: data.requires_inquilino_profile };
         },
         async organizationSlug(organizationId) {
             const { data, error } = await client.from('organizations').select('slug')
@@ -129,16 +146,34 @@ export class InvitationWorkflowService {
         url.hash = `invitation_token=${rawToken}`;
         return url.toString();
     }
+    configuredDeliveryMethod() {
+        if (!this.config.enabled || (this.config.delivery_method === 'email' && this.config.adapter === 'disabled'))
+            throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+        return this.config.delivery_method;
+    }
+    assertManualAvailable() {
+        if (!this.config.enabled || this.config.delivery_method !== 'share_link')
+            throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+    }
+    replayedLink(invitation) {
+        return { invitation_id: invitation.id, status: invitation.status, delivery_state: invitation.delivery_state,
+            delivery_method: invitation.delivery_method, expires_at: invitation.expires_at,
+            arrangement_property_id: invitation.arrangement_property_id ?? null,
+            next_action: invitation.status === 'pending' ? 'rotate_or_revoke' : 'none' };
+    }
     manualLink(invitation, rawToken) {
         if (!this.config.enabled || this.config.delivery_method !== 'share_link') {
             throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
         }
         return { invitation_id: invitation.id, status: invitation.status, delivery_state: 'pending',
             delivery_method: 'share_link', expires_at: invitation.expires_at, next_action: 'copy_or_revoke',
+            ...(invitation.arrangement_property_id ? { arrangement_property_id: invitation.arrangement_property_id } : {}),
             share_url: this.acceptanceUrl(rawToken) };
     }
     async deliver(invitation, rawToken, input) {
         if (!this.config.enabled || this.config.adapter === 'disabled')
+            throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+        if (!invitation.email_normalized)
             throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
         const attemptId = randomUUID();
         const idempotencyKey = `invitation/${invitation.id}/${invitation.token_version}`;
@@ -180,9 +215,30 @@ export class InvitationWorkflowService {
     resolveHandoff(handle, binding, origin) {
         return this.repository.resolveHandoff({ handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin) });
     }
-    async acceptHandoff(handle, binding, origin, identity) {
-        const membership = await this.repository.acceptHandoff({ handle_hash: digest(handle), browser_binding_hash: digest(binding),
-            origin_hash: digest(origin), identity });
+    acceptanceContext(handle, binding, origin, identity) {
+        if (!this.repository.acceptanceContext)
+            throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
+        return this.repository.acceptanceContext({ handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity });
+    }
+    async acceptHandoff(handle, binding, origin, identity, personalProfile, inquilinoProfile) {
+        const personal_profile = personalProfile === undefined ? undefined : PersonalProfileSchema.parse(personalProfile);
+        const inquilino_profile = inquilinoProfile === undefined ? undefined : InquilinoProfileSchema.parse(inquilinoProfile);
+        if (personal_profile && inquilino_profile)
+            throw new OrganizationDomainError('INVALID_REQUEST');
+        const input = { handle_hash: digest(handle), browser_binding_hash: digest(binding), origin_hash: digest(origin), identity,
+            ...(personal_profile ? { personal_profile } : {}), ...(inquilino_profile ? { inquilino_profile } : {}) };
+        let membership;
+        try {
+            membership = await this.repository.acceptHandoff(input);
+        }
+        catch (error) {
+            if (!(error instanceof OrganizationDomainError) || error.code !== 'INVITATION_INVALID')
+                throw error;
+            const recovered = await this.repository.recoverAcceptedHandoff(input);
+            if (!recovered)
+                throw error;
+            membership = recovered;
+        }
         return { membership, organization_slug: await this.repository.organizationSlug(membership.organization_id) };
     }
     async webhook(eventId, type, providerReference) {
@@ -190,11 +246,17 @@ export class InvitationWorkflowService {
             provider_reference_hash: createHmac('sha256', this.config.provider_reference_pepper).update(providerReference).digest('hex') });
     }
     async listMembers(actor, cursor) {
+        if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.read')) {
+            throw new OrganizationDomainError('FORBIDDEN');
+        }
         const items = await this.repository.listMembers(actor.organization.id, actor.membership.id, cursor, 51);
         return { items: items.slice(0, 50).map(({ cursor_id: _cursor, ...item }) => item),
             next_cursor: items.length > 50 ? String(items[49]?.cursor_id ?? '') : null };
     }
     async listInvitations(actor, cursor) {
+        if (!hasOrganizationCapability(actor.membership.role, actor.membership.status, actor.organization.status, 'members.invite')) {
+            throw new OrganizationDomainError('FORBIDDEN');
+        }
         const items = await this.repository.listInvitations(actor.organization.id, actor.membership.id, cursor, 51);
         return { items: items.slice(0, 50).map(({ cursor_id: _cursor, ...item }) => item),
             next_cursor: items.length > 50 ? String(items[49]?.cursor_id ?? '') : null };

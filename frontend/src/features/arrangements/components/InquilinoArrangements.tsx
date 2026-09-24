@@ -37,7 +37,7 @@ export function InquilinoArrangements() {
       <Button variant="ghost" disabled={query.isFetching} onClick={() => { void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch()); }}>Reintentar</Button></div>}
     {!query.isPending && !query.isError && !items.length && <p className="surface rounded-2xl p-6 text-sm text-slate-400">Todavía no hay solicitudes para esta propiedad.</p>}
     {!!items.length && <ul className="flex min-w-0 flex-col gap-4" aria-label="Historial de solicitudes">
-      {items.map(order => <li key={order.id}><ArrangementRequestCard order={order} audience="tenant" /></li>)}</ul>}
+      {items.map(order => <li key={`${order.id}:${order.version ?? 0}`}><ArrangementRequestCard order={order} audience="tenant" /></li>)}</ul>}
     {query.hasNextPage && !query.isError && <Button variant="ghost" disabled={query.isFetching} onClick={() => { void query.fetchNextPage(); }}>Cargar más</Button>}
     {form && <ArrangementRequestForm onClose={() => setForm(false)} onSubmitted={id => { setForm(false); setReceipt(id); void client.invalidateQueries({ queryKey }); }} />}
   </section>;

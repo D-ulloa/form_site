@@ -3,6 +3,8 @@ import { IdentityProvisioningError } from './identityProvisioningTypes.js';
 function row(data, error) {
     if (error || !data) {
         const message = error?.message ?? '';
+        if (message.includes('FORBIDDEN') || message.includes('NOT_FOUND'))
+            throw new IdentityProvisioningError('FORBIDDEN');
         if (message.includes('IDEMPOTENCY_CONFLICT'))
             throw new IdentityProvisioningError('IDEMPOTENCY_CONFLICT');
         if (message.includes('PROFILE_CONFLICT'))
@@ -16,7 +18,7 @@ function row(data, error) {
 export function createIdentityProvisioningRepository(environment = process.env, clientOverride) {
     const client = clientOverride ?? createPlatformServiceRoleClient(environment);
     return {
-        async assertActor(actor, purpose) {
+        async assertActor(actor, purpose, email) {
             if (actor.actor_type === 'platform_operator') {
                 if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(actor.step_up_reference)) {
                     throw new IdentityProvisioningError('FORBIDDEN');
@@ -35,6 +37,16 @@ export function createIdentityProvisioningRepository(environment = process.env, 
             }
             if (purpose !== 'organization_invitee')
                 throw new IdentityProvisioningError('FORBIDDEN');
+            if (actor.personal_invitation_operation_id) {
+                const { data, error } = await client.rpc('spec44_assert_personal_provisioning', {
+                    p_organization_id: actor.organization_id, p_actor_membership_id: actor.membership_id,
+                    p_actor_user_id: actor.user_id, p_personal_operation_id: actor.personal_invitation_operation_id,
+                    p_email_normalized: email,
+                });
+                if (error || data !== true)
+                    throw new IdentityProvisioningError('FORBIDDEN');
+                return;
+            }
             const { data, error } = await client.from('organization_memberships').select('id')
                 .eq('id', actor.membership_id).eq('organization_id', actor.organization_id)
                 .eq('user_id', actor.user_id).eq('status', 'active').in('role', ['owner', 'admin']).maybeSingle();
@@ -42,7 +54,11 @@ export function createIdentityProvisioningRepository(environment = process.env, 
                 throw new IdentityProvisioningError('FORBIDDEN');
         },
         async claim(input) {
-            const { data, error } = await client.rpc('spec35_claim_identity_provisioning', {
+            const personal = input.actor.actor_type === 'organization_invitation' && input.actor.personal_invitation_operation_id
+                ? input.actor : null;
+            const { data, error } = await client.rpc(personal ? 'spec44_claim_personal_identity_provisioning' : 'spec35_claim_identity_provisioning', {
+                ...(personal ? { p_personal_operation_id: personal.personal_invitation_operation_id,
+                    p_organization_id: personal.organization_id, p_email_normalized: input.email_normalized } : {}),
                 p_idempotency_key: input.idempotency_key,
                 p_payload_fingerprint: input.payload_fingerprint,
                 p_email_fingerprint: input.email_fingerprint,

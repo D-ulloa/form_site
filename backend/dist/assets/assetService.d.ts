@@ -38,6 +38,8 @@ export declare function createAssetService(dependencies: {
     initialize(context: AssetAuthorizationContext, input: Omit<InitializeAssetSessionInput, "principal" | "request_fingerprint" | "request_id">): Promise<Readonly<{
         upload_session_id: string;
         expires_at: unknown;
+        state: unknown;
+        version: unknown;
         uploads: Readonly<{
             asset_id: string;
             upload_intent_id: string;

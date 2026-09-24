@@ -6,13 +6,31 @@ export const statusOptions = [
   { value: 'solved', label: 'Solucionado' }, { value: 'archived', label: 'Archivada' }, { value: 'rejected', label: 'Rechazada' },
 ];
 export const Status = z.enum(['open', 'in_progress', 'solved', 'archived', 'rejected']);
+export const WorkReportStatus = z.enum(['draft', 'submitted', 'accepted']);
+export const WorkReport = z.object({
+  status: WorkReportStatus, body: z.string().min(1).max(10000), version: z.number().int().positive(),
+  created_at: z.string(), updated_at: z.string(), submitted_at: z.string().nullable(), accepted_at: z.string().nullable(),
+  created_by: z.object({ id: z.uuid(), name: z.string().max(120) }).strict().nullable(),
+}).strict();
 export const RequestRecord = z.object({
   id: z.uuid(), organization_id: z.uuid(), name: z.string().min(1).max(200), description: z.string().min(1).max(5000).nullable(), status: Status,
   property: z.object({ id: z.uuid(), name: z.string().min(1).max(200) }).strict().nullable(),
   created_at: z.string().nullable(), submitted_at: z.string().nullable(), updated_at: z.string().nullable(), version: z.number().int().positive(),
   legacy: z.boolean(), created_by_you: z.boolean(),
   assets: z.array(z.object({ id: z.uuid(), display_filename: z.string().min(1).max(120), mime: z.string(), bytes: z.number().int().positive() }).strict()).max(40),
+  // Optional until readers are deployed ahead of writers (SPEC-46 rollout).
+  work_report: WorkReport.nullable().optional(),
 }).strict();
+export type WorkReportRecord = z.infer<typeof WorkReport>;
+export function normalizeWorkReport(order: { work_report?: WorkReportRecord | null }): WorkReportRecord | null {
+  return order.work_report ?? null;
+}
+export function arrangementStatusLabel(order: { status: string; work_report?: WorkReportRecord | null }): string {
+  const report = normalizeWorkReport(order);
+  if (report?.status === 'submitted' && order.status === 'solved') return 'Pendiente de aceptación';
+  if (report?.status === 'accepted' && order.status === 'archived') return 'Completada y archivada';
+  return statusOptions.find(option => option.value === order.status)?.label ?? order.status;
+}
 const Contact = z.object({ name: z.string().nullable(), email: z.string().nullable(), contact_number: z.string().nullable() }).strict();
 export const PersonalRequest = RequestRecord.extend({ requester: Contact.nullable() });
 export const ManagerRequest = PersonalRequest.extend({ assignee: z.object({ id: z.uuid(), name: z.string().nullable(),
@@ -37,6 +55,19 @@ export async function tenantRequests(org: string, property: string, cursor: stri
 export async function updateRequestStatus(org: string, order: { id: string; version?: number }, status: string, signal: AbortSignal) {
   return ManagerRequest.parse(await requestMutation(org, `/orders/${order.id}/status`, { status, expected_version: order.version ?? 1 }, signal, undefined, 'patch'));
 }
+export async function saveWorkReport(org: string, order: { id: string; version?: number }, body: string, signal: AbortSignal) {
+  const { data } = await axios.put(`${requestBase(org)}/orders/${order.id}/work-report`,
+    { body, expected_version: order.version ?? 1 }, { withCredentials: true, signal, headers: { 'X-Arrangement-Contract': '3', ...csrf() } });
+  return z.object({ id: z.uuid(), status: Status, version: z.number().int().positive(), work_report: WorkReport }).strict().parse(data);
+}
+export async function submitWorkReport(org: string, order: { id: string; version?: number }, reportVersion: number, signal: AbortSignal) {
+  const { data } = await axios.post(`${requestBase(org)}/orders/${order.id}/work-report/submit`,
+    { expected_version: order.version ?? 1, report_version: reportVersion }, { withCredentials: true, signal, headers: { 'X-Arrangement-Contract': '3', ...csrf() } });
+  return z.object({ id: z.uuid(), status: Status, version: z.number().int().positive(), work_report: WorkReport }).strict().parse(data);
+}
+export async function acceptWorkReport(org: string, order: { id: string; version?: number }, signal: AbortSignal) {
+  return RequestRecord.parse(await requestMutation(org, `/orders/${order.id}/work-report/accept`, { expected_version: order.version ?? 1 }, signal));
+}
 export async function requestAssetView(org: string, audience: ArrangementAudience, order: string, asset: string, signal: AbortSignal) {
   const { data } = await axios.get(`${requestBase(org)}${audience === 'tenant' ? '/inquilino' : audience === 'personal' ? '/personal' : ''}/orders/${order}/assets/${asset}/view`, { withCredentials: true, signal });
   const result = z.object({ signed_url: z.url(), expires_at: z.string() }).strict().parse(data);
@@ -56,6 +87,7 @@ export function requestError(error: unknown): string {
     CLIENT_UPDATE_REQUIRED: 'Hay una nueva versión. Actualizá esta página para continuar.',
     FEATURE_DISABLED: 'Esta acción todavía no está habilitada.',
     VERSION_CONFLICT: 'Alguien actualizó esta solicitud. La lista se actualizará; revisá el estado antes de volver a guardar.',
+    TENANT_REQUIRED: 'No hay un inquilino activo para esta propiedad. El reporte se guardó; pedí a la administración que vincule un inquilino y volvé a enviar.',
     PROPERTY_REQUIRED: 'No tenés una propiedad vinculada. Contactá a la administración.',
     UPLOAD_INVALID: 'No se pudo verificar un archivo. Revisá su formato y volvé a intentar la carga.',
     UPLOAD_INCOMPLETE: 'Falta completar la carga de archivos. Volvé a intentar.',

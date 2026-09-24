@@ -133,16 +133,20 @@ export class SessionService {
             organization_id: organization.id, organization_slug: organization.slug,
             organization_display_name: organization.display_name, organization_status: organization.status,
             membership_id: membership.id, membership_status: membership.status, role: membership.role,
-            capabilities: [...ROLE_CAPABILITIES[membership.role]].filter((capability) => hasOrganizationCapability(membership.role, membership.status, organization.status, capability)),
+            capabilities: [...ROLE_CAPABILITIES[membership.role]].filter((capability) => hasOrganizationCapability(membership.role, membership.status, organization.status, capability)
+                && (capability !== 'arrangements.personal.invite' || this.environment.PERSONAL_INVITATIONS_ENABLED === 'true')
+                && (capability !== 'arrangements.request.reject' || this.environment.ARRANGEMENT_REJECTION_ENABLED === 'true')),
         }));
     }
-    async context(request, organizationIdOrSlug, capability) {
-        const { session, identity } = await this.authenticate(request);
+    async context(request, organizationIdOrSlug, capability, touch = true) {
+        const { session, identity } = await this.authenticate(request, touch);
         const resolved = await this.repository.getMembership(identity.id, organizationIdOrSlug);
         if (!resolved || resolved.membership.status !== 'active' || resolved.organization.status === 'deleted') {
             throw new IdentityAccessError('NOT_FOUND', 404);
         }
-        const effective = new Set([...ROLE_CAPABILITIES[resolved.membership.role]].filter((item) => hasOrganizationCapability(resolved.membership.role, resolved.membership.status, resolved.organization.status, item)));
+        const effective = new Set([...ROLE_CAPABILITIES[resolved.membership.role]].filter((item) => hasOrganizationCapability(resolved.membership.role, resolved.membership.status, resolved.organization.status, item)
+            && (item !== 'arrangements.personal.invite' || this.environment.PERSONAL_INVITATIONS_ENABLED === 'true')
+            && (item !== 'arrangements.request.reject' || this.environment.ARRANGEMENT_REJECTION_ENABLED === 'true')));
         if (capability && !effective.has(capability))
             throw new IdentityAccessError('FORBIDDEN', 403);
         return {

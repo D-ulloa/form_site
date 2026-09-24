@@ -5,14 +5,14 @@ import type {
   OrganizationStatus,
 } from './types.js';
 
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 8 as const;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 9 as const;
 
 const capabilities = {
-  personal: ['personal.home.read', 'personal.arrangements.read'],
-  inquilino: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create'],
+  personal: ['personal.home.read', 'personal.arrangements.read', 'personal.arrangements.report.write'],
+  inquilino: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create', 'inquilino.arrangements.accept'],
   owner: [
     'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
-    'arrangements.status.update',
+    'arrangements.status.update', 'arrangements.work_report.read',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
     'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
@@ -26,7 +26,7 @@ const capabilities = {
   ],
   admin: [
     'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
-    'arrangements.status.update',
+    'arrangements.status.update', 'arrangements.work_report.read',
     'arrangements.properties.create', 'arrangements.inquilinos.manage',
     'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
     'members.manage_member', 'contracts.read', 'contracts.write', 'contracts.manage',
@@ -38,13 +38,13 @@ const capabilities = {
   ],
   member: [
     'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
-    'arrangements.status.update',
+    'arrangements.status.update', 'arrangements.work_report.read',
     'arrangements.read', 'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
     'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',
     'contract_templates.read',
     'properties.write', 'files.read',
   ],
-  viewer: ['arrangements.read', 'organization.read', 'contracts.read', 'contracts.view_history',
+  viewer: ['arrangements.read', 'arrangements.work_report.read', 'organization.read', 'contracts.read', 'contracts.view_history',
     'contract_templates.read', 'properties.read'],
 } as const satisfies Record<OrganizationRole, readonly OrganizationCapability[]>;
 

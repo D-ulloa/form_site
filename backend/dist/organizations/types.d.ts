@@ -1,8 +1,8 @@
-export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer';
+export type OrganizationRole = 'owner' | 'admin' | 'member' | 'viewer' | 'inquilino' | 'personal';
 export type OrganizationStatus = 'active' | 'suspended' | 'pending_deletion' | 'deleted';
 export type MembershipStatus = 'active' | 'suspended' | 'removed';
 export type RecordVisibility = 'organization' | 'assigned_only';
-export type OrganizationCapability = 'organization.read' | 'organization.update_settings' | 'organization.request_deletion' | 'organization.cancel_deletion' | 'organization.export' | 'members.read' | 'members.invite' | 'members.manage_member' | 'members.manage_admin' | 'members.transfer_ownership' | 'contracts.read' | 'contracts.write' | 'contracts.manage' | 'contracts.manage_links' | 'contracts.create' | 'contracts.update' | 'contracts.assign' | 'contracts.change_status' | 'contracts.archive' | 'contracts.view_history' | 'contracts.view_assets' | 'contracts.generate' | 'contract_templates.read' | 'contract_templates.manage' | 'properties.read' | 'properties.write' | 'properties.manage' | 'files.read' | 'integrations.read' | 'integrations.manage' | 'audit.read' | 'billing.read' | 'billing.manage';
+export type OrganizationCapability = 'arrangements.request.reject' | 'personal.arrangements.read' | 'arrangements.assignment.manage' | 'arrangements.requester.read' | 'personal.arrangements.report.write' | 'personal.home.read' | 'arrangements.personal.invite' | 'arrangements.work_report.read' | 'inquilino.home.read' | 'inquilino.arrangements.read' | 'inquilino.arrangements.create' | 'inquilino.arrangements.accept' | 'arrangements.status.update' | 'arrangements.read' | 'arrangements.properties.create' | 'arrangements.inquilinos.manage' | 'organization.read' | 'organization.update_settings' | 'organization.request_deletion' | 'organization.cancel_deletion' | 'organization.export' | 'members.read' | 'members.invite' | 'members.manage_member' | 'members.manage_admin' | 'members.transfer_ownership' | 'contracts.read' | 'contracts.write' | 'contracts.manage' | 'contracts.manage_links' | 'contracts.create' | 'contracts.update' | 'contracts.assign' | 'contracts.change_status' | 'contracts.archive' | 'contracts.view_history' | 'contracts.view_assets' | 'contracts.generate' | 'contract_templates.read' | 'contract_templates.manage' | 'properties.read' | 'properties.write' | 'properties.manage' | 'files.read' | 'integrations.read' | 'integrations.manage' | 'audit.read' | 'billing.read' | 'billing.manage';
 export interface OrganizationRecord {
     readonly id: string;
     readonly slug: string;
@@ -33,6 +33,10 @@ export interface OrganizationSettingsRecord {
     readonly version: number;
 }
 export interface OrganizationMembershipRecord {
+    readonly personal_name?: string | null;
+    readonly personal_contact_number?: string | null;
+    readonly personal_occupation?: string | null;
+    readonly arrangement_property_id?: string | null;
     readonly id: string;
     readonly organization_id: string;
     readonly user_id: string;

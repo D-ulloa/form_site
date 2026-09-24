@@ -20,9 +20,9 @@ export function createSupabaseAssetStorageAdapter(clientOverride, environment = 
             }
             return { bucket_name: bucketName, object_path: objectPath, bytes, provider_mime: providerMime };
         },
-        async issueView(bucketName, objectPath, expiresInSeconds) {
+        async issueView(bucketName, objectPath, expiresInSeconds, downloadFilename) {
             const ttl = Math.max(15, Math.min(300, Math.floor(expiresInSeconds)));
-            const { data, error } = await client().storage.from(bucketName).createSignedUrl(objectPath, ttl);
+            const { data, error } = await client().storage.from(bucketName).createSignedUrl(objectPath, ttl, downloadFilename ? { download: downloadFilename } : {});
             if (error || !data?.signedUrl)
                 throw new Error('STORAGE_UNAVAILABLE');
             return { signed_url: data.signedUrl, expires_at: new Date(now().getTime() + ttl * 1000).toISOString() };

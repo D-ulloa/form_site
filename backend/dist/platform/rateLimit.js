@@ -1,6 +1,19 @@
 import { createHmac } from 'node:crypto';
 import { PlatformError } from './errors.js';
 export const RATE_LIMIT_POLICIES = {
+    'arrangements.changes': { window_seconds: 60, limit: 30, sensitive: true },
+    'arrangements.tenant.read': { window_seconds: 60, limit: 120, sensitive: true },
+    'arrangements.draft.create': { window_seconds: 3600, limit: 60, sensitive: true },
+    'arrangements.submit': { window_seconds: 300, limit: 30, sensitive: true },
+    'arrangements.status.update': { window_seconds: 60, limit: 60, sensitive: true },
+    'arrangements.report.write': { window_seconds: 60, limit: 60, sensitive: true },
+    'arrangements.report.submit': { window_seconds: 300, limit: 30, sensitive: true },
+    'arrangements.report.accept': { window_seconds: 300, limit: 30, sensitive: true },
+    'arrangements.properties.read': { window_seconds: 60, limit: 120, sensitive: false },
+    'arrangements.properties.create': { window_seconds: 3600, limit: 60, sensitive: true },
+    'arrangements.inquilinos.read': { window_seconds: 60, limit: 120, sensitive: true },
+    'arrangements.inquilinos.associate': { window_seconds: 3600, limit: 60, sensitive: true },
+    'arrangements.orders.read': { window_seconds: 60, limit: 120, sensitive: false },
     'auth.password_login': { window_seconds: 300, limit: 10, sensitive: true },
     'auth.self_service_registration': { window_seconds: 3600, limit: 8, sensitive: true },
     'auth.google_handoff': { window_seconds: 300, limit: 20, sensitive: true },

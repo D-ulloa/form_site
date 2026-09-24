@@ -1,5 +1,70 @@
 import type { OrganizationScope } from './scope.js';
 export declare const RATE_LIMIT_POLICIES: {
+    readonly 'arrangements.changes': {
+        readonly window_seconds: 60;
+        readonly limit: 30;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.tenant.read': {
+        readonly window_seconds: 60;
+        readonly limit: 120;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.draft.create': {
+        readonly window_seconds: 3600;
+        readonly limit: 60;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.submit': {
+        readonly window_seconds: 300;
+        readonly limit: 30;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.status.update': {
+        readonly window_seconds: 60;
+        readonly limit: 60;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.report.write': {
+        readonly window_seconds: 60;
+        readonly limit: 60;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.report.submit': {
+        readonly window_seconds: 300;
+        readonly limit: 30;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.report.accept': {
+        readonly window_seconds: 300;
+        readonly limit: 30;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.properties.read': {
+        readonly window_seconds: 60;
+        readonly limit: 120;
+        readonly sensitive: false;
+    };
+    readonly 'arrangements.properties.create': {
+        readonly window_seconds: 3600;
+        readonly limit: 60;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.inquilinos.read': {
+        readonly window_seconds: 60;
+        readonly limit: 120;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.inquilinos.associate': {
+        readonly window_seconds: 3600;
+        readonly limit: 60;
+        readonly sensitive: true;
+    };
+    readonly 'arrangements.orders.read': {
+        readonly window_seconds: 60;
+        readonly limit: 120;
+        readonly sensitive: false;
+    };
     readonly 'auth.password_login': {
         readonly window_seconds: 300;
         readonly limit: 10;

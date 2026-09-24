@@ -1,7 +1,12 @@
-export const ROLE_CAPABILITY_REGISTRY_VERSION = 2;
+export const ROLE_CAPABILITY_REGISTRY_VERSION = 9;
 const capabilities = {
+    personal: ['personal.home.read', 'personal.arrangements.read', 'personal.arrangements.report.write'],
+    inquilino: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create', 'inquilino.arrangements.accept'],
     owner: [
-        'organization.read', 'organization.update_settings', 'organization.request_deletion',
+        'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
+        'arrangements.status.update', 'arrangements.work_report.read',
+        'arrangements.properties.create', 'arrangements.inquilinos.manage',
+        'arrangements.read', 'organization.read', 'organization.update_settings', 'organization.request_deletion',
         'organization.cancel_deletion', 'organization.export', 'members.read', 'members.invite',
         'members.manage_member', 'members.manage_admin', 'members.transfer_ownership',
         'contracts.read', 'contracts.write', 'contracts.manage', 'contracts.manage_links',
@@ -12,7 +17,10 @@ const capabilities = {
         'integrations.read', 'integrations.manage', 'audit.read', 'billing.read', 'billing.manage',
     ],
     admin: [
-        'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
+        'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
+        'arrangements.status.update', 'arrangements.work_report.read',
+        'arrangements.properties.create', 'arrangements.inquilinos.manage',
+        'arrangements.read', 'organization.read', 'organization.update_settings', 'members.read', 'members.invite',
         'members.manage_member', 'contracts.read', 'contracts.write', 'contracts.manage',
         'contracts.manage_links', 'properties.read', 'properties.write', 'properties.manage',
         'contracts.create', 'contracts.update', 'contracts.assign', 'contracts.change_status',
@@ -21,22 +29,26 @@ const capabilities = {
         'files.read', 'integrations.read', 'audit.read',
     ],
     member: [
-        'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
+        'arrangements.request.reject', 'arrangements.personal.invite', 'arrangements.assignment.manage', 'arrangements.requester.read',
+        'arrangements.status.update', 'arrangements.work_report.read',
+        'arrangements.read', 'organization.read', 'contracts.read', 'contracts.write', 'properties.read',
         'contracts.create', 'contracts.update', 'contracts.view_history', 'contracts.view_assets',
         'contract_templates.read',
         'properties.write', 'files.read',
     ],
-    viewer: ['organization.read', 'contracts.read', 'contracts.view_history',
+    viewer: ['arrangements.read', 'arrangements.work_report.read', 'organization.read', 'contracts.read', 'contracts.view_history',
         'contract_templates.read', 'properties.read'],
 };
 export const ROLE_CAPABILITIES = {
+    personal: new Set(capabilities.personal),
     owner: new Set(capabilities.owner),
     admin: new Set(capabilities.admin),
     member: new Set(capabilities.member),
     viewer: new Set(capabilities.viewer),
+    inquilino: new Set(capabilities.inquilino),
 };
 export function isOrganizationRole(value) {
-    return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer';
+    return value === 'owner' || value === 'admin' || value === 'member' || value === 'viewer' || value === 'inquilino' || value === 'personal';
 }
 export function hasOrganizationCapability(role, membershipStatus, organizationStatus, capability) {
     if (!isOrganizationRole(role) || membershipStatus !== 'active')
@@ -51,12 +63,12 @@ export function hasOrganizationCapability(role, membershipStatus, organizationSt
 }
 export function allowedInvitationRoles(role) {
     if (role === 'owner')
-        return ['admin', 'member', 'viewer'];
+        return ['admin', 'member', 'viewer', 'inquilino'];
     if (role === 'admin')
-        return ['member', 'viewer'];
+        return ['member', 'viewer', 'inquilino'];
     return [];
 }
 export function canManageMembership(actorRole, targetRole) {
-    return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer'));
+    return actorRole === 'owner' || (actorRole === 'admin' && (targetRole === 'member' || targetRole === 'viewer' || targetRole === 'inquilino' || targetRole === 'personal'));
 }
 //# sourceMappingURL=roleCapabilities.js.map

@@ -34,7 +34,7 @@ test('SPEC45 cursors cannot cross audience, membership, selector or organization
   }
 });
 const baseRecord = { id: ORDER, organization_id: A, name: 'Leak', description: 'Leak', status: 'in_progress', property: { id: ORDER, name: 'Casa' },
-  created_at: null, submitted_at: null, updated_at: null, version: 3, legacy: false, created_by_you: false, assets: [] };
+  created_at: null, submitted_at: null, updated_at: null, version: 3, legacy: false, created_by_you: false, assets: [], work_report: null };
 test('SPEC45 strict audience DTOs keep contacts out of viewer/tenant and assignees out of personal', () => {
   const personal = { ...baseRecord, requester: { name: 'Author', email: 'author@example.test', contact_number: null } };
   assert.equal(PersonalRequest.safeParse(personal).success, true);

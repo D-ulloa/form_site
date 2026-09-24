@@ -6,7 +6,7 @@ export interface PrivateAssetStorageAdapter {
         readonly required_headers: Readonly<Record<string, string>>;
     }>;
     inspect(bucketName: string, objectPath: string): Promise<ProviderObjectMetadata>;
-    issueView(bucketName: string, objectPath: string, expiresInSeconds: number): Promise<{
+    issueView(bucketName: string, objectPath: string, expiresInSeconds: number, downloadFilename?: string): Promise<{
         readonly signed_url: string;
         readonly expires_at: string;
     }>;

@@ -5,7 +5,7 @@ function escaped(value) {
         .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
 export function renderInvitationEmail(message) {
-    const role = { admin: 'administrador', member: 'miembro', viewer: 'lector' }[message.intended_role];
+    const role = { admin: 'administrador', member: 'miembro', viewer: 'lector', inquilino: 'inquilino', personal: 'Personal' }[message.intended_role];
     const subject = `Invitación a ${message.organization_display_name}`.replace(/[\r\n]/gu, ' ').slice(0, 180);
     const lines = [`${message.inviter_display_name} te invitó a ${message.organization_display_name} como ${role}.`,
         `La invitación vence el ${message.expires_at}.`, message.acceptance_url,

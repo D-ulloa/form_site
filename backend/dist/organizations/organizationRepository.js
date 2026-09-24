@@ -1,5 +1,13 @@
+import { z } from 'zod';
 import { createPlatformServiceRoleClient } from '../platform/serviceRoleClient.js';
 import { mapOrganizationPersistenceError } from './errors.js';
+const PropertyInvitationRecord = z.object({
+    id: z.uuid(), organization_id: z.uuid(), intended_role: z.literal('inquilino'),
+    status: z.enum(['pending', 'accepted', 'revoked', 'replaced']), expires_at: z.string(),
+    delivery_state: z.enum(['pending', 'accepted_by_provider', 'delivered', 'failed', 'bounced', 'complained']),
+    delivery_method: z.literal('share_link'), token_version: z.number().int().positive(), version: z.number().int().positive(),
+    arrangement_property_id: z.uuid(),
+}).strict();
 function createGovernanceClient(environment) {
     return createPlatformServiceRoleClient(environment);
 }
@@ -28,7 +36,36 @@ export function createOrganizationGovernanceRepository(environment = process.env
             }).single();
             return requireData(data, error);
         },
+        async preparePropertyInvitation(scope, input) {
+            const { data, error } = await client().rpc('spec42_prepare_property_invitation', {
+                p_organization_id: scope.organization_id, p_actor_membership_id: input.actor_id,
+                p_property_id: input.property_id, p_email_normalized: input.email, p_idempotency_key: input.idempotency_key,
+            });
+            if (error)
+                mapOrganizationPersistenceError(error);
+            const parsed = z.object({ operation_id: z.uuid(), invitation: PropertyInvitationRecord.nullable() }).strict().safeParse(data);
+            if (!parsed.success || (parsed.data.invitation && parsed.data.invitation.organization_id !== scope.organization_id)) {
+                mapOrganizationPersistenceError({ message: 'DEPENDENCY_NOT_READY' });
+            }
+            return parsed.data;
+        },
         async createInvitation(input) {
+            if (input.arrangement_property_id && input.operation_id) {
+                const { data, error } = await client().rpc('spec42_create_manual_invitation', {
+                    p_organization_id: input.organization_id, p_actor_membership_id: input.invited_by_membership_id,
+                    p_operation_id: input.operation_id, p_property_id: input.arrangement_property_id,
+                    p_email_normalized: input.email_normalized, p_token_hash: input.token_hash, p_token_prefix: input.token_prefix,
+                    p_expires_at: input.expires_at, p_invited_auth_user_id: input.invited_auth_user_id,
+                    p_registration_permitted: input.registration_permitted, p_request_id: input.request_id,
+                });
+                if (error)
+                    mapOrganizationPersistenceError(error);
+                const parsed = PropertyInvitationRecord.extend({ link_issued: z.boolean() }).safeParse(data);
+                if (!parsed.success || parsed.data.organization_id !== input.organization_id
+                    || parsed.data.arrangement_property_id !== input.arrangement_property_id)
+                    mapOrganizationPersistenceError({ message: 'DEPENDENCY_NOT_READY' });
+                return parsed.data;
+            }
             const { data, error } = await client().rpc('spec37_create_manual_invitation', {
                 p_invitation_id: input.invitation_id,
                 p_organization_id: input.organization_id,

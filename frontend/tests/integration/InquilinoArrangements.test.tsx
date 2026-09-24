@@ -26,7 +26,7 @@ const adapter = vi.fn<AxiosAdapter>(async config => {
   else if (path.endsWith('/context')) {
     const context = organizationContext('azar');
     data = { ...context, membership: { ...context.membership, role: 'inquilino', arrangement_property_id: property },
-      capabilities: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create'], home_destination: 'inquilino' };
+      capabilities: ['inquilino.home.read', 'inquilino.arrangements.read', 'inquilino.arrangements.create', 'inquilino.arrangements.accept'], home_destination: 'inquilino' };
   } else if (path.endsWith('/inquilino/orders')) data = { organization_id: org, items: submitted && property === propertyA ? [record()] : [], available_statuses: ['open', 'in_progress', 'solved', 'archived'], next_cursor: null };
   else if (path.endsWith('/order-drafts')) {
     description = JSON.parse(config.data).description; data = { id, submission_state: 'draft', status: 'open', version: 1 };

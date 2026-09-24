@@ -1,4 +1,11 @@
 const statusByCode = {
+    PERSONAL_PROFILE_REQUIRED: 422,
+    INQUILINO_PROFILE_REQUIRED: 422,
+    INVALID_REQUEST: 400,
+    PROPERTY_REQUIRED: 422,
+    PROPERTY_CONFLICT: 409,
+    ASSOCIATION_UNAVAILABLE: 409,
+    IDEMPOTENCY_CONFLICT: 409,
     ALREADY_A_MEMBER: 409,
     DEPENDENCY_NOT_READY: 503,
     FORBIDDEN: 403,
@@ -32,6 +39,6 @@ export function mapOrganizationPersistenceError(error) {
     if (error.message.includes('organizations_slug_key')) {
         throw new OrganizationDomainError('VERSION_CONFLICT', 'Organization slug is already reserved.');
     }
-    throw new Error(`Organization persistence failed: ${error.message}`);
+    throw new OrganizationDomainError('DEPENDENCY_NOT_READY');
 }
 //# sourceMappingURL=errors.js.map

@@ -24,7 +24,7 @@ export function PersonalArrangements() {
       <Button variant="ghost" disabled={query.isFetching} onClick={() => { void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch()); }}>Reintentar</Button></div>}
     {!query.isPending && !query.isError && !items.length && <p className="surface rounded-2xl p-6 text-sm text-slate-300">No tenés órdenes asignadas</p>}
     {!!items.length && <ul className="flex min-w-0 flex-col gap-4" aria-label="Órdenes asignadas">
-      {items.map(order => <li key={order.id}><ArrangementRequestCard order={order} audience="personal" /></li>)}
+      {items.map(order => <li key={`${order.id}:${order.version ?? 0}`}><ArrangementRequestCard order={order} audience="personal" /></li>)}
     </ul>}
     {query.hasNextPage && !query.isError && <Button variant="ghost" disabled={query.isFetching} onClick={() => { void query.fetchNextPage(); }}>Cargar más</Button>}
   </section>;

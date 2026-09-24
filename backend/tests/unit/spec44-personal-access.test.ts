@@ -11,7 +11,7 @@ import { CaptureInvitationDeliveryAdapter } from '../../src/organizations/invita
 import type { OrganizationActorContext, OrganizationRole } from '../../src/organizations/types.js';
 
 test('SPEC-44 capabilities separate personal home, scoped invitations, and general governance', () => {
-  assert.deepEqual([...ROLE_CAPABILITIES.personal], ['personal.home.read', 'personal.arrangements.read']);
+  assert.deepEqual([...ROLE_CAPABILITIES.personal], ['personal.home.read', 'personal.arrangements.read', 'personal.arrangements.report.write']);
   for (const role of ['owner','admin','member','viewer','inquilino','personal'] as const) {
     assert.equal(hasOrganizationCapability(role,'active','active','arrangements.personal.invite'), ['owner','admin','member'].includes(role));
     assert.equal(allowedInvitationRoles(role).includes('personal'), false);
@@ -39,7 +39,7 @@ test('SPEC-44 personal context has only assigned-order authority and no profile 
   h.app.use('/api',createOrganizationContextRouter(h.sessions,h.identity,environment));
   const response=await request(h.app).get('/api/organizations/azar/context').set('Cookie',h.cookie).expect(200);
   assert.equal(response.body.home_destination,'personal');
-  assert.deepEqual(response.body.capabilities,['personal.home.read', 'personal.arrangements.read']);
+  assert.deepEqual(response.body.capabilities,['personal.home.read', 'personal.arrangements.read', 'personal.arrangements.report.write']);
   assert.ok(!JSON.stringify(response.body).includes('private'));
   assert.ok(!JSON.stringify(publicMembership(h.state.membership)).includes('private'));
   await request(h.app).get(`/api/organizations/${B}/context`).set('Cookie',h.cookie).expect(404);

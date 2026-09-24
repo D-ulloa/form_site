@@ -3,7 +3,7 @@ import type { AssetAuthorizationContext, AssetState, ProviderObjectMetadata, Sto
 export declare function sanitizeAssetFilename(rawName: string): string;
 export declare function buildOrganizationAssetPath(input: {
     readonly organization_id: string;
-    readonly domain: 'contracts' | 'properties' | 'branding' | 'exports';
+    readonly domain: 'contracts' | 'properties' | 'branding' | 'exports' | 'arrangements';
     readonly owner_id: string;
     readonly asset_id: string;
     readonly original_filename: string;
