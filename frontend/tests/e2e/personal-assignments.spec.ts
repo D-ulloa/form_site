@@ -107,11 +107,16 @@ test('SPEC45 revocation removes an assigned order from a loaded second page', as
   }
   await login(page, 'personal@example.test'); await page.goto('/t/azar/personal');
   await page.getByRole('button', { name: 'Cargar más', exact: true }).click(); await expect(page.locator('article')).toHaveCount(27);
-  const target = page.locator('article').last(); const id = await target.locator('p.font-mono').last().textContent();
+  const target = page.locator('article').last();
+  const pagination = (await target.innerText()).match(/SPEC45 pagination (\d+)/u);
+  expect(pagination).not.toBeNull();
+  const description = `SPEC45 pagination ${pagination![1]}`;
+  const id = ids[Number(pagination![1])];
   expect(ids).toContain(id);
   const old = JSON.parse(sql(rpc('internal.detail', { order_id: id })));
   sql(rpc('internal.unassign', { order_id: id, expected_version: old.version }));
   await expect(page.getByText(id!, { exact: true })).toHaveCount(0, { timeout: 2000 });
+  await expect(page.getByText(description, { exact: true })).toHaveCount(0, { timeout: 2000 });
   expect((await page.context().request.get(`${base}/personal/orders/${id}`)).status()).toBe(404);
   const foreign = await browser.newContext();
   try { const other = await foreign.newPage(); await login(other, 'personal-b@example.test'); expect((await foreign.request.get(`${base}/personal/orders/${ids[0]}`)).status()).toBe(404); }

@@ -10,7 +10,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, hint, className = '', id, required, ...props }, ref) => {
     const inputId = id ?? `input-${label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
     const errorId = `${inputId}-error`;
-    const describedBy = [error ? errorId : undefined, props['aria-describedby']]
+    const hintId = `${inputId}-hint`;
+    const describedBy = [error ? errorId : undefined, hint && !error ? hintId : undefined, props['aria-describedby']]
       .filter(Boolean)
       .join(' ') || undefined;
 
@@ -37,7 +38,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {error}
           </p>
         )}
-        {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+        {hint && !error && <p id={hintId} className="text-xs text-slate-500">{hint}</p>}
       </div>
     );
   },

@@ -39,12 +39,15 @@ export function arrangementError(error: unknown): string {
   return messages[code] ?? 'No se pudo completar la operación. Volvé a intentar.';
 }
 export async function listArrangementCollection<C extends PropertyCollection>(input: {
-  organizationId: string; collection: C; propertyId: string | null; cursor: string | null; signal: AbortSignal;
+  organizationId: string; collection: C; propertyId: string | null; cursor: string | null;
+  search: string | null; signal: AbortSignal;
 }): Promise<{ items: Collections[C][]; next_cursor: string | null }> {
   const path = input.collection === 'properties' ? '/properties' : input.collection === 'available' ? '/inquilinos/available'
     : `/properties/${encodeURIComponent(input.propertyId!)}/${input.collection}`;
   const { data } = await axios.get(`${base(input.organizationId)}/arrangements${path}`, {
-    withCredentials: true, signal: input.signal, params: { limit: 25, ...(input.cursor ? { cursor: input.cursor } : {}) },
+    withCredentials: true, signal: input.signal,
+    params: { limit: 25, ...(input.cursor ? { cursor: input.cursor } : {}),
+      ...(input.collection === 'properties' && input.search ? { search: input.search } : {}) },
   });
   const item = input.collection === 'properties' ? Property : input.collection === 'invitations' ? Invitation : Member;
   const page = z.object({ organization_id: z.literal(input.organizationId), items: z.array(item).max(100), next_cursor: z.string().nullable() }).strict().parse(data);

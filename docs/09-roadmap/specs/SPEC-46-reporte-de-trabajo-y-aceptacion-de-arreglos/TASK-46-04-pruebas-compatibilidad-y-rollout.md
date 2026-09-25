@@ -1,6 +1,6 @@
 # TASK-46-04 — Pruebas, compatibilidad y rollout
 
-- Estado: `pending`
+- Estado: `in_progress` (SQL contra PostgreSQL desechable y suites backend/frontend unitarias e integración verificadas localmente; browser de SPEC-46, migración en entorno compartido y hosted smoke tests pendientes.)
 - SPEC: [SPEC-46](./SPEC-46-reporte-de-trabajo-y-aceptacion-de-arreglos.md)
 - Dependencias: TASK-46-01/02/03 integradas; PostgreSQL/Supabase desechable, browser y transporte de invalidaciones de SPEC-45.
 - Secuencia: preparar fixtures desde el inicio y cerrar solo con el flujo completo persistido.

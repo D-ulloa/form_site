@@ -1,6 +1,6 @@
 # TASK-46-03 — Aceptación del inquilino y vistas compartidas
 
-- Estado: `pending`
+- Estado: `implemented` (API/SQL y frontend local verificados con pruebas unitarias e integración el 2026-09-24; browser/hosted smoke tests pendientes.)
 - SPEC: [SPEC-46](./SPEC-46-reporte-de-trabajo-y-aceptacion-de-arreglos.md)
 - Dependencias: persistencia/API de TASK-46-01; dashboard personal de TASK-46-02; historial tenant de SPEC-43 y sincronización de SPEC-45.
 - Secuencia: puede avanzar en paralelo con TASK-46-02 después de fijar el contrato de persistencia.

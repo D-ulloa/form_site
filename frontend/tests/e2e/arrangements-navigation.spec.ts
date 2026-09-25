@@ -75,6 +75,12 @@ for (const viewport of [
     await expect(page.getByRole('listitem')).toHaveCount(2);
     await expect(page.getByRole('button', { name: 'Generar propiedad' })).toHaveCount(0);
     await expect(page.getByRole('link')).toHaveCount(1);
+    const orderSearch = page.getByRole('searchbox', { name: 'Buscar órdenes' });
+    await expect(orderSearch).toBeVisible();
+    expect((await orderSearch.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(160);
+    const propertySearch = page.getByRole('searchbox', { name: 'Buscar propiedades' });
+    await expect(propertySearch).toBeVisible();
+    expect((await propertySearch.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(160);
     await expectNoOverflow(page);
     await page.keyboard.press('Tab');
     await expectVisibleFocus(home);

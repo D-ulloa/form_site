@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createArrangementPropertyRepository, type ArrangementPropertyRepository } from '../../src/arrangements/arrangementPropertyRepository.js';
 import { createArrangementPropertiesService } from '../../src/services/arrangementProperties.js';
+import { createCursorCodec } from '../../src/platform/cursor.js';
 import { createOrganizationScope } from '../../src/platform/scope.js';
 import { OrganizationDomainError } from '../../src/organizations/errors.js';
 import { OrganizationService } from '../../src/organizations/organizationService.js';
@@ -45,6 +46,57 @@ test('SPEC-42 property cursor is bound to collection, property, organization and
     await assert.rejects(service.list(scope, actor(), collection, property, { ...query, cursor: first.next_cursor }));
   }
   assert.equal(reads.length, 2);
+});
+
+test('SPEC-47 property listing accepts a legacy no-search cursor after search support is added', async () => {
+  const legacyBinding = JSON.stringify(['arrangements', 1, A, 'properties', null, 1, 'id.asc']);
+  const legacyCursor = createCursorCodec(environment.PLATFORM_CURSOR_SECRET!).encode({
+    id: P, created_at: '1970-01-01T00:00:00Z', filter_fingerprint: legacyBinding,
+  });
+  const service = createArrangementPropertiesService({ async list(_scope, input) {
+    return { organization_id: A, items: input.after_id === P ? [{ id: P2, name: 'Second' }] : [{ id: P, name: 'First' }, { id: P2, name: 'Second' }] };
+  } } as ArrangementPropertyRepository, environment);
+  const next = await service.list(scope, actor(), 'properties', null, { limit: '1', cursor: legacyCursor });
+  assert.deepEqual(next.items.map(item => item.id), [P2]);
+});
+
+test('SPEC-47 property search scans source pages, normalizes names and binds cursors to search', async () => {
+  const source = [
+    { id: '60000000-0000-4000-8000-000000000001', name: 'Casa Norte' },
+    { id: '60000000-0000-4000-8000-000000000002', name: 'Casa Sur' },
+    { id: '60000000-0000-4000-8000-000000000003', name: 'Quinta' },
+    { id: '60000000-0000-4000-8000-000000000004', name: 'Ático' },
+    { id: '60000000-0000-4000-8000-000000000005', name: 'Depósito' },
+  ];
+  const reads: Array<{ after_id: string | null; limit: number }> = [];
+  const service = createArrangementPropertiesService({ async list(_scope, input) {
+    reads.push({ after_id: input.after_id, limit: input.limit });
+    const start = input.after_id ? source.findIndex(row => row.id === input.after_id) + 1 : 0;
+    return { organization_id: A, items: source.slice(start, start + input.limit) };
+  } } as ArrangementPropertyRepository, environment);
+
+  const first = await service.list(scope, actor(), 'properties', null, { limit: '1', search: ' CASA ' });
+  assert.deepEqual(first.items.map(item => item.name), ['Casa Norte']);
+  assert.ok(first.next_cursor);
+  assert.ok(reads.every(read => read.limit === 100));
+
+  const second = await service.list(scope, actor(), 'properties', null, { limit: '1', search: 'casa', cursor: first.next_cursor! });
+  assert.deepEqual(second.items.map(item => item.name), ['Casa Sur']);
+  assert.equal(second.next_cursor, null);
+
+  await assert.rejects(service.list(scope, actor(), 'properties', null, { limit: '1', search: 'otro', cursor: first.next_cursor! }));
+  const unicode = await service.list(scope, actor(), 'properties', null, { limit: '10', search: 'atico' });
+  assert.deepEqual(unicode.items.map(item => item.name), ['Ático']);
+  const empty = await service.list(scope, actor(), 'properties', null, { limit: '10', search: 'zzz' });
+  assert.deepEqual(empty.items, []);
+  assert.equal(empty.next_cursor, null);
+  const readsBeforeViewerSearch = reads.length;
+  await assert.rejects(service.list(scope, actor('viewer'), 'properties', null, { search: 'casa' }), code('FORBIDDEN'));
+  await assert.rejects(service.list(scope, actor('viewer'), 'properties', null, { search: '   ' }), code('FORBIDDEN'));
+  assert.equal(reads.length, readsBeforeViewerSearch);
+  await assert.rejects(service.list(scope, actor(), 'available', null, { search: 'casa' }), code('FORBIDDEN'));
+  await assert.rejects(service.list(scope, actor(), 'properties', null, { search: 'a'.repeat(101) }));
+  await assert.rejects(service.list(scope, actor(), 'properties', null, { search: 123 }));
 });
 
 test('SPEC-42 member/viewer never reach people persistence; inquilino cannot list properties', async () => {

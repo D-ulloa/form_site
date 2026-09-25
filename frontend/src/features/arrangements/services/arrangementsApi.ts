@@ -16,12 +16,14 @@ export async function listArrangementOrders(input: {
   readonly organizationId: string;
   readonly audience?: 'manager' | 'viewer';
   readonly status: string;
+  readonly search: string | null;
   readonly cursor: string | null;
   readonly signal: AbortSignal;
 }): Promise<ArrangementOrdersPage> {
   const response = await axios.get(`${API_PREFIX}/api/organizations/${encodeURIComponent(input.organizationId)}/arrangements/orders`, {
     withCredentials: true, signal: input.signal, headers: { 'X-Arrangement-Contract': '3' },
-    params: { limit: 25, ...(input.status ? { status: input.status } : {}), ...(input.cursor ? { cursor: input.cursor } : {}) },
+    params: { limit: 25, ...(input.status ? { status: input.status } : {}),
+      ...(input.search ? { search: input.search } : {}), ...(input.cursor ? { cursor: input.cursor } : {}) },
   });
   const parsed = Page(input.audience ?? 'viewer').safeParse(response.data);
   if (!parsed.success || parsed.data.organization_id !== input.organizationId

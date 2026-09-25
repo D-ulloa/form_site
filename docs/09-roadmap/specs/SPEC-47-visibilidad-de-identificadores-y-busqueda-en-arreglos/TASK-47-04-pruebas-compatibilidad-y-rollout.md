@@ -1,6 +1,6 @@
 # TASK-47-04 — Pruebas, compatibilidad y rollout
 
-- Estado: pending
+- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración; e2e con fixture viva parcial — 5 pasaron / 12 requieren entorno con base de datos; despliegue y smoke tests alojados pendientes)
 - SPEC: [SPEC-47](./SPEC-47-visibilidad-de-identificadores-y-busqueda-en-arreglos.md)
 - Dependencias: TASK-47-01/02/03 integradas; backend, frontend, browser y fixtures de SPEC-39/42/43/44/45.
 - Secuencia: preparar fixtures desde el inicio y cerrar solo con consultas reales y revisión de presentación.

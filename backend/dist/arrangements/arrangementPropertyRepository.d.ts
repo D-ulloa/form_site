@@ -36,7 +36,8 @@ export declare const ArrangementInvitation: z.ZodObject<{
     version: z.ZodNumber;
 }, z.core.$strict>;
 export type PropertyCollection = 'properties' | 'inquilinos' | 'invitations' | 'available';
-export type PropertyItem = z.infer<typeof ArrangementProperty> | z.infer<typeof ArrangementMember> | z.infer<typeof ArrangementInvitation>;
+export type ArrangementPropertyItem = z.infer<typeof ArrangementProperty>;
+export type PropertyItem = ArrangementPropertyItem | z.infer<typeof ArrangementMember> | z.infer<typeof ArrangementInvitation>;
 export interface ArrangementPropertyRepository {
     list(scope: OrganizationScope, input: {
         actor_id: string;

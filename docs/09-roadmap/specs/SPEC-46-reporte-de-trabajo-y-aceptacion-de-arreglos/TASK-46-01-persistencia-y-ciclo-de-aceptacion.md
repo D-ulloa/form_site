@@ -1,6 +1,6 @@
 # TASK-46-01 — Persistencia y ciclo de aceptación
 
-- Estado: `pending`
+- Estado: `implemented` (SQL/RPC verificados localmente contra PostgreSQL desechable el 2026-09-23; migración en entorno compartido pendiente.)
 - SPEC: [SPEC-46](./SPEC-46-reporte-de-trabajo-y-aceptacion-de-arreglos.md)
 - Dependencias: solicitudes y estados de SPEC-43; asignación y auditoría de SPEC-45; propiedades/membresías tenant de SPEC-42.
 - Secuencia: primero; entrega los contratos que consumen TASK-46-02 y TASK-46-03.

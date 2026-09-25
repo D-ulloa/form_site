@@ -2,9 +2,13 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { PlatformError } from '../platform/errors.js';
 const Position = z.object({ id: z.uuid(), at: z.iso.datetime({ offset: true }).nullable() }).strict();
-export function createRequestCursorCodec(secret: string, binding: { organization_id: string; property_id: string | null; status: string | null; limit: number; audience?: string; membership_id?: string; ordering?: string }) {
+export function createRequestCursorCodec(secret: string, binding: { organization_id: string; property_id: string | null; status: string | null; limit: number; audience?: string; membership_id?: string; ordering?: string; search?: string | null }) {
   if (Buffer.byteLength(secret) < 32) throw new PlatformError('DEPENDENCY_UNAVAILABLE');
-  const scope = JSON.stringify(['arrangements.orders', binding.audience ? 3 : 2, binding.organization_id, binding.property_id, binding.status, binding.limit, binding.ordering ?? 'submitted_at.desc.nullslast,id.desc', ...(binding.audience ? [binding.audience, binding.membership_id ?? null] : [])]);
+  const hasSearch = Boolean(binding.search);
+  const scope = JSON.stringify(['arrangements.orders', binding.audience ? (hasSearch ? 4 : 3) : (hasSearch ? 3 : 2),
+    binding.organization_id, binding.property_id, binding.status, binding.limit,
+    binding.ordering ?? 'submitted_at.desc.nullslast,id.desc', ...(binding.audience ? [binding.audience, binding.membership_id ?? null] : []),
+    ...(hasSearch ? [binding.search] : [])]);
   const sign = (body: string) => createHmac('sha256', secret).update(body).digest();
   return {
     encode(position: z.infer<typeof Position>) {

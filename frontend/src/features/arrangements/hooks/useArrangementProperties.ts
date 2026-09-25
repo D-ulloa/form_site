@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -22,16 +22,32 @@ export function useArrangementAccessError() {
     }
   }, [client, epoch, navigate, organization.id, refresh]);
 }
-export function useArrangementCollection<C extends PropertyCollection>(collection: C, propertyId: string | null = null) {
+export function useArrangementCollection<C extends PropertyCollection>(collection: C, propertyId: string | null = null,
+  search: string | null = null) {
   const { organization, epoch } = useOrganization();
+  const client = useQueryClient();
   const denied = useArrangementAccessError();
+  const effectiveSearch = collection === 'properties' ? search : null;
+  const queryKey = useMemo(() => tenantQueryKey(organization.id, epoch, 'arrangements', collection, propertyId, { search: effectiveSearch }),
+    [organization.id, epoch, collection, propertyId, effectiveSearch]);
   const query = useInfiniteQuery({
-    queryKey: tenantQueryKey(organization.id, epoch, 'arrangements', collection, propertyId),
+    queryKey,
     initialPageParam: null as string | null,
-    queryFn: ({ pageParam, signal }) => listArrangementCollection({ organizationId: organization.id, collection, propertyId, cursor: pageParam, signal }),
+    queryFn: ({ pageParam, signal }) => listArrangementCollection({
+      organizationId: organization.id, collection, propertyId, cursor: pageParam, search: effectiveSearch, signal,
+    }),
     getNextPageParam: page => page.next_cursor,
     retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false,
   });
+  const rawError = axios.isAxiosError(query.error) ? query.error.response?.data?.error : undefined;
+  const errorCode = typeof rawError === 'object' && rawError !== null && 'code' in rawError ? rawError.code : undefined;
+  const restartAttemptedFor = useRef<string | null>(null);
+  const queryKeyFingerprint = JSON.stringify(queryKey);
+  useEffect(() => {
+    if (!query.isFetchNextPageError || errorCode !== 'INVALID_CURSOR' || restartAttemptedFor.current === queryKeyFingerprint) return;
+    restartAttemptedFor.current = queryKeyFingerprint;
+    void client.resetQueries({ queryKey, exact: true });
+  }, [client, errorCode, query.isFetchNextPageError, queryKey, queryKeyFingerprint]);
   useEffect(() => { if (query.error) denied(query.error); }, [query.error, denied]);
   return query;
 }

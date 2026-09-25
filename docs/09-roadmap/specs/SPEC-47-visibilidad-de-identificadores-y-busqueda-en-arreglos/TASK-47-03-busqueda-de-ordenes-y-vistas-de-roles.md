@@ -1,6 +1,6 @@
 # TASK-47-03 — Búsqueda de órdenes y vistas de roles
 
-- Estado: pending
+- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración; despliegue y smoke tests alojados pendientes)
 - SPEC: [SPEC-47](./SPEC-47-visibilidad-de-identificadores-y-busqueda-en-arreglos.md)
 - Dependencias: contrato de presentación de TASK-47-01; listado/estados de SPEC-43; asignación y vistas compartidas de SPEC-45; TASK-47-02 para consistencia de búsqueda.
 - Secuencia: después de estabilizar el contrato server-side; puede desarrollarse en paralelo con TASK-47-02.

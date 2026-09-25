@@ -35,7 +35,8 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await page.screenshot({ path: testInfo.outputPath('create-property.png'), fullPage: true });
     await page.getByRole('button', { name: 'Crear propiedad' }).click();
     await expect(page.getByRole('dialog', { name: 'Agregar inquilino' })).toBeVisible();
-    await expect(page.getByRole('dialog').getByText(P)).toBeVisible();
+    await expect(page.getByRole('dialog').getByText(P)).toHaveCount(0);
+    await expect(page.getByRole('dialog').getByText('Casa del parque')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('property-panel.png'), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.getByRole('dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -68,7 +69,8 @@ async function invite(page: Page, email: string) {
 async function accept(browser: Browser, link: string, propertyId: string, organizationSlug: string, email: string, isNew: boolean) {
   const context = await browser.newContext();
   const page = await context.newPage(); await page.goto(link);
-  await expect(page.getByText(propertyId, { exact: true })).toBeVisible();
+  await expect(page.getByText(propertyId, { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Propiedad asignada')).toBeVisible();
   expect(new URL(page.url()).hash).toBe('');
   expect(await page.getByRole('combobox').count()).toBe(0);
   if (isNew) {
@@ -103,7 +105,8 @@ test('SPEC-42 real database: create → register/login → atomic association �
     const create = page.waitForResponse(r => r.url().endsWith('/arrangements/properties') && r.request().method() === 'POST');
     await page.getByRole('button', { name: 'Crear propiedad' }).click();
     const property = await (await create).json(); expect(property.id).toMatch(/^[0-9a-f-]{36}$/);
-    await expect(page.getByRole('dialog').getByText(property.id)).toBeVisible();
+    await expect(page.getByRole('dialog').getByText(property.id)).toHaveCount(0);
+    await expect(page.getByRole('dialog').getByText('Casa compartida')).toBeVisible();
     expect(sql(`select name from public.arrangement_properties where id='${property.id}';`)).toBe('Casa compartida');
     await page.getByRole('button', { name: 'Asociar existente' }).click();
     await page.getByRole('button', { name: 'Asociar legacy', exact: true }).click();
@@ -131,7 +134,8 @@ test('SPEC-42 real database: create → register/login → atomic association �
     await expect(page.getByText('existing · Inquilino activo')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('persisted-inquilinos.png'), fullPage: true });
     await page.getByRole('button', { name: 'Cerrar diálogo' }).click(); await page.reload();
-    await expect(page.getByRole('list', { name: 'Propiedades' }).getByText(property.id)).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Propiedades' }).getByText(property.id)).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Propiedades' }).getByText('Casa compartida')).toBeVisible();
     // The same global identity joins B through a different membership and property.
     const solar = await browser.newContext(); contexts.push(solar); const solarPage = await solar.newPage();
     await login(solarPage, 'solar-owner@example.test', 'existing-test-password'); await solarPage.goto('/t/solar/arrangements');

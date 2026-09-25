@@ -60,8 +60,7 @@ export function ArrangementPropertyPanel({ property, onClose, onChanged }: {
     void operation.run(signal => rotateArrangementInvitation(organization.id, property.id, id, signal), received);
   }
   return <ArrangementDialog title="Agregar inquilino" onClose={onClose}>
-    <div className="mb-5 rounded-xl bg-white/5 p-4"><p className="font-medium [overflow-wrap:anywhere]">{property.name}</p>
-      <p className="mt-1 font-mono text-xs text-slate-400 [overflow-wrap:anywhere]">{property.id}</p></div>
+    <div className="mb-5 rounded-xl bg-white/5 p-4"><p className="font-medium [overflow-wrap:anywhere]">{property.name}</p></div>
     <div className="mb-5 flex flex-wrap gap-2" aria-label="Forma de incorporación">
       {canInvite && <Button variant={mode === 'invite' ? 'primary' : 'ghost'} onClick={() => { setMode('invite'); setReceipt(null); }}>Invitar por correo</Button>}
       {canAssociate && <Button variant={mode === 'existing' ? 'primary' : 'ghost'} onClick={() => { setMode('existing'); setReceipt(null); }}>Asociar existente</Button>}

@@ -46,7 +46,7 @@ describe('SPEC-26 invitation acceptance', () => {
       arrangement_property: { id: '60000000-0000-4000-8000-000000000001', name: 'Casa Solar' } });
     render(<MemoryRouter><InvitationAcceptPage /></MemoryRouter>);
     expect(await screen.findByText('Casa Solar')).toBeTruthy();
-    expect(screen.getByText('60000000-0000-4000-8000-000000000001')).toBeTruthy();
+    expect(screen.queryByText('60000000-0000-4000-8000-000000000001')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });

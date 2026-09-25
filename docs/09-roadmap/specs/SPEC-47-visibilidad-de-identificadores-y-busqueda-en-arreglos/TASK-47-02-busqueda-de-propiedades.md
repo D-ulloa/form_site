@@ -1,6 +1,6 @@
 # TASK-47-02 — Búsqueda de propiedades
 
-- Estado: pending
+- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración; despliegue y smoke tests alojados pendientes)
 - SPEC: [SPEC-47](./SPEC-47-visibilidad-de-identificadores-y-busqueda-en-arreglos.md)
 - Dependencias: contrato de presentación de TASK-47-01; listado de propiedades de SPEC-42.
 - Secuencia: después de fijar la forma de consulta y puede avanzar en paralelo con TASK-47-03.

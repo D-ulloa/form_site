@@ -1,6 +1,6 @@
 # Guía de implementación — SPEC-46
 
-Estado: `pending`; documento de planificación. No acredita implementación, migración aplicada ni despliegue. La guía conserva la decisión de usar `solved` como estado persistido intermedio y `archived` como estado final de las órdenes cuyo reporte fue aceptado.
+Estado: implementación local verificada. SQL y RPC se comprobaron contra PostgreSQL desechable el `2026-09-23`; las suites backend/frontend unitarias e integración pasaron localmente el `2026-09-24`. El browser de SPEC-46, migración en entorno compartido y hosted smoke tests siguen pendientes. Ver [evidencia reproducible](../../../06-testing/spec46-work-reports.md). La guía conserva la decisión de usar `solved` como estado persistido intermedio y `archived` como estado final de las órdenes cuyo reporte fue aceptado.
 
 ## 1. Punto de partida y secuencia
 

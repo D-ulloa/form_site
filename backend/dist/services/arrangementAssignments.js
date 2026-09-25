@@ -3,6 +3,7 @@ import { ArrangementStatus, RequestRecord, WorkReport, ArrangementRequestError }
 import { createRequestCursorCodec } from '../arrangements/requestCursor.js';
 import { requireArrangementAuthority } from './arrangementProperties.js';
 import { PlatformError } from '../platform/errors.js';
+import { parseSearch, searchMatches } from '../arrangements/searchText.js';
 const Contact = z.object({ name: z.string().nullable(), email: z.string().nullable(), contact_number: z.string().nullable() }).strict();
 export const Assignee = z.object({ id: z.uuid(), name: z.string().nullable(), occupation: z.string().nullable(), available: z.boolean() }).strict();
 export const PersonalRequest = RequestRecord.extend({ requester: Contact.nullable() });
@@ -11,7 +12,7 @@ const Candidate = z.object({ id: z.uuid(), name: z.string().min(1).max(120), occ
 const Version = z.number().int().positive().max(2147483647);
 const WorkReportMutation = z.object({ id: z.uuid(), status: ArrangementStatus, version: Version, work_report: WorkReport }).strict();
 const Query = z.object({ limit: z.string().regex(/^[1-9][0-9]{0,2}$/u).transform(Number).refine(n => n <= 100).optional(),
-    cursor: z.string().min(1).max(1024).optional(), status: ArrangementStatus.optional() }).strict();
+    cursor: z.string().min(1).max(1024).optional(), status: ArrangementStatus.optional(), search: z.unknown().optional() }).strict();
 export function arrangementAudience(actor) {
     return actor.membership.role === 'personal' ? 'personal' : actor.membership.role === 'inquilino' ? 'tenant'
         : actor.membership.role === 'viewer' ? 'viewer' : 'manager';
@@ -20,11 +21,15 @@ export function arrangementReadCapability(audience) {
     return audience === 'personal' ? 'personal.arrangements.read' : audience === 'tenant' ? 'inquilino.arrangements.read' : 'arrangements.read';
 }
 const prefix = (audience) => audience === 'manager' || audience === 'viewer' ? 'internal' : audience;
+const MAX_SOURCE_PAGES = 50;
 function parse(schema, raw) {
     const parsed = schema.safeParse(raw);
     if (!parsed.success)
         throw new PlatformError('DEPENDENCY_UNAVAILABLE');
     return parsed.data;
+}
+function orderMatchesSearch(item, needle) {
+    return searchMatches(item.name, needle) || searchMatches(item.description, needle) || searchMatches(item.property?.name, needle);
 }
 export function createArrangementAssignmentsService(repository, storage, environment) {
     function authority(scope, actor, audience, capability = arrangementReadCapability(audience)) {
@@ -43,19 +48,61 @@ export function createArrangementAssignmentsService(repository, storage, environ
             const query = Query.parse(raw);
             if (audience === 'personal' && query.status)
                 throw new ArrangementRequestError('INVALID_REQUEST', 400);
+            if (audience !== 'manager' && audience !== 'viewer' && query.search !== undefined && query.search !== null && query.search !== '') {
+                throw new ArrangementRequestError('INVALID_REQUEST', 400);
+            }
+            const search = audience === 'manager' || audience === 'viewer' ? parseSearch(query.search) : null;
             const binding = { organization_id: scope.organization_id, property_id: audience === 'tenant' ? actor.membership.arrangement_property_id : null,
-                status: query.status ?? null, limit: query.limit ?? 25, audience, membership_id: actor.membership.id };
+                status: query.status ?? null, limit: query.limit ?? 25, audience, membership_id: actor.membership.id, search };
             const codec = createRequestCursorCodec(environment.PLATFORM_CURSOR_SECRET ?? '', binding);
             const after = query.cursor ? codec.decode(query.cursor) : null;
-            const page = parse(z.object({ organization_id: z.literal(scope.organization_id), property_id: z.literal(binding.property_id), items: z.array(schema(audience)).max(binding.limit + 1) }).strict(), await call(scope, actor, `${prefix(audience)}.list`, { limit: binding.limit, status: binding.status, after_id: after?.id, after_at: after?.at }));
-            if (new Set(page.items.map(item => item.id)).size !== page.items.length || page.items.some(item => item.organization_id !== scope.organization_id
-                || (query.status && item.status !== query.status) || (audience === 'tenant' && (item.legacy || item.property?.id !== binding.property_id))
-                || (audience === 'personal' && (item.legacy || !item.property || !['open', 'in_progress'].includes(item.status)))))
-                throw new PlatformError('DEPENDENCY_UNAVAILABLE');
-            const items = page.items.slice(0, binding.limit);
+            const rowSchema = schema(audience);
+            const pageSchema = (max) => z.object({ organization_id: z.literal(scope.organization_id),
+                property_id: z.literal(binding.property_id), items: z.array(rowSchema).max(max) }).strict();
+            const validateRows = (rows) => {
+                if (new Set(rows.map(item => item.id)).size !== rows.length || rows.some(item => item.organization_id !== scope.organization_id
+                    || (query.status && item.status !== query.status) || (audience === 'tenant' && (item.legacy || item.property?.id !== binding.property_id))
+                    || (audience === 'personal' && (item.legacy || !item.property || !['open', 'in_progress'].includes(item.status))))) {
+                    throw new PlatformError('DEPENDENCY_UNAVAILABLE');
+                }
+            };
+            let items;
+            let sourceExhausted = false;
+            if (!search) {
+                const page = parse(pageSchema(binding.limit + 1), await call(scope, actor, `${prefix(audience)}.list`, { limit: binding.limit, status: binding.status, after_id: after?.id, after_at: after?.at }));
+                validateRows(page.items);
+                items = page.items.slice(0, binding.limit);
+                sourceExhausted = page.items.length <= binding.limit;
+            }
+            else {
+                const collected = [];
+                let cursor = after;
+                const chunkSize = 100;
+                for (let page = 0; page < MAX_SOURCE_PAGES && collected.length <= binding.limit; page += 1) {
+                    const chunk = parse(pageSchema(chunkSize + 1), await call(scope, actor, `${prefix(audience)}.list`, { limit: chunkSize, status: binding.status, after_id: cursor?.id, after_at: cursor?.at }));
+                    validateRows(chunk.items);
+                    if (chunk.items.length === 0) {
+                        sourceExhausted = true;
+                        break;
+                    }
+                    for (const item of chunk.items) {
+                        if (orderMatchesSearch(item, search))
+                            collected.push(item);
+                        cursor = { id: item.id, at: item.submitted_at ?? null };
+                    }
+                    if (chunk.items.length < chunkSize) {
+                        sourceExhausted = true;
+                        break;
+                    }
+                }
+                if (!sourceExhausted && collected.length <= binding.limit)
+                    throw new PlatformError('DEPENDENCY_UNAVAILABLE');
+                items = collected.slice(0, binding.limit);
+                sourceExhausted = collected.length <= binding.limit;
+            }
             const last = items.at(-1);
             return { organization_id: scope.organization_id, items, available_statuses: ArrangementStatus.options,
-                next_cursor: page.items.length > binding.limit && last ? codec.encode({ id: last.id, at: last.submitted_at }) : null };
+                next_cursor: !sourceExhausted && last ? codec.encode({ id: last.id, at: last.submitted_at ?? null }) : null };
         },
         async assignees(scope, actor, raw) {
             authority(scope, actor, 'manager', 'arrangements.assignment.manage');

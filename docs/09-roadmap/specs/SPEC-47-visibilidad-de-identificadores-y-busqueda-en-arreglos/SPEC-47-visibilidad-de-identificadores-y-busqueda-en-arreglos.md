@@ -1,6 +1,6 @@
 # SPEC-47 — Visibilidad de identificadores y búsqueda en dashboards de arreglos
 
-- Estado: pending
+- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración ni cambios de autorización; despliegue y smoke tests alojados pendientes)
 - Fecha: 2026-09-22
 - Prioridad: medium
 - Autor: redacted

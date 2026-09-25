@@ -19,7 +19,7 @@ function AssignmentPicker({ order, onClose, onChanged }: { order: ArrangementOrd
     getNextPageParam: page => page.next_cursor, retry: false, staleTime: 0, gcTime: 0 });
   const items = query.data?.pages.flatMap(page => page.items) ?? [];
   return <ArrangementDialog title={order.assignee ? 'Reasignar personal' : 'Asignar personal'} onClose={onClose}>
-    <p className="mb-4 font-mono text-xs [overflow-wrap:anywhere]">{order.id}</p>
+    <p className="mb-4 text-sm text-slate-300 [overflow-wrap:anywhere]">{order.name}</p>
     {query.isPending && <p role="status">Cargando personal…</p>}
     {query.isError && <div role="alert"><p>No se pudo completar la lista de personal.</p>
       <Button variant="ghost" onClick={() => { void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch()); }}>Reintentar</Button></div>}
@@ -31,7 +31,7 @@ function AssignmentPicker({ order, onClose, onChanged }: { order: ArrangementOrd
       }, () => { onClose(); onChanged(); });
     }}>
       <Select label="Personal responsable" value={selected} disabled={operation.pending}
-        options={[{ value: '', label: 'Elegí una persona' }, ...items.map(item => ({ value: item.id, label: `${item.name} · ${item.occupation} · ${item.id}` }))]}
+        options={[{ value: '', label: 'Elegí una persona' }, ...items.map(item => ({ value: item.id, label: `${item.name ?? 'No disponible'} · ${item.occupation ?? 'No disponible'}` }))]}
         onChange={event => setSelected(event.target.value)} />
       <Button type="submit" disabled={!selected || operation.pending}>Guardar asignación</Button>
     </form>}
@@ -63,7 +63,7 @@ export function ArrangementAssignmentControls({ order }: { order: ArrangementOrd
     </div>}
     {dialog === 'assign' && <AssignmentPicker order={order} onClose={() => setDialog(null)} onChanged={changed} />}
     {dialog === 'reject' && <ArrangementDialog title="Rechazar solicitud" onClose={() => { operation.cancel(); setDialog(null); }}>
-      <p className="text-sm [overflow-wrap:anywhere]">La solicitud {order.id} quedará Rechazada y se quitará su asignación. El inquilino verá el nuevo estado.</p>
+      <p className="text-sm [overflow-wrap:anywhere]">Esta solicitud quedará Rechazada y se quitará su asignación. El inquilino verá el nuevo estado.</p>
       <Button className="mt-5" disabled={operation.pending} onClick={() => {
         void operation.run(signal => reconcileFailure(signal, () => rejectOrder(organization.id, order.id, order.version!, signal)), () => { setDialog(null); changed(); });
       }}>Confirmar rechazo</Button>

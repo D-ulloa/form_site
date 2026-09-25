@@ -31,7 +31,7 @@ export function InquilinoArrangements() {
       <p className="mt-2 text-sm text-slate-400">Consultá el historial y el estado de los arreglos.</p></div>
       {capabilities.includes('inquilino.arrangements.create') && <Button onClick={() => { setReceipt(''); setForm(true); }}>Solicitud de arreglo</Button>}</div>
     {connection === 'reconnecting' && <p role="status" className="text-sm text-amber-200">Reconectando actualizaciones…</p>}
-    {receipt && <p role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200 [overflow-wrap:anywhere]">Solicitud enviada. Identificador: {receipt}</p>}
+    {receipt && <p role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200 [overflow-wrap:anywhere]">Solicitud enviada.</p>}
     {query.isFetching && <p role="status" className="text-sm text-slate-400">Cargando solicitudes…</p>}
     {query.isError && <div role="alert" className="text-sm text-red-300"><p>{items.length ? 'No se pudo completar el historial.' : 'No se pudieron cargar las solicitudes.'}</p>
       <Button variant="ghost" disabled={query.isFetching} onClick={() => { void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch()); }}>Reintentar</Button></div>}

@@ -12,7 +12,8 @@ test('SPEC-39 browser → API → PostgREST → PostgreSQL', async ({ page }) =>
   await expect(page.getByRole('main')).not.toContainText('Orden cerrada');
   await page.getByRole('combobox').selectOption('in_progress');
   await expect(page.getByRole('listitem')).toHaveCount(1);
-  await expect(page.getByRole('listitem')).toContainText('50000000-0000-4000-8000-000000000027');
+  await expect(page.getByRole('listitem')).not.toContainText('50000000-0000-4000-8000-000000000027');
+  await expect(page.getByRole('listitem')).toContainText('En proceso');
   const requests: string[] = [];
   page.on('request', request => requests.push(request.url()));
   await page.getByRole('button', { name: 'Generar propiedad' }).click();

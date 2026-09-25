@@ -37,3 +37,10 @@ Verified locally on 2026-09-23 against a disposable PostgreSQL database:
 
 - `supabase/tests/spec46_setup.sql` + `supabase/tests/spec46_work_reports.sql` passed (`SPEC-46 SQL assertions passed`).
 - Backend unit/integration suite passing with updated capability registry and work_report projections.
+
+Verified locally on 2026-09-24:
+
+- Backend unit/integration suite passed with `npx tsx --test --test-reporter=dot tests/unit/*.test.ts tests/integration/*.test.ts`.
+- Frontend unit/integration suite passed with `npx vitest run tests/unit tests/integration --reporter=dot` (253 tests).
+- Backend/frontend TypeScript checks and frontend lint passed.
+- A SPEC-46-specific browser flow has not yet been run; browser rollout and hosted smoke tests remain open under TASK-46-04.

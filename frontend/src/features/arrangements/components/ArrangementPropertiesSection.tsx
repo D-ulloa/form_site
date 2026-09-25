@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,8 +12,11 @@ import { useArrangementCollection, useArrangementOperation } from '../hooks/useA
 import { createArrangementProperty, type ArrangementProperty } from '../services/arrangementPropertiesApi';
 import { ArrangementDialog } from './ArrangementDialog';
 import { ArrangementPropertyPanel } from './ArrangementPropertyPanel';
+import { parseSearchInput } from '../utils/searchText';
 
 const schema = z.object({ name: z.string().trim().min(1, 'Ingresá un nombre.').max(200, 'Usá hasta 200 caracteres.') });
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_TOO_LONG_ERROR = 'Usá hasta 100 caracteres.';
 
 function CreatePropertyDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (property: ArrangementProperty) => void }) {
   const { organization } = useOrganization();
@@ -35,14 +38,36 @@ function CreatePropertyDialog({ onClose, onCreated }: { onClose: () => void; onC
 }
 
 export function ArrangementPropertiesSection() {
-  const { organization, epoch, capabilities } = useOrganization();
+  const { organization, epoch, capabilities, membership } = useOrganization();
   const client = useQueryClient();
-  const query = useArrangementCollection('properties');
+  const [draftSearch, setDraftSearch] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchError, setSearchError] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const canSearch = ['owner', 'admin', 'member'].includes(membership.role);
+  const query = useArrangementCollection('properties', null, canSearch ? search : null);
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<ArrangementProperty | null>(null);
   const canCreate = capabilities.includes('arrangements.properties.create');
   const canManage = capabilities.includes('arrangements.inquilinos.manage') && capabilities.includes('members.read');
   const properties = query.data?.pages.flatMap(page => page.items) ?? [];
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  function scheduleSearch(value: string) {
+    setDraftSearch(value);
+    const parsed = parseSearchInput(value);
+    setSearchError(parsed.error ? SEARCH_TOO_LONG_ERROR : '');
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = undefined;
+    if (parsed.error) return;
+    debounceRef.current = setTimeout(() => { debounceRef.current = undefined; setSearch(parsed.value ?? ''); }, SEARCH_DEBOUNCE_MS);
+  }
+  function applySearch(value: string) {
+    if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = undefined; }
+    setDraftSearch(value);
+    const parsed = parseSearchInput(value);
+    setSearchError(parsed.error ? SEARCH_TOO_LONG_ERROR : '');
+    if (!parsed.error) setSearch(parsed.value ?? '');
+  }
   function refresh() {
     void client.invalidateQueries({ queryKey: tenantQueryKey(organization.id, epoch, 'arrangements'),
       predicate: candidate => candidate.queryKey[4] !== 'orders' });
@@ -52,14 +77,23 @@ export function ArrangementPropertiesSection() {
   return <section aria-labelledby="arrangement-properties-title" className="mt-10 min-w-0 border-t border-white/10 pt-8">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="arrangement-properties-title" className="text-xl font-semibold">Propiedades</h2>
       {canCreate && <Button variant="secondary" onClick={() => setCreating(true)}>Generar propiedad</Button>}</div>
+    {canSearch && <div className="mt-4 flex min-w-0 items-end gap-3">
+      <div className="min-w-0 flex-1 sm:max-w-sm"><Input label="Buscar propiedades" type="search" value={draftSearch}
+        placeholder="Nombre de la propiedad" autoComplete="off" maxLength={100} hint="Máximo 100 caracteres."
+        error={searchError} className="min-w-0"
+        onChange={event => scheduleSearch(event.target.value)}
+        onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applySearch(draftSearch); } }} /></div>
+      <Button type="button" variant="ghost" aria-label="Limpiar búsqueda de propiedades" disabled={!draftSearch}
+        onClick={() => applySearch('')}>Limpiar</Button>
+    </div>}
     {query.isPending && <p role="status" className="mt-4 text-sm text-slate-400">Cargando propiedades…</p>}
     {query.isError && <AlertInline title="No se pudieron cargar las propiedades"><Button variant="ghost" disabled={query.isFetching}
       onClick={() => { void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch()); }}>Reintentar propiedades</Button></AlertInline>}
-    {!query.isPending && !query.isError && properties.length === 0 && <p className="mt-4 text-sm text-slate-400">No hay propiedades en esta organización.</p>}
+    {!query.isPending && !query.isError && properties.length === 0 && <p className="mt-4 text-sm text-slate-400">
+      {search ? 'No hay propiedades que coincidan con la búsqueda.' : 'No hay propiedades en esta organización.'}</p>}
     {properties.length > 0 && <ul aria-label="Propiedades" className="mt-4 grid gap-3">
       {properties.map(property => <li key={property.id} className="surface min-w-0 rounded-xl p-5">
         <p className="font-medium [overflow-wrap:anywhere]">{property.name}</p>
-        <p className="mt-1 font-mono text-xs text-slate-400 [overflow-wrap:anywhere]">{property.id}</p>
         {canManage && <Button variant="ghost" size="sm" className="mt-3" aria-label={`Agregar inquilino a ${property.name}`}
           onClick={() => setSelected(property)}>Agregar inquilino</Button>}
       </li>)}

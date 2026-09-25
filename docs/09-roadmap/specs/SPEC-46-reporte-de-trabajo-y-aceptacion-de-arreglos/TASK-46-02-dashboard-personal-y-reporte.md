@@ -1,6 +1,6 @@
 # TASK-46-02 — Dashboard personal y reporte de trabajo
 
-- Estado: `pending`
+- Estado: `implemented` (frontend local verificado con pruebas unitarias e integración el 2026-09-24; browser/hosted smoke tests pendientes.)
 - SPEC: [SPEC-46](./SPEC-46-reporte-de-trabajo-y-aceptacion-de-arreglos.md)
 - Dependencias: contratos de TASK-46-01 y ruta/shell personal de SPEC-44/45.
 - Secuencia: puede comenzar cuando estén definidos los DTOs y mutaciones de TASK-46-01.

@@ -1,6 +1,6 @@
 # TASK-47-01 — Ocultamiento de identificadores y contrato de presentación
 
-- Estado: pending
+- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración; despliegue y smoke tests alojados pendientes)
 - SPEC: [SPEC-47](./SPEC-47-visibilidad-de-identificadores-y-busqueda-en-arreglos.md)
 - Dependencias: componentes de arreglos de SPEC-39/42/43 y controles de asignación de SPEC-45.
 - Secuencia: primero; define la frontera entre datos operativos y texto de producto.

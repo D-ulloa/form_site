@@ -1,6 +1,6 @@
 # Guía de implementación — SPEC-47
 
-Estado: pending; documento de planificación. No acredita implementación, migración aplicada ni despliegue. Esta SPEC no requiere cambios de esquema: amplía consultas de lectura y corrige la presentación del frontend.
+Estado: `implemented`; implementación y verificación locales completadas el `2026-09-24`. Esta SPEC no requiere cambios de esquema: amplía consultas de lectura y corrige la presentación del frontend. El despliegue de aplicaciones y los smoke tests alojados siguen pendientes. Ver [evidencia](../../../06-testing/spec47-visibility-and-search.md).
 
 ## 1. Punto de partida y secuencia
 

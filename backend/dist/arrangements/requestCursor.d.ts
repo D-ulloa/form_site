@@ -11,6 +11,7 @@ export declare function createRequestCursorCodec(secret: string, binding: {
     audience?: string;
     membership_id?: string;
     ordering?: string;
+    search?: string | null;
 }): {
     encode(position: z.infer<typeof Position>): string;
     decode(cursor: string): {

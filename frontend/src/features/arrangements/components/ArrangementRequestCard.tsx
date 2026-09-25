@@ -1,6 +1,6 @@
 import { ArrangementAssignmentControls } from './ArrangementAssignmentControls';
 import type { ArrangementAudience, WorkReportRecord } from '../services/arrangementRequestsApi';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOrganization } from '../../../app/contexts/OrganizationContext';
 import { tenantQueryKey } from '../../../app/contexts/tenantState';
@@ -21,6 +21,8 @@ export function ArrangementRequestCard({ order, audience }: { order: Arrangement
   const { organization, epoch, capabilities } = useOrganization();
   const client = useQueryClient();
   const operation = useArrangementOperation(requestError);
+  const reportId = useId();
+  const statusId = useId();
   const tenant = audience === 'tenant';
   const personal = audience === 'personal';
   const [status, setStatus] = useState(order.status);
@@ -46,10 +48,8 @@ export function ArrangementRequestCard({ order, audience }: { order: Arrangement
     </div>
     {!tenant && <div className="mt-4 text-sm text-slate-300 [overflow-wrap:anywhere]">
       <p className="font-medium">{order.property?.name ?? 'Propiedad no registrada'}</p>
-      {order.property && <p className="mt-1 font-mono text-xs text-slate-500">{order.property.id}</p>}
     </div>}
     <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-100 [overflow-wrap:anywhere]">{order.description ?? order.name}</p>
-    <p className="mt-4 font-mono text-xs text-slate-500 [overflow-wrap:anywhere]">{order.id}</p>
     {!!order.assets?.length && <ul aria-label="Archivos adjuntos" className="mt-4 space-y-2">
       {order.assets.map(asset => <li key={asset.id} className="min-w-0">
         <Button variant="ghost" size="sm" className="max-w-full text-left [overflow-wrap:anywhere]" disabled={operation.pending}
@@ -73,10 +73,10 @@ export function ArrangementRequestCard({ order, audience }: { order: Arrangement
     </section>}
     {canReport && <form className="mt-5 flex flex-col gap-3" onSubmit={event => { event.preventDefault(); }} aria-label="Reporte de trabajo del personal">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <label htmlFor={`report-${order.id}`} className="text-sm font-medium text-slate-300">Reporte de trabajo</label>
+        <label htmlFor={reportId} className="text-sm font-medium text-slate-300">Reporte de trabajo</label>
         <span className="text-xs text-slate-500" aria-live="polite">{trimmed.length} / {MAX_REPORT}</span>
       </div>
-      <textarea id={`report-${order.id}`} name="work_report" rows={5} maxLength={MAX_REPORT} value={reportBody} disabled={operation.pending}
+      <textarea id={reportId} name="work_report" rows={5} maxLength={MAX_REPORT} value={reportBody} disabled={operation.pending}
         className="field-input min-h-32 resize-y whitespace-pre-wrap" placeholder="Describí lo realizado en este arreglo"
         onChange={event => setReportBody(event.target.value)} />
       <div className="flex flex-wrap gap-2">
@@ -112,7 +112,7 @@ export function ArrangementRequestCard({ order, audience }: { order: Arrangement
         finally { if (!signal.aborted) void refresh(); }
       }, () => {});
     }}>
-      <div className="min-w-0 flex-1"><Select id={`status-${order.id}`} label="Estado de la solicitud" options={statusOptions.filter(option => order.status === 'rejected' ? ['open', 'rejected'].includes(option.value) : option.value !== 'rejected')} value={status}
+      <div className="min-w-0 flex-1"><Select id={statusId} label="Estado de la solicitud" options={statusOptions.filter(option => order.status === 'rejected' ? ['open', 'rejected'].includes(option.value) : option.value !== 'rejected')} value={status}
         disabled={operation.pending || lockedByReport} onChange={event => setStatus(event.target.value)} /></div>
       <Button type="submit" disabled={operation.pending || status === order.status || lockedByReport}>Guardar estado</Button>
     </form>}

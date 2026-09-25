@@ -23,6 +23,10 @@ function reject(config: InternalAxiosRequestConfig, status: number): never {
   throw new AxiosError('Request rejected', 'ERR_BAD_RESPONSE', config, undefined,
     { data: {}, status, statusText: String(status), config, headers: {} });
 }
+function rejectInvalidCursor(config: InternalAxiosRequestConfig): never {
+  throw new AxiosError('Request rejected', 'ERR_BAD_RESPONSE', config, undefined,
+    { data: { error: { code: 'INVALID_CURSOR' } }, status: 400, statusText: '400', config, headers: {} });
+}
 
 const adapter = vi.fn<AxiosAdapter>(async config => {
   const path = config.url ?? '';
@@ -57,11 +61,15 @@ beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   adapter.mockClear();
   axios.defaults.adapter = adapter;
-  resolveOrders = async config => ({ ...page, items: config.params.status
-    ? page.items.filter(item => item.status === config.params.status) : page.items });
+  resolveOrders = async config => {
+    const search = typeof config.params?.search === 'string' ? config.params.search.toLowerCase() : '';
+    const status = typeof config.params?.status === 'string' ? config.params.status : '';
+    return { ...page, items: page.items.filter(item =>
+      (!status || item.status === status) && (!search || item.name.toLowerCase().includes(search))) };
+  };
 });
 afterEach(() => {
-  cleanup(); queryClient.clear(); axios.defaults.adapter = originalAdapter;
+  cleanup(); queryClient.clear(); axios.defaults.adapter = originalAdapter; vi.useRealTimers();
   sessionStorage.clear(); window.history.replaceState(null, '', '/');
 });
 
@@ -70,7 +78,8 @@ describe('SPEC-39 arrangement dashboard', () => {
     renderDashboard();
     const list = await screen.findByRole('list', { name: 'Solicitudes de arreglo' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(list).getByText(first.id)).toBeTruthy();
+    expect(within(list).queryByText(first.id)).toBeNull();
+    expect(within(list).queryByText(second.id)).toBeNull();
     expect(within(list).getAllByText('Propiedad no registrada')).toHaveLength(2);
     const filter = screen.getByRole('combobox', { name: 'Filtrar por estado' });
     fireEvent.change(filter, { target: { value: 'in_progress' } });
@@ -128,6 +137,24 @@ describe('SPEC-39 arrangement dashboard', () => {
     expect(screen.queryByRole('button', { name: 'Cargar más' })).toBeNull();
   });
 
+  it('restarts order pagination from the first page after an invalid cursor', async () => {
+    let firstPageCalls = 0;
+    let continuationCalls = 0;
+    let cursorRejected = false;
+    resolveOrders = async config => {
+      if (config.params.cursor) { continuationCalls += 1; cursorRejected = true; return rejectInvalidCursor(config); }
+      firstPageCalls += 1;
+      return cursorRejected ? page : { ...page, items: [first], next_cursor: 'expired-cursor' };
+    };
+    renderDashboard(); await screen.findByText('Ventana');
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }));
+    expect(await screen.findByText('Puerta')).toBeTruthy();
+    await waitFor(() => expect(firstPageCalls).toBeGreaterThanOrEqual(2));
+    expect(continuationCalls).toBe(1);
+    expect(requests().filter(([config]) => Boolean(config.params.cursor))).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('shows safe errors instead of an empty state and rejects a response from another organization', async () => {
     resolveOrders = async () => ({ ...page, organization_id: B });
     renderDashboard();
@@ -145,6 +172,61 @@ describe('SPEC-39 arrangement dashboard', () => {
     expect(await screen.findByText('No tenés acceso a las órdenes de esta organización.')).toBeTruthy();
     expect(requests()).toHaveLength(0);
     expect(screen.getByRole('link', { name: 'Inicio' })).toBeTruthy();
+  });
+
+  it('debounces order search, combines it with status and clears back to the full list', async () => {
+    capabilities = ['organization.read', 'arrangements.read'];
+    renderDashboard();
+    expect(await screen.findByText('Ventana')).toBeTruthy();
+    const input = screen.getByLabelText('Buscar órdenes');
+    fireEvent.change(input, { target: { value: 'puer' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(await screen.findByText('Puerta')).toBeTruthy();
+    expect(screen.queryByText('Ventana')).toBeNull();
+    expect(requests().some(([config]) => config.params.search === 'puer')).toBe(true);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filtrar por estado' }), { target: { value: 'open' } });
+    expect(await screen.findByText('No hay órdenes que coincidan con la búsqueda.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar búsqueda de órdenes' }));
+    expect(await screen.findByText('Ventana')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Limpiar búsqueda de órdenes' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(requests().at(-1)?.[0].params.search).toBeUndefined();
+  });
+
+  it('shows the 100-character limit and keeps the last valid order search when input is too long', async () => {
+    renderDashboard(); await screen.findByText('Ventana');
+    const input = screen.getByLabelText('Buscar órdenes') as HTMLInputElement;
+    expect(input.maxLength).toBe(100);
+    expect(input.getAttribute('aria-describedby')).toContain(`${input.id}-hint`);
+    const requestCount = requests().length;
+    fireEvent.change(input, { target: { value: 'a'.repeat(101) } });
+    expect(await screen.findByText('Usá hasta 100 caracteres.')).toBeTruthy();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toContain(`${input.id}-error`);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.getByText('Ventana')).toBeTruthy();
+    expect(requests()).toHaveLength(requestCount);
+  });
+
+  it('hides the order search bar for viewer without removing existing status filtering', async () => {
+    const viewerAdapter = vi.fn<AxiosAdapter>(async config => {
+      const path = config.url ?? '';
+      let payload: unknown;
+      if (path === '/api/auth/session') payload = organizationSession;
+      else if (path.endsWith('/context')) {
+        const context = organizationContext(path.includes('/solar/') ? 'solar' : 'azar');
+        payload = { ...context, membership: { ...context.membership, role: 'viewer' }, capabilities };
+      } else if (path.endsWith('/arrangements/properties')) payload = { organization_id: A, items: [], next_cursor: null };
+      else if (path.endsWith('/arrangements/orders')) payload = await resolveOrders(config);
+      else throw new Error(`Unexpected request ${path}`);
+      return { data: payload, status: 200, statusText: 'OK', config, headers: {} };
+    });
+    axios.defaults.adapter = viewerAdapter;
+    capabilities = ['organization.read', 'arrangements.read'];
+    renderDashboard();
+    expect(await screen.findByText('Ventana')).toBeTruthy();
+    expect(screen.queryByLabelText('Buscar órdenes')).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Filtrar por estado' })).toBeTruthy();
+    axios.defaults.adapter = adapter;
   });
 
   it.each([401, 403, 404])('removes already loaded data when a later request loses access (%s)', async code => {

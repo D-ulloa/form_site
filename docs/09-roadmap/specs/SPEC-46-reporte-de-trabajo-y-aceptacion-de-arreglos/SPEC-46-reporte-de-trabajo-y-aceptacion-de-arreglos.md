@@ -1,7 +1,7 @@
 # SPEC-46 — Reporte de trabajo y aceptación de órdenes de arreglos
 
-- Estado: `pending`
-- Fecha: `2026-09-22`
+- Estado: `implemented` (verificado localmente: SQL contra PostgreSQL desechable el 2026-09-23; suites backend/frontend unitarias e integración el 2026-09-24. Verificación browser/hosted y migración en entorno compartido pendientes.)
+- Fecha: `2026-09-24`
 - Prioridad: `high`
 - Autor: `redacted`
 
