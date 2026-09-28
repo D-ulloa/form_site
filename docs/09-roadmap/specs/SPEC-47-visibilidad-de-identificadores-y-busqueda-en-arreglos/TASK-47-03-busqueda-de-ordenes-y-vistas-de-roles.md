@@ -28,9 +28,10 @@ Agregar búsqueda por nombre, descripción o propiedad a las órdenes de owner, 
 
 ## Criterios de cierre
 
-- Owner, admin y member encuentran órdenes en cualquier página por los campos contratados.
+- Owner, admin y member encuentran órdenes en páginas server-side dentro del presupuesto de escaneo; ver la limitación aceptada en SPEC-47.
 - Search y status no se sobrescriben ni se pierden al paginar o actualizar.
 - Viewer conserva lectura previa sin barra de búsqueda nueva y sin IDs visibles.
+- El API rechaza búsquedas de viewer antes de leer datos (`INVALID_REQUEST`); el listado de viewer sin search conserva su contrato.
 - Personal e inquilino no reciben una ampliación de consulta ni muestran IDs en tarjetas/recibos.
 - Las acciones existentes continúan enviando IDs internos y pasan sus guards.
 - Las actualizaciones compartidas, errores y reconexiones conservan el filtro o lo reinician de forma explícita y segura.

@@ -24,11 +24,11 @@ Agregar una búsqueda server-side por nombre en Propiedades para owner, admin y 
 3. Extender useArrangementCollection y ArrangementPropertiesSection sin duplicar una consulta global.
 4. Reiniciar cursor y cancelar respuestas al cambiar la consulta o el contexto.
 5. Mostrar mensajes distintos para organización vacía y búsqueda sin coincidencias.
-6. Probar roles owner/admin/member/viewer y conservar el acceso de viewer sin barra nueva.
+6. Probar roles owner/admin/member/viewer: conservar el listado sin search para viewer, ocultar la barra y rechazar search en el API.
 
 ## Criterios de cierre
 
-- Owner, admin y member encuentran propiedades por nombre en todas las páginas autorizadas.
+- Owner, admin y member encuentran propiedades por nombre mediante búsqueda server-side paginada dentro del presupuesto de escaneo; ver la limitación aceptada en SPEC-47.
 - Limpiar restaura el listado completo y selecciona correctamente una propiedad.
 - Una respuesta tardía o cursor cruzado no mezcla búsquedas ni organizaciones.
 - No se agrega ID visible para diferenciar propiedades con el mismo nombre.

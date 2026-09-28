@@ -44,3 +44,9 @@ Verified locally on 2026-09-24:
 - Frontend unit/integration suite passed with `npx vitest run tests/unit tests/integration --reporter=dot` (253 tests).
 - Backend/frontend TypeScript checks and frontend lint passed.
 - A SPEC-46-specific browser flow has not yet been run; browser rollout and hosted smoke tests remain open under TASK-46-04.
+
+Full backend/frontend unit and integration suites were rerun on 2026-09-25, including the SPEC-46 regression coverage:
+
+- Backend `npm test`: **357 passed, 0 failed, 22 skipped** (opt-in database suites without URLs).
+- Frontend `npm test -- --reporter=dot`: **253 passed across 33 files**.
+- The 2026-09-24 TypeScript, lint and build results above were not rerun on 2026-09-25. Browser rollout checks and hosted smoke tests remain pending.

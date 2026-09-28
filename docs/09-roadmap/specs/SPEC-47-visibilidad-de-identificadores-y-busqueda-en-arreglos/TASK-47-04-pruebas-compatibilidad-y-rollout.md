@@ -1,6 +1,6 @@
 # TASK-47-04 — Pruebas, compatibilidad y rollout
 
-- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración; e2e con fixture viva parcial — 5 pasaron / 12 requieren entorno con base de datos; despliegue y smoke tests alojados pendientes)
+- Estado: `implemented` (tests unit/API frontend y backend aprobados localmente el 2026-09-25; el recheck browser quedó bloqueado por falta del ejecutable Chromium de Playwright; sin migración; despliegue y smoke tests alojados pendientes)
 - SPEC: [SPEC-47](./SPEC-47-visibilidad-de-identificadores-y-busqueda-en-arreglos.md)
 - Dependencias: TASK-47-01/02/03 integradas; backend, frontend, browser y fixtures de SPEC-39/42/43/44/45.
 - Secuencia: preparar fixtures desde el inicio y cerrar solo con consultas reales y revisión de presentación.
@@ -30,6 +30,8 @@ Demostrar que los dashboards de arreglos ocultan IDs en todas las audiencias y q
 | Scope | A no ve resultados de B con search, cursor o respuesta tardía manipulados. |
 | Acciones | Crear, asociar, invitar, asignar, rechazar, cambiar estado y assets siguen autorizados. |
 | Compatibilidad | Respuesta sin search mantiene listado normal; no se requiere migración. |
+| Compatibilidad de cursores | Cursores sin search previos siguen aceptándose; cursores nuevos de búsqueda quedan ligados a su query; `INVALID_CURSOR` activa un único reinicio automático por query key. |
+| Límite operativo | El scan es de hasta 50 × 100 registros por request; búsquedas dispersas que exceden el presupuesto pueden fallar con error de dependencia. Limitación diferida, no corregida en esta SPEC. |
 | Responsive | Teclado, foco, screen reader, consola limpia y 1280×800/390×844/320×740. |
 
 ## Criterios de cierre
@@ -45,7 +47,8 @@ Demostrar que los dashboards de arreglos ocultan IDs en todas las audiencias y q
 
 - Comandos, resultados, fixtures, capturas y limitaciones reproducibles.
 - Trazabilidad de los 13 criterios de aceptación de SPEC-47 a API, componentes y browser.
-- Confirmación explícita de que no hubo migración, cambio de autorización o despliegue implícito.
+- Confirmación explícita de que no hubo migración ni cambio de capabilities/RLS o despliegue implícito; viewer search se rechaza explícitamente en la capa de request.
+- La verificación Playwright del 2026-09-25 no lanzó porque falta Chromium; la evidencia registra por separado ejecuciones browser anteriores y la suite amplia con fallos.
 
 ## Referencias
 

@@ -1,6 +1,6 @@
 # Guía de implementación — SPEC-47
 
-Estado: `implemented`; implementación y verificación locales completadas el `2026-09-24`. Esta SPEC no requiere cambios de esquema: amplía consultas de lectura y corrige la presentación del frontend. El despliegue de aplicaciones y los smoke tests alojados siguen pendientes. Ver [evidencia](../../../06-testing/spec47-visibility-and-search.md).
+Estado: `implemented`; implementación verificada localmente el `2026-09-24`; suites backend/frontend actualizadas el `2026-09-25`. Esta SPEC no requiere cambios de esquema ni de capabilities/RLS: amplía consultas de lectura y corrige la presentación del frontend. La validación del API rechaza search para viewer, inquilino y personal. El despliegue de aplicaciones y los smoke tests alojados siguen pendientes. Ver [evidencia](../../../06-testing/spec47-visibility-and-search.md).
 
 ## 1. Punto de partida y secuencia
 
@@ -52,7 +52,7 @@ Agregar search como parámetro opcional a:
 
 Reglas del parámetro:
 
-1. Aceptar texto UTF-8, trim, normalización Unicode y un límite razonable, por ejemplo 100 caracteres.
+1. Aceptar texto UTF-8, trim, normalización Unicode y máximo 100 caracteres. La UI aplica `maxLength`, comunica el límite y muestra error para un draft excesivo sin sustituir el último filtro válido comprometido.
 2. Tratar vacío como ausencia de filtro.
 3. Buscar propiedades por name y órdenes por name, description y property.name.
 4. No incluir IDs en el predicado de búsqueda ni aceptar una opción de búsqueda por ID.
@@ -64,12 +64,15 @@ La API puede conservar los IDs en la respuesta porque las acciones de asignar, r
 
 No agregar migración por esta SPEC. Si la estrategia de búsqueda requiere un índice nuevo, documentarlo como cambio aditivo de rendimiento y conservar el contrato de rollback; no modificar migraciones anteriores.
 
+Los cursores sin search mantienen el binding legado para no interrumpir páginas ya abiertas durante una actualización. Los cursores nuevos de búsqueda incluyen el filtro. Si una página siguiente devuelve `INVALID_CURSOR`, cada hook reinicia la consulta una sola vez por query key.
+
 ## 4. Hook, cache y comportamiento de búsqueda
 
 - Extender useArrangementCollection con un valor search para properties. El valor debe formar parte de tenantQueryKey junto con organización, epoch y colección.
 - Extender useArrangementOrders con search. La clave debe incluir search, status, membresía y rol/audiencia.
 - Debounce de 250–350 ms, AbortSignal por consulta y cancelación al cambiar organización, sesión, rol o membresía.
 - Al cambiar search o status, reiniciar cursor y páginas. No reutilizar un cursor generado con otro filtro.
+- Conservar compatibilidad de cursor sin search; ante `INVALID_CURSOR`, realizar un único reinicio automático para la query actual y evitar ciclos de reintento.
 - Mantener resultados previos solo si el estado visual indica que se están actualizando; una respuesta tardía nunca puede reemplazar la consulta vigente.
 - Evitar una consulta de búsqueda para viewer, inquilino o personal si la SPEC no la habilita. Esos componentes solo reciben la redacción de presentación.
 - Los mensajes de carga, vacío y error deben referirse a propiedades u órdenes, no a IDs técnicos.
@@ -118,6 +121,8 @@ Matriz mínima:
 - Inspección de DOM y accesibilidad para detectar IDs de propiedad, miembro, invitación y orden en texto, aria, title, data-* y clipboard.
 - Acciones de crear/seleccionar propiedad, asociar/invitar, asignar/rechazar, cambiar estado y abrir asset después de ocultar los IDs.
 - Consola limpia, teclado/foco y viewports 1280×800, 390×844 y 320×740.
+
+Limitación aceptada: cada búsqueda recorre como máximo 50 páginas fuente de 100 registros (5.000 por request). Si una consulta dispersa no alcanza coincidencias suficientes antes del límite, propiedades devuelven `DEPENDENCY_NOT_READY` y órdenes `DEPENDENCY_UNAVAILABLE`; no se debe describir como búsqueda completa sobre listas arbitrariamente grandes. Corregir ese límite no forma parte de esta entrega.
 
 Rollout:
 

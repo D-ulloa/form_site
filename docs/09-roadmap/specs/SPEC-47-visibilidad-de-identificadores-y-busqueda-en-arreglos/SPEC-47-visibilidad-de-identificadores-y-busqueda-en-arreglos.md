@@ -1,6 +1,6 @@
 # SPEC-47 — Visibilidad de identificadores y búsqueda en dashboards de arreglos
 
-- Estado: `implemented` (verificado localmente el 2026-09-24; sin migración ni cambios de autorización; despliegue y smoke tests alojados pendientes)
+- Estado: `implemented` (implementado y verificado localmente el 2026-09-24; suites frontend/backend actualizadas el 2026-09-25; sin migración, cambio de capabilities ni RLS; despliegue y smoke tests alojados pendientes)
 - Fecha: 2026-09-22
 - Prioridad: medium
 - Autor: redacted
@@ -65,7 +65,7 @@ La redacción afecta únicamente la presentación y las consultas de lectura. Lo
 - En el dashboard de órdenes, owner, admin y member deben ver un campo accesible con label Buscar órdenes, separado visualmente del filtro por estado.
 - La búsqueda debe coincidir contra el nombre de la orden, la descripción y el nombre de la propiedad asociada. No debe coincidir contra el ID de orden, propiedad, organización o membresía.
 - El filtro de texto y el filtro de estado se combinan con lógica AND. Todos conserva su significado actual y no se persiste como estado de dominio.
-- La búsqueda se ejecuta sobre todas las órdenes autorizadas de la organización activa antes de aplicar la paginación. No se limita a las 25 órdenes ya cargadas.
+- La búsqueda se ejecuta server-side sobre las órdenes autorizadas antes de aplicar la paginación; no se limita a las 25 órdenes ya cargadas. Cada request tiene un presupuesto máximo de escaneo documentado en Limitación conocida.
 - La lista mantiene orden estable y paginación. El cursor queda ligado al scope, audiencia, estado, búsqueda y límite; un cursor de otra consulta se rechaza y se reinicia de forma segura.
 - Mientras cambia la consulta, la interfaz muestra estado de carga o conserva resultados anteriores claramente marcados como desactualizados; no presenta una lista vacía como si no hubiera coincidencias.
 - El resultado vacío distingue entre sin órdenes en la organización y sin coincidencias para el texto/filtro seleccionados.
@@ -107,8 +107,8 @@ La redacción afecta únicamente la presentación y las consultas de lectura. Lo
 1. Ninguna vista de arreglos muestra IDs alfanuméricos de propiedades, miembros, invitaciones u órdenes a owner, admin, member, viewer, inquilino o personal.
 2. La ocultación también cubre diálogos, botones, labels, aria-label, tooltips, mensajes de éxito/error, texto copiado y estados vacíos; no es solamente un cambio de color o CSS.
 3. El personal y el inquilino mantienen su alcance actual y pueden usar órdenes y archivos autorizados sin ver el ID de la orden o propiedad.
-4. Owner, admin y member ven Buscar propiedades en el dashboard y pueden encontrar coincidencias por nombre en todas las páginas de su organización.
-5. Owner, admin y member ven Buscar órdenes y pueden encontrar coincidencias por nombre, descripción o propiedad, sin usar IDs.
+4. Owner, admin y member ven Buscar propiedades en el dashboard y pueden encontrar coincidencias por nombre dentro del presupuesto de escaneo documentado en Limitación conocida.
+5. Owner, admin y member ven Buscar órdenes y pueden encontrar coincidencias por nombre, descripción o propiedad, sin usar IDs, dentro del presupuesto de escaneo documentado en Limitación conocida.
 6. Búsqueda y estado se combinan correctamente, mantienen paginación y reinician el cursor al cambiar el texto.
 7. Una búsqueda no devuelve datos de otra organización, propiedad o audiencia, incluso con cursor, respuesta tardía o manipulación del parámetro.
 8. Viewer no recibe controles de búsqueda nuevos, pero sí la redacción transversal de identificadores.
@@ -116,7 +116,11 @@ La redacción afecta únicamente la presentación y las consultas de lectura. Lo
 10. Propiedades y órdenes repetidas siguen siendo distinguibles por nombre, descripción, estado, fecha y contexto sin introducir el ID como solución visual.
 11. Teclado, screen reader, foco, mensajes de carga/error/vacío y responsive funcionan en los tres viewports contratados.
 12. Las pruebas frontend, API y browser comprueban que ningún texto renderizado, atributo accesible o mensaje contiene los IDs de fixtures.
-13. No se agrega migración de base de datos ni se modifica la autorización existente; los checks de regresión de SPEC-39/42/43/44/45 permanecen verdes.
+13. No se agrega migración ni se cambian capabilities o RLS; la validación del parámetro rechaza explícitamente search para viewer, inquilino y personal. Los checks de regresión de SPEC-39/42/43/44/45 permanecen verdes.
+
+## Limitación conocida aceptada
+
+Las búsquedas de propiedades y órdenes recorren como máximo 50 páginas fuente de 100 filas por request (5.000 registros). Si una búsqueda dispersa no encuentra suficientes coincidencias para completar la página antes de alcanzar el límite, el servicio falla de forma cerrada en vez de presentar resultados incompletos como definitivos: propiedades devuelven `DEPENDENCY_NOT_READY` y órdenes `DEPENDENCY_UNAVAILABLE`. Resolver búsquedas sobre listas mayores queda expresamente diferido y fuera de este alcance.
 
 ## Fuera de alcance
 
