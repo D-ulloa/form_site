@@ -27,5 +27,5 @@ export function buildFolderName(
 
   const timestamp = `${year}${month}${day}-${hours}${minutes}`;
 
-  return `OP-${localidad}-${tipo}-${dir}-${timestamp}`;
+  return `${dir}-${tipo}-${localidad}-${timestamp}-AZ`;
 }
