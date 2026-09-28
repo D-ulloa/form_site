@@ -73,15 +73,19 @@ export class SessionService {
 
   async create(identity: SessionIdentity, remembered: boolean, request: Request): Promise<CreatedSession> {
     const maximum = activeSessionLimit(this.environment);
-    const active = (await this.repository.listUserSessions(identity.user_id)).filter((session) =>
-      !session.revoked_at && Date.parse(session.absolute_expires_at) > this.now().getTime());
+    const sessions = await this.repository.listUserSessions(identity.user_id);
+    const now = this.now();
+    const nowMs = now.getTime();
+    const active = sessions.filter((session) =>
+      !session.revoked_at
+      && Date.parse(session.absolute_expires_at) > nowMs
+      && (session.idle_expires_at === null || Date.parse(session.idle_expires_at) > nowMs));
     if (active.length >= maximum) throw new IdentityAccessError('SESSION_LIMIT_REACHED', 409);
     const material = createSessionTokenMaterial(this.environment);
     const absoluteSeconds = positiveSeconds(this.environment,
       remembered ? 'APP_REMEMBERED_SESSION_TTL_SECONDS' : 'APP_SESSION_TTL_SECONDS',
       remembered ? REMEMBERED_ABSOLUTE_SECONDS : STANDARD_ABSOLUTE_SECONDS);
     const idleSeconds = Math.min(positiveSeconds(this.environment, 'APP_SESSION_IDLE_TTL_SECONDS', IDLE_SECONDS), absoluteSeconds);
-    const now = this.now();
     const input: SessionCreateInput = {
       identity, material, remembered,
       absolute_expires_at: new Date(now.getTime() + absoluteSeconds * 1000).toISOString(),
