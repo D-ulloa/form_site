@@ -31,6 +31,8 @@ import type { PropertyFormInput, PropertyFormValues } from '../features/properti
 import type { SubmissionResult } from '../features/properties/services/propertyApi.ts';
 import { useOrganization } from '../app/contexts/OrganizationContext.tsx';
 
+type SubmissionPhase = 'idle' | 'validating' | 'preparing' | 'uploading' | 'submitting';
+
 export function NewPropertyPage() {
   const navigate = useNavigate();
   const organization = useOrganization();
@@ -38,6 +40,8 @@ export function NewPropertyPage() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [submissionPhase, setSubmissionPhase] = useState<SubmissionPhase>('idle');
+  const [uploadProgress, setUploadProgress] = useState({ completed: 0, total: 0 });
 
   const form = usePropertyForm();
   const media = useMediaValidation();
@@ -69,16 +73,28 @@ export function NewPropertyPage() {
   } = form;
 
   const errorCount = Object.keys(errors).length;
-  const isLoading = isPending;
+  const isLoading = isPending || submissionPhase !== 'idle';
   const provider = getMediaUploadProvider();
 
+  const submitButtonLabel = (() => {
+    switch (submissionPhase) {
+      case 'validating': return 'Validando…';
+      case 'preparing': return 'Preparando carga…';
+      case 'uploading': return `Subiendo archivos (${uploadProgress.completed}/${uploadProgress.total})…`;
+      case 'submitting': return 'Enviando propiedad…';
+      default: return isPending ? 'Enviando propiedad…' : 'Enviar propiedad';
+    }
+  })();
+
   const handleSubmitError = (message: string): void => {
+    setSubmissionPhase('idle');
     setValidationError(null);
     setSubmitError(message);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleInvalidSubmit = (submitErrors: FieldErrors<PropertyFormInput>): void => {
+    setSubmissionPhase('idle');
     setSubmitError(null);
     setValidationError('Revisá los campos marcados en rojo antes de enviar.');
 
@@ -98,10 +114,12 @@ export function NewPropertyPage() {
 
   const onValidSubmit = async (values: PropertyFormValues) => {
     if (!adminSession) {
+      setSubmissionPhase('idle');
       navigate('/login', { replace: true });
       return;
     }
     if (!media.isValid) {
+      setSubmissionPhase('idle');
       return;
     }
 
@@ -110,10 +128,12 @@ export function NewPropertyPage() {
 
     if (provider === 'drive') {
       const fd = buildFormData(values, media.files, media.coverFileName);
+      setSubmissionPhase('submitting');
       mutate(
         { mode: 'legacy', formData: fd },
         {
           onSuccess: (result: SubmissionResult) => {
+            setSubmissionPhase('idle');
             navigate(`/t/${organization.organization.slug}/properties/success/${result.submission_id}`, {
               state: { result },
             });
@@ -134,10 +154,12 @@ export function NewPropertyPage() {
         media.coverFileName,
       );
 
+      setSubmissionPhase('submitting');
       mutate(
         { mode: 'json', payload },
         {
           onSuccess: (result: SubmissionResult) => {
+            setSubmissionPhase('idle');
             navigate(`/t/${organization.organization.slug}/properties/success/${result.submission_id}`, {
               state: { result },
             });
@@ -151,6 +173,8 @@ export function NewPropertyPage() {
     }
 
     try {
+      setSubmissionPhase('preparing');
+      setUploadProgress({ completed: 0, total: media.files.length });
       const presignRequestFiles = media.files.map((entry) => ({
         originalName: entry.file.name,
         mimeType: entry.file.type,
@@ -162,6 +186,7 @@ export function NewPropertyPage() {
         presignRequestFiles,
       );
 
+      setSubmissionPhase('uploading');
       const uploadedMedia: MediaUploadMetadata[] = [];
 
       for (let i = 0; i < media.files.length; i += 1) {
@@ -172,6 +197,7 @@ export function NewPropertyPage() {
         }
 
         await uploadFileToSupabase(entry.file, upload.uploadUrl, entry.file.type);
+        setUploadProgress({ completed: i + 1, total: media.files.length });
         uploadedMedia.push(buildMediaMetadataFromPresigned(entry.file, {
           originalName: upload.originalName,
           uploadUrl: upload.uploadUrl,
@@ -188,10 +214,12 @@ export function NewPropertyPage() {
         media.coverFileName,
       );
 
+      setSubmissionPhase('submitting');
       mutate(
         { mode: 'json', payload },
         {
           onSuccess: (result: SubmissionResult) => {
+            setSubmissionPhase('idle');
             navigate(`/t/${organization.organization.slug}/properties/success/${result.submission_id}`, {
               state: { result },
             });
@@ -244,7 +272,12 @@ export function NewPropertyPage() {
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
         <form
           id="property-form"
-          onSubmit={handleSubmit(onValidSubmit, handleInvalidSubmit)}
+          onSubmit={(event) => {
+            setSubmissionPhase('validating');
+            void handleSubmit(onValidSubmit, handleInvalidSubmit)(event).catch((error: unknown) => {
+              handleSubmitError(error instanceof Error ? error.message : 'Error inesperado al enviar la propiedad.');
+            });
+          }}
           noValidate
           className="flex flex-col gap-6"
         >
@@ -272,7 +305,7 @@ export function NewPropertyPage() {
             onFilesChange={media.handleFilesChange}
             onCoverChange={media.handleCoverChange}
             totalSizeError={media.sizeError}
-            isSubmitting={isLoading}
+            isSubmitting={submissionPhase === 'uploading'}
           />
 
           {/* Submit bar */}
@@ -292,7 +325,7 @@ export function NewPropertyPage() {
               disabled={isLoading || !media.isValid}
               id="btn-submit-property"
             >
-              {isLoading ? 'Enviando…' : 'Enviar propiedad'}
+              {submitButtonLabel}
             </Button>
           </div>
         </form>
