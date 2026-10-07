@@ -15,6 +15,7 @@ import {
 } from '../features/contracts/services/adminAuthApi.ts';
 import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 import { useAuthentication } from '../app/contexts/AuthenticationContext.tsx';
+import { safeSessionReturnPath } from '../app/auth/sessionNavigation.ts';
 
 type AuthMode = 'login' | 'register';
 const OPERATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -70,7 +71,8 @@ function initialRegistrationOperationId(): string {
 export function AuthPage({ mode }: AuthPageProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get('return_to') === '/invitations/accept' ? '/invitations/accept' : '/';
+  const returnTo = safeSessionReturnPath(searchParams.get('return_to'));
+  const sessionExpired = mode === 'login' && searchParams.get('reason') === 'session_expired';
   const queryClient = useQueryClient();
   const authentication = useAuthentication();
   const isRegister = mode === 'register';
@@ -191,6 +193,17 @@ export function AuthPage({ mode }: AuthPageProps) {
             ? 'Registrate para crear y administrar propiedades y contratos.'
             : 'Ingresá para continuar gestionando propiedades y contratos.'}
         </p>
+
+        {sessionExpired && (
+          <div className="mt-5">
+            <AlertInline variant="warning" title="Volvé a iniciar sesión">
+              Tu sesión venció o dejó de ser válida. Iniciá sesión nuevamente para continuar.
+              {returnTo.endsWith('/properties/new') && (
+                <p className="mt-2">Los datos y archivos que no enviaste no se conservaron. Tendrás que completar el formulario nuevamente.</p>
+              )}
+            </AlertInline>
+          </div>
+        )}
 
         <form className="mt-7 space-y-4" onSubmit={handleSubmit} noValidate>
           {error && (

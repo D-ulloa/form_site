@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { notifyApplicationSessionFailure } from '../../../app/auth/sessionRequests.ts';
 import type {
   InvitationResolution,
   ManualInvitationReceipt,
@@ -16,6 +17,10 @@ api.interceptors.request.use((config) => {
     if (match) config.headers.set('X-CSRF-Token', decodeURIComponent(match.slice('form_site_csrf='.length)));
   }
   return config;
+});
+api.interceptors.response.use(undefined, (error: unknown) => {
+  notifyApplicationSessionFailure(error);
+  return Promise.reject(error);
 });
 
 export async function createOrganizationInvitation(

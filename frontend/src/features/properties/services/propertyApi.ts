@@ -78,6 +78,7 @@ export function getMediaUploadProvider(): UploadClient {
 export async function requestMediaUploadUrls(
   organization: string,
   files: MediaUploadRequestFile[],
+  signal?: AbortSignal,
 ): Promise<PresignResponse> {
   const response = await axios.post<PresignResponse>(
     `${propertyApiPath(organization)}/media/presign`,
@@ -87,6 +88,7 @@ export async function requestMediaUploadUrls(
     {
       headers: mutationHeaders('application/json'),
       withCredentials: true,
+      signal,
     },
   );
 
@@ -97,8 +99,10 @@ export async function uploadFileToSupabase(
   file: File,
   uploadUrl: string,
   mimeType: string,
+  signal?: AbortSignal,
 ): Promise<void> {
   await axios.put(uploadUrl, file, {
+    signal,
     headers: {
       'Content-Type': mimeType || 'application/octet-stream',
     },

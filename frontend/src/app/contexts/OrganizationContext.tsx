@@ -2,8 +2,9 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Navigate, Outlet, useParams } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthentication } from './AuthenticationContext';
+import { sessionLoginPath } from '../auth/sessionNavigation.ts';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 
@@ -21,6 +22,7 @@ const OrganizationContext = createContext<ConfirmedOrganizationContext | null>(n
 
 export function OrganizationRouteBoundary() {
   const { organizationSlug = '' } = useParams();
+  const location = useLocation();
   const authentication = useAuthentication();
   const queryClient = useQueryClient();
   const epoch = useRef(0);
@@ -47,9 +49,9 @@ export function OrganizationRouteBoundary() {
       }
     });
     return () => { controller.abort(); epoch.current += 1; setContext(null); };
-  }, [authentication.status, organizationSlug, queryClient]);
+  }, [authentication.status, authentication.session?.user?.id, organizationSlug, queryClient]);
 
-  if (authentication.status === 'anonymous') return <Navigate to="/login" replace />;
+  if (authentication.status === 'anonymous') return <Navigate to={sessionLoginPath(location.pathname, authentication.sessionExpired)} replace />;
   if (authentication.status === 'loading' || state === 'loading' || resolvedSlug !== organizationSlug) return <NeutralShell label="Validando organización…" />;
   if (authentication.status === 'unavailable' || state === 'unavailable') return <NeutralShell label="El contexto seguro no está disponible." />;
   if (state === 'denied' || !context) return <Navigate to="/" replace />;

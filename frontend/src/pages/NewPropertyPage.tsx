@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FieldErrors } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { usePropertyForm } from '../features/properties/hooks/usePropertyForm.ts';
@@ -23,49 +23,39 @@ import { AdditionalDetailsSection } from '../features/properties/components/Addi
 import { MediaUploadSection } from '../features/properties/components/MediaUploadSection.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { AlertInline } from '../components/ui/AlertInline.tsx';
-import {
-  fetchAdminSession,
-  type AdminSession,
-} from '../features/contracts/services/adminAuthApi.ts';
 import type { PropertyFormInput, PropertyFormValues } from '../features/properties/schemas/propertySchema.ts';
 import type { SubmissionResult } from '../features/properties/services/propertyApi.ts';
 import { useOrganization } from '../app/contexts/OrganizationContext.tsx';
+import { useAuthentication } from '../app/contexts/AuthenticationContext.tsx';
 
 type SubmissionPhase = 'idle' | 'validating' | 'preparing' | 'uploading' | 'submitting';
 
 export function NewPropertyPage() {
   const navigate = useNavigate();
   const organization = useOrganization();
-  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
+  const { session: adminSession } = useAuthentication();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submissionPhase, setSubmissionPhase] = useState<SubmissionPhase>('idle');
   const [uploadProgress, setUploadProgress] = useState({ completed: 0, total: 0 });
+  const mediaUploadRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => { mediaUploadRequest.current?.abort(); }, []);
 
   const form = usePropertyForm();
   const media = useMediaValidation();
   const { mutate, isPending } = useCreatePropertySubmission(organization.organization.slug);
   const { setValue } = form;
+  const agentUserId = adminSession?.user.id;
+  const agentName = adminSession?.user.name;
+  const agentEmail = adminSession?.user.email;
 
   useEffect(() => {
-    let active = true;
-    void fetchAdminSession()
-      .then((session) => {
-        if (!active) return;
-        if (!session) {
-          navigate('/login', { replace: true });
-          return;
-        }
-        setAdminSession(session);
-        setValue('agent_user_id', session.user.id, { shouldValidate: true, shouldDirty: false });
-        setValue('agent_name', session.user.name, { shouldValidate: true, shouldDirty: false });
-        setValue('agent_email', session.user.email, { shouldValidate: true, shouldDirty: false });
-      })
-      .catch(() => navigate('/login', { replace: true }))
-      .finally(() => { if (active) setSessionChecked(true); });
-    return () => { active = false; };
-  }, [navigate, setValue]);
+    if (!agentUserId || agentName === undefined || agentEmail === undefined) return;
+    setValue('agent_user_id', agentUserId, { shouldValidate: true, shouldDirty: false });
+    setValue('agent_name', agentName, { shouldValidate: true, shouldDirty: false });
+    setValue('agent_email', agentEmail, { shouldValidate: true, shouldDirty: false });
+  }, [agentUserId, agentName, agentEmail, setValue]);
 
   const {
     handleSubmit,
@@ -172,6 +162,8 @@ export function NewPropertyPage() {
       return;
     }
 
+    const controller = new AbortController();
+    mediaUploadRequest.current = controller;
     try {
       setSubmissionPhase('preparing');
       setUploadProgress({ completed: 0, total: media.files.length });
@@ -184,7 +176,9 @@ export function NewPropertyPage() {
       const presignResponse = await requestMediaUploadUrls(
         organization.organization.slug,
         presignRequestFiles,
+        controller.signal,
       );
+      if (controller.signal.aborted) return;
 
       setSubmissionPhase('uploading');
       const uploadedMedia: MediaUploadMetadata[] = [];
@@ -196,7 +190,8 @@ export function NewPropertyPage() {
           throw new Error('Error de sesión de carga: falta información de presign para uno de los archivos.');
         }
 
-        await uploadFileToSupabase(entry.file, upload.uploadUrl, entry.file.type);
+        await uploadFileToSupabase(entry.file, upload.uploadUrl, entry.file.type, controller.signal);
+        if (controller.signal.aborted) return;
         setUploadProgress({ completed: i + 1, total: media.files.length });
         uploadedMedia.push(buildMediaMetadataFromPresigned(entry.file, {
           originalName: upload.originalName,
@@ -230,14 +225,17 @@ export function NewPropertyPage() {
         },
       );
     } catch (err) {
+      if (controller.signal.aborted) return;
       const message = err instanceof Error
         ? err.message
         : 'No se pudo subir la media al storage temporal. Intentá nuevamente.';
       handleSubmitError(message);
+    } finally {
+      if (mediaUploadRequest.current === controller) mediaUploadRequest.current = null;
     }
   };
 
-  if (!sessionChecked || !adminSession) {
+  if (!adminSession) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[var(--bg-base)] text-sm text-slate-400" role="status">
         Comprobando sesión…

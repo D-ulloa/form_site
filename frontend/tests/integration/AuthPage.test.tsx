@@ -8,6 +8,7 @@ import { AgentProvider } from '../../src/app/contexts/AgentContext.tsx';
 import { AuthenticationProvider } from '../../src/app/contexts/AuthenticationContext.tsx';
 import {
   fetchAdminSession,
+  checkAdminSession,
   loginAdmin,
   registerAdmin,
   recoverSelfServiceRegistration,
@@ -20,6 +21,7 @@ import { AuthPage } from '../../src/pages/AuthPage.tsx';
 vi.mock('../../src/features/contracts/services/adminAuthApi.ts', () => ({
   AdminAuthError: class AdminAuthError extends Error {},
   fetchAdminSession: vi.fn(),
+  checkAdminSession: vi.fn(),
   loginAdmin: vi.fn(),
   registerAdmin: vi.fn(),
   startGoogleLogin: vi.fn(),
@@ -29,7 +31,7 @@ vi.mock('../../src/features/contracts/services/adminAuthApi.ts', () => ({
   logoutAdmin: vi.fn(),
 }));
 
-function renderAuth(path: '/login' | '/register') {
+function renderAuth(path: string) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
@@ -37,6 +39,7 @@ function renderAuth(path: '/login' | '/register') {
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
           <Route path="/" element={<p>Sesión iniciada</p>} />
+          <Route path="/t/azar/properties/new" element={<p>Formulario de propiedad</p>} />
         </Routes></AuthenticationProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -45,6 +48,7 @@ function renderAuth(path: '/login' | '/register') {
 
 beforeEach(() => {
   vi.mocked(fetchAdminSession).mockResolvedValue(null);
+  vi.mocked(checkAdminSession).mockImplementation(() => fetchAdminSession());
   vi.mocked(loginAdmin).mockResolvedValue({
     authenticated: true,
     user: { id: 'user-id', email: 'admin@example.test', name: 'Admin' },
@@ -136,6 +140,22 @@ describe('SPEC-19 authentication screens', () => {
     await waitFor(() => {
       expect(startGoogleLogin).toHaveBeenCalledOnce();
     });
+  });
+
+  it('explains expired sessions and returns to the property form after password login', async () => {
+    renderAuth('/login?reason=session_expired&return_to=%2Ft%2Fazar%2Fproperties%2Fnew');
+    expect(screen.getByText(/Tu sesión venció o dejó de ser válida/u)).toBeTruthy();
+    expect(screen.getByText(/Los datos y archivos que no enviaste/u)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/u), { target: { value: 'admin@example.test' } });
+    fireEvent.change(screen.getByLabelText(/^Contraseña/u), { target: { value: 'valid-password' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Iniciar sesión' }).closest('form')!);
+    expect(await screen.findByText('Formulario de propiedad')).toBeTruthy();
+  });
+
+  it('passes the safe property return path to Google login', async () => {
+    renderAuth('/login?reason=session_expired&return_to=%2Ft%2Fazar%2Fproperties%2Fnew');
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar con Google' }));
+    await waitFor(() => expect(startGoogleLogin).toHaveBeenCalledWith('/t/azar/properties/new'));
   });
 
   it('starts a bound Google registration intent from the registration screen', async () => {

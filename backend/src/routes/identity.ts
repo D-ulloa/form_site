@@ -276,18 +276,22 @@ export function createIdentityRouter(
     } catch (error) { safeError(response, error); }
   });
 
-  router.get('/session', async (request, response) => {
+  const sessionResponse = (touch: boolean) => async (request: Request, response: Response) => {
     try {
-      const authenticated = await service.authenticate(request);
+      const authenticated = await service.authenticate(request, touch);
       response.json(publicSession(authenticated, await service.memberships(authenticated.identity.id)));
     } catch (error) {
       if (error instanceof IdentityAccessError && error.status === 401) {
-        response.set('Set-Cookie', [...clearSessionCookies(environment)]);
+        // Background checks must not renew idle expiry or overwrite cookies
+        // from a login that completes while this request is in flight.
+        if (touch) response.set('Set-Cookie', [...clearSessionCookies(environment)]);
         response.json({ authenticated: false }); return;
       }
       safeError(response, error);
     }
-  });
+  };
+  router.get('/session', sessionResponse(true));
+  router.get('/session/status', sessionResponse(false));
 
   router.get('/sessions', async (request, response) => {
     try {

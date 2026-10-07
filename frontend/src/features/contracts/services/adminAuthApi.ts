@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   assertGoogleOAuthStorageAvailable, createGoogleOAuthStorage, GoogleOAuthStorageError,
 } from './googleOAuthStorage.ts';
+import { safeSessionReturnPath } from '../../../app/auth/sessionNavigation.ts';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const AUTH_API_PATH = `${API_PREFIX}/api/auth`;
@@ -155,7 +156,8 @@ async function beginGoogleLogin(returnTo: string, selfServiceOperationId?: strin
     googleCompletion = null;
     googleHandoff = null;
     const callback = new URL('/auth/callback', window.location.origin);
-    if (returnTo === '/invitations/accept') callback.searchParams.set('return_to', returnTo);
+    const safeReturnTo = safeSessionReturnPath(returnTo);
+    if (safeReturnTo !== '/') callback.searchParams.set('return_to', safeReturnTo);
     if (selfServiceOperationId) callback.searchParams.set('self_service_operation', selfServiceOperationId);
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
@@ -276,14 +278,26 @@ export function retryGoogleHandoff(): Promise<GoogleSession> {
 }
 
 export async function fetchAdminSession(): Promise<AdminSession | null> {
+  return readAdminSession('/session');
+}
+
+/** Validates the session without extending its idle lifetime. */
+export async function checkAdminSession(): Promise<AdminSession | null> {
+  return readAdminSession('/session/status');
+}
+
+async function readAdminSession(path: '/session' | '/session/status'): Promise<AdminSession | null> {
   try {
     const response = await axios.get<{
       authenticated: boolean;
       user?: AdminSession['user'];
       session?: AdminSession['session'];
       memberships?: AdminSession['memberships'];
-    }>(`${AUTH_API_PATH}/session`, { withCredentials: true });
-    if (!response.data.authenticated || !response.data.user || !response.data.session) return null;
+    }>(`${AUTH_API_PATH}${path}`, { withCredentials: true, timeout: 10_000 });
+    if (response.data.authenticated === false) return null;
+    if (response.data.authenticated !== true || !response.data.user || !response.data.session) {
+      throw new AdminAuthError('No se pudo comprobar la sesión.');
+    }
     return { authenticated: true, user: response.data.user, session: response.data.session,
       memberships: response.data.memberships ?? [] };
   } catch (error) {

@@ -305,6 +305,7 @@ The server validates each stored evidence reference before signing it. Evidence 
 - `POST /api/auth/login` — validates Supabase identity without granting organization authority and creates a server-side revocable opaque session.
 - `POST /api/auth/google/session` — validates a Google token and creates the same opaque application-session boundary without automatic membership.
 - `GET /api/auth/session` — returns safe user, device-session, and current membership summaries with `no-store`; it returns no cookie, token hash, role assertion, or secret.
+- `GET /api/auth/session/status` — returns the same safe session summary without extending idle expiry or setting cookies. Invalid, expired, or revoked sessions return `{ "authenticated": false }`; dependency failures return `503`.
 - `GET /api/auth/sessions` — lists safe device-session metadata for the current user.
 - `POST /api/auth/sessions/rotate` — atomically revokes the predecessor and issues new session and CSRF cookies.
 - `POST /api/auth/sessions/revoke-others` — revokes the user's other active sessions.

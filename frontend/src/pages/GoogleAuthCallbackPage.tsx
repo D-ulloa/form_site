@@ -14,13 +14,14 @@ import {
 } from '../features/contracts/services/adminAuthApi.ts';
 import { clearContractAdminQueryCache } from '../features/contracts/services/contractAdminQueryCache.ts';
 import { useAuthentication } from '../app/contexts/AuthenticationContext.tsx';
+import { safeSessionReturnPath, sessionLoginPath } from '../app/auth/sessionNavigation.ts';
 
 export function GoogleAuthCallbackPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { refresh } = useAuthentication();
   const [searchParams] = useSearchParams();
-  const returnTo = searchParams.get('return_to') === '/invitations/accept' ? '/invitations/accept' : '/';
+  const returnTo = safeSessionReturnPath(searchParams.get('return_to'));
   const operationId = searchParams.get('self_service_operation');
   const [error, setError] = useState<{ message: string; handoff: boolean } | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -86,7 +87,7 @@ export function GoogleAuthCallbackPage() {
               </Button>
             ) : null}
             <Link
-              to={operationId ? '/register' : returnTo === '/invitations/accept' ? '/login?return_to=/invitations/accept' : '/login'}
+              to={operationId ? '/register' : sessionLoginPath(returnTo)}
               className="mt-4 inline-flex text-sm font-semibold text-indigo-300 hover:text-indigo-200"
             >
               {operationId ? 'Volver al registro' : 'Volver a iniciar sesión'}

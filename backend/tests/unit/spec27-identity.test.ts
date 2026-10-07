@@ -145,3 +145,71 @@ test('SPEC-27 HTTP bootstrap returns memberships and logout rejects missing CSRF
   await request(app).post('/api/auth/logout').set('Origin', 'https://app.example.test')
     .set('Cookie', cookieHeader).set('X-CSRF-Token', csrf).expect(204);
 });
+
+test('background session status reads preserve idle expiry and report expired sessions without changing cookies', async () => {
+  const repository = new FakeIdentityRepository();
+  const started = new Date('2026-10-06T12:00:00Z');
+  let now = started;
+  const service = new SessionService(repository, environment, () => now);
+  const app = express(); app.use(requestIdMiddleware); app.use(express.json());
+  app.use('/api/auth', createIdentityRouter(service, {} as never, environment));
+  const created = await service.create({ user_id: USER_ID, email: 'owner@example.test', display_name: 'Owner',
+    auth_method: 'password', assurance_level: 'aal1' }, false, { get() { return undefined; } } as never);
+  const stored = { ...created.session, last_seen_at: started.toISOString() };
+  repository.sessions.set(stored.id, stored);
+  const cookie = `form_site_session=${created.material.raw_token}`;
+  now = new Date(started.getTime() + 10 * 60 * 1000);
+  const valid = await request(app).get('/api/auth/session/status').set('Cookie', cookie).expect(200);
+  assert.equal(valid.body.authenticated, true);
+  assert.equal(valid.body.session.idle_expires_at, stored.idle_expires_at);
+  assert.equal(valid.body.session.absolute_expires_at, stored.absolute_expires_at);
+  assert.equal(valid.headers['cache-control'], 'no-store');
+  assert.equal(valid.headers['set-cookie'], undefined);
+  assert.deepEqual(repository.sessions.get(stored.id), stored);
+  assert.doesNotMatch(JSON.stringify(valid.body), /token_hash|csrf_token_hash|token_prefix/u);
+
+  now = new Date(stored.idle_expires_at!);
+  const expired = await request(app).get('/api/auth/session/status').set('Cookie', cookie)
+    .expect(200, { authenticated: false });
+  assert.equal(expired.headers['set-cookie'], undefined);
+  assert.deepEqual(repository.sessions.get(stored.id), stored);
+  await request(app).get('/api/auth/session').set('Cookie', cookie).expect(200, { authenticated: false })
+    .expect((response) => assert.equal((response.headers['set-cookie'] as unknown as string[]).length, 2));
+});
+
+test('status polling reports revocation and absolute expiry while preserving configured session lifetimes', async () => {
+  const repository = new FakeIdentityRepository();
+  const started = new Date('2026-10-06T12:00:00Z');
+  let now = started;
+  const durations = { ...environment, APP_SESSION_TTL_SECONDS: '7200',
+    APP_REMEMBERED_SESSION_TTL_SECONDS: '172800', APP_SESSION_IDLE_TTL_SECONDS: '1200' };
+  const service = new SessionService(repository, durations, () => now);
+  const app = express(); app.use(requestIdMiddleware); app.use(express.json());
+  app.use('/api/auth', createIdentityRouter(service, {} as never, durations));
+  const identity = { user_id: USER_ID, email: 'owner@example.test', display_name: 'Owner',
+    auth_method: 'password' as const, assurance_level: 'aal1' as const };
+  const created = await service.create(identity, false, { get() { return undefined; } } as never);
+  const remembered = await service.create(identity, true, { get() { return undefined; } } as never);
+  assert.equal(created.session.absolute_expires_at, '2026-10-06T14:00:00.000Z');
+  assert.equal(remembered.session.absolute_expires_at, '2026-10-08T12:00:00.000Z');
+  assert.equal(remembered.session.idle_expires_at, '2026-10-06T12:20:00.000Z');
+  repository.sessions.set(created.session.id, { ...created.session, revoked_at: started.toISOString() });
+  await request(app).get('/api/auth/session/status').set('Cookie', `form_site_session=${created.material.raw_token}`)
+    .expect(200, { authenticated: false });
+  now = new Date(remembered.session.absolute_expires_at);
+  await request(app).get('/api/auth/session/status').set('Cookie', `form_site_session=${remembered.material.raw_token}`)
+    .expect(200, { authenticated: false });
+  await request(app).get('/api/auth/session/status').expect(200, { authenticated: false });
+});
+
+test('session status reports dependency outages as 503 instead of invalidating the session', async () => {
+  const repository = new FakeIdentityRepository();
+  repository.findSession = async () => { throw new Error('Database unavailable'); };
+  const service = new SessionService(repository, environment);
+  const app = express(); app.use(express.json());
+  app.use('/api/auth', createIdentityRouter(service, {} as never, environment));
+  const cookie = `form_site_session=${createSessionTokenMaterial(environment).raw_token}`;
+  const response = await request(app).get('/api/auth/session/status').set('Cookie', cookie)
+    .expect(503, { error: 'AUTH_DEPENDENCY_UNAVAILABLE', retriable: true });
+  assert.equal(response.headers['set-cookie'], undefined);
+});

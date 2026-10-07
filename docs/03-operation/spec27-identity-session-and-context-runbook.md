@@ -25,6 +25,29 @@ the successor cookies. Logout and revoke-others require exact Origin and CSRF.
 Role, membership, organization, or Auth-user changes are effective on the next
 request because authority is never stored in the cookie.
 
+Authenticated browser pages check `/api/auth/session/status` every five minutes
+while visible, when opened, and when the tab becomes visible or focused. This
+read-only check does not extend idle expiry or overwrite cookies. A `401` from a
+cookie-authenticated organization API triggers an immediate validity check.
+Confirmed invalid sessions clear authenticated browser state and redirect to
+login with a Spanish explanation and an allowlisted internal return path. Public
+contract-token forms and external Storage uploads do not trigger this redirect.
+Network errors, `403`, and `503` do not establish expiration or force a logout.
+Password and Google login can return to the previous authenticated page;
+unfinished property fields and selected files are lost during the redirect and
+the login notice explains this. Leaving the property form aborts pending media
+preflight and file-upload requests so the abandoned form cannot proceed to a
+new submission after login.
+
+Production durations are configured by `APP_SESSION_TTL_SECONDS`,
+`APP_REMEMBERED_SESSION_TTL_SECONDS`, and `APP_SESSION_IDLE_TTL_SECONDS`.
+The code fallbacks are eight hours absolute for a standard session, thirty days
+absolute for a remembered session, and thirty minutes idle for either. The
+earliest deadline applies. Authenticated API activity updates idle expiry at
+most once every five minutes, bounded by the original absolute deadline;
+background validity polling does not count as activity. Revocation or an invalid
+cookie takes effect on the next authenticated request or validity check.
+
 If token replay, unexplained session growth, cross-organization success, origin
 drift, or CSRF bypass is observed, disable protected traffic, revoke affected
 sessions/peppers, retain redacted event evidence, and follow the SPEC-25 and
