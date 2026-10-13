@@ -1,6 +1,7 @@
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import type { SubmissionResult, SubmissionStepResults } from '../features/properties/services/propertyApi.ts';
 import { Button } from '../components/ui/Button.tsx';
+import { AlertInline } from '../components/ui/AlertInline.tsx';
 
 type StepKey = keyof SubmissionStepResults;
 
@@ -82,6 +83,13 @@ export function SubmissionSuccessPage() {
       </header>
 
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-10">
+        {result.recovery_draft_closed === false && (
+          <div className="mb-6">
+            <AlertInline variant="warning" title="Borrador pendiente de cierre">
+              La propiedad se envió, pero no se pudo cerrar su borrador. Revisá el ID de envío antes de descartarlo.
+            </AlertInline>
+          </div>
+        )}
         {/* Outcome card */}
         <div className="surface rounded-2xl p-8 mb-6 animate-fade-in-up text-center">
           {/* Icon */}

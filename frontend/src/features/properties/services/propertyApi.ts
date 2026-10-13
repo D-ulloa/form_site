@@ -22,6 +22,7 @@ export interface SubmissionResult {
   upload_byte_total?: number;
   steps: SubmissionStepResults;
   error?: string;
+  recovery_draft_closed?: boolean;
 }
 
 export interface ApiError {
@@ -128,12 +129,14 @@ export function buildMediaMetadataFromPresigned(
 export async function submitProperty(
   organization: string,
   payload: PropertySubmissionPayload,
+  recoveryDraftId?: string,
 ): Promise<SubmissionResult> {
   const response = await axios.post<SubmissionResult>(
     `${propertyApiPath(organization)}/submit`,
     payload,
     {
-      headers: mutationHeaders('application/json'),
+      headers: { ...mutationHeaders('application/json'),
+        ...(recoveryDraftId ? { 'X-Property-Recovery-Draft-Id': recoveryDraftId } : {}) },
       withCredentials: true,
     },
   );
@@ -143,9 +146,11 @@ export async function submitProperty(
 export async function submitPropertyFormData(
   organization: string,
   formData: FormData,
+  recoveryDraftId?: string,
 ): Promise<SubmissionResult> {
   const response = await axios.post<SubmissionResult>(`${propertyApiPath(organization)}/submit`, formData, {
-    headers: mutationHeaders(),
+    headers: { ...mutationHeaders(),
+      ...(recoveryDraftId ? { 'X-Property-Recovery-Draft-Id': recoveryDraftId } : {}) },
     withCredentials: true,
   });
   return response.data;

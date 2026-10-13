@@ -40,6 +40,7 @@ import { createContractMakeDeliveryRunner } from './integrations/contractMakeDel
 import { createSelfServiceOnboardingRepository } from './onboarding/selfServiceOnboardingRepository.js';
 import { SelfServiceOnboardingService } from './onboarding/selfServiceOnboardingService.js';
 import { createContractMakeWorkerRouter } from './routes/contractMakeWorker.js';
+import { createPropertyRecoveryDraftsRouter } from './routes/propertyRecoveryDrafts.js';
 
 dotenv.config();
 validateContainmentEnvironment(process.env);
@@ -115,6 +116,8 @@ app.use('/api/organizations/:organization/contracts',
     createContractMakeDeliveryRunner(process.env)));
 app.use('/api/organizations/:organization/properties/legacy',
   createTenantPropertyCompatibilityRouter(sessionService, process.env));
+app.use('/api/organizations/:organization/properties/recovery-drafts',
+  createPropertyRecoveryDraftsRouter(sessionService));
 app.use('/api', createTenantMutationSecurity(sessionService, process.env),
   createOrganizationGovernanceRouter(contextResolver, governanceServices,
     invitationConfig.public_base_url || 'https://invalid.example', invitationRateLimiter));

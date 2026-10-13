@@ -32,6 +32,8 @@ import {
   IdentityAccessError,
   IdentityConfigurationError,
 } from '../identity/sessionSecurity.js';
+import { createOrganizationScope } from '../platform/scope.js';
+import { createRecoveryDraftRepository } from '../properties/recoveryDraftRepository.js';
 
 const MAX_VERCEL_SAFE_PAYLOAD_BYTES = 3_800_000;
 
@@ -158,6 +160,7 @@ export function createTenantPropertyCompatibilityRouter(
         name: authenticated.identity.display_name,
         isAdmin: true,
       } satisfies PropertySession;
+      res.locals.propertyOrganizationId = context.organization.id;
       next();
     }).catch((error: unknown) => tenantAuthError(res, error));
   });
@@ -522,6 +525,23 @@ router.post('/submit', async (req, res) => {
     uploadMode,
   );
 
+  const recoveryDraftId = req.get('X-Property-Recovery-Draft-Id');
+  const organizationId = res.locals.propertyOrganizationId as string | undefined;
+  let recoveryDraftClosed: boolean | undefined;
+  if (result.outcome === 'success' && organizationId && recoveryDraftId
+    && z.string().uuid().safeParse(recoveryDraftId).success) {
+    recoveryDraftClosed = false;
+    try {
+      await createRecoveryDraftRepository().close(
+        createOrganizationScope(organizationId), session.userId, recoveryDraftId,
+        'succeeded', { submissionId: result.submission_id, propertyId: result.property_id },
+      );
+      recoveryDraftClosed = true;
+    } catch (error) {
+      console.error('[property-recovery] Failed to close a successful submission draft', error);
+    }
+  }
+
   const statusCode =
     result.outcome === 'success'
       ? 200
@@ -529,7 +549,8 @@ router.post('/submit', async (req, res) => {
         ? 207
         : 500;
 
-  res.status(statusCode).json(result);
+  res.status(statusCode).json(recoveryDraftClosed === undefined
+    ? result : { ...result, recovery_draft_closed: recoveryDraftClosed });
 });
 
 export default router;

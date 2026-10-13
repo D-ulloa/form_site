@@ -31,6 +31,7 @@ interface FileDropzoneProps {
   coverFileName: string;
   onFilesChange: (entries: FileEntry[]) => void;
   onCoverChange: (name: string) => void;
+  onValidationError?: (message: string) => void;
   totalSizeError?: string;
 }
 
@@ -51,6 +52,7 @@ export function FileDropzone({
   coverFileName,
   onFilesChange,
   onCoverChange,
+  onValidationError,
   totalSizeError,
 }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,7 +75,7 @@ export function FileDropzone({
       }
 
       const valid: FileEntry[] = [];
-      for (const f of incoming) {
+      for (const f of incoming.slice(0, Math.max(0, MAX_MEDIA_FILES - files.length))) {
         if (!ALLOWED_MIME.has(f.type)) {
           errs.push(`${f.name}: tipo de archivo no permitido (${f.type || 'desconocido'})`);
           continue;
@@ -88,6 +90,7 @@ export function FileDropzone({
       }
 
       setLocalErrors(errs);
+      if (errs.length > 0) onValidationError?.(errs.join(' | '));
       if (valid.length > 0) {
         onFilesChange(next);
         if (!coverFileName && next[0]?.file.type.startsWith('image/')) {
@@ -95,7 +98,7 @@ export function FileDropzone({
         }
       }
     },
-    [files, coverFileName, onFilesChange, onCoverChange, maxBytes, maxLabel],
+    [files, coverFileName, onFilesChange, onCoverChange, onValidationError, maxBytes, maxLabel],
   );
 
   const remove = (idx: number) => {

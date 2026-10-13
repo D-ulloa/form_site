@@ -8,6 +8,7 @@ interface Props {
   coverFileName: string;
   onFilesChange: (entries: FileEntry[]) => void;
   onCoverChange: (name: string) => void;
+  onValidationError?: (message: string) => void;
   totalSizeError?: string;
   isSubmitting?: boolean;
 }
@@ -17,6 +18,7 @@ export function MediaUploadSection({
   coverFileName,
   onFilesChange,
   onCoverChange,
+  onValidationError,
   totalSizeError,
   isSubmitting,
 }: Props) {
@@ -46,6 +48,7 @@ export function MediaUploadSection({
         coverFileName={coverFileName}
         onFilesChange={onFilesChange}
         onCoverChange={onCoverChange}
+        onValidationError={onValidationError}
         totalSizeError={totalSizeError}
       />
     </section>
