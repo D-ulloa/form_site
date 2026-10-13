@@ -15,7 +15,7 @@ const allowedFields = new Set([
   ...Object.keys(propertySchema.shape).filter((key) => !key.startsWith('agent_')),
   'Numero', 'PisoMzaDenominacion', 'DeptoLote', 'SupTerrenoHectareas',
 ]);
-const fieldValue = z.union([z.string().max(20_000), z.number().finite(), z.boolean()]);
+const fieldValue = z.union([z.string(), z.number().finite(), z.boolean()]);
 const FormValues = z.record(z.string(), fieldValue).superRefine((fields, context) => {
   for (const key of Object.keys(fields)) {
     if (!allowedFields.has(key)) context.addIssue({ code: 'custom', message: `Unknown property field: ${key}` });
@@ -56,7 +56,13 @@ function privateHeaders(response: Response): void {
 function sendError(response: Response, error: unknown): void {
   privateHeaders(response);
   if (error instanceof z.ZodError) {
-    response.status(400).json({ error: 'INVALID_RECOVERY_DRAFT', details: error.issues.map((item) => item.message) });
+    response.status(400).json({
+      error: 'INVALID_RECOVERY_DRAFT',
+      details: error.issues.map((item) => {
+        const path = item.path.map((part) => String(part)).join('.');
+        return path ? `${path}: ${item.message}` : item.message;
+      }),
+    });
     return;
   }
   if (error instanceof IdentityAccessError) {

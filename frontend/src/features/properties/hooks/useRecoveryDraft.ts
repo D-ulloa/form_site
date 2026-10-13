@@ -1,9 +1,29 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import {
   createRecoveryDraft, discardRecoveryDraft, getRecoveryDraft, listRecoveryDrafts,
   recordRecoveryFailure, saveRecoveryDraft,
   type RecoveryDraft, type RecoveryDraftSummary, type RecoveryFailure, type RecoverySnapshot,
 } from '../services/recoveryDraftApi.ts';
+
+function draftSaveErrorMessage(error: unknown, failure = false): string {
+  if (axios.isAxiosError(error)) {
+    const body: unknown = error.response?.data;
+    if (body && typeof body === 'object' && 'error' in body
+      && body.error === 'INVALID_RECOVERY_DRAFT') {
+      const rawDetails = 'details' in body ? body.details : undefined;
+      const details = Array.isArray(rawDetails)
+        ? rawDetails.filter((item): item is string => typeof item === 'string').join(' · ').slice(0, 300)
+        : typeof rawDetails === 'string' ? rawDetails.slice(0, 300) : '';
+      return details
+        ? `El servidor rechazó los datos del borrador: ${details}`
+        : 'El servidor rechazó los datos del borrador. Revisá los datos e intentá nuevamente.';
+    }
+  }
+  return failure
+    ? 'No se pudo registrar el error en el borrador. Conservá esta página abierta e intentá nuevamente.'
+    : 'No se pudo guardar el borrador. Revisá tu conexión e intentá nuevamente.';
+}
 
 function useScopedState<T>(scopeKey: string, initialValue: T): [T, (value: T) => void] {
   const [state, setState] = useState({ scopeKey, value: initialValue });
@@ -71,7 +91,7 @@ export function useRecoveryDraft(organization: string, userId: string | undefine
       return saved;
     } catch (error) {
       if (activeScopeRef.current === scopeKey) {
-        setSaveError('No se pudo guardar el borrador. Revisá tu conexión e intentá nuevamente.');
+        setSaveError(draftSaveErrorMessage(error));
       }
       throw error;
     } finally {
@@ -114,7 +134,7 @@ export function useRecoveryDraft(organization: string, userId: string | undefine
         return saved;
       } catch (error) {
         if (activeScopeRef.current === scopeKey) {
-          setSaveError('No se pudo registrar el error en el borrador. Conservá esta página abierta e intentá nuevamente.');
+          setSaveError(draftSaveErrorMessage(error, true));
         }
         throw error;
       } finally {
