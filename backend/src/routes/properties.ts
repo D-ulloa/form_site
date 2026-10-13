@@ -11,7 +11,7 @@ import {
 } from '../services/supabaseStorageService.js';
 import {
   createUploadSession,
-  consumeUploadSession,
+  verifyUploadSession,
 } from '../services/mediaUploadSessionService.js';
 import {
   validateMimeTypes,
@@ -310,14 +310,25 @@ router.post('/media/presign', async (req, res) => {
     return;
   }
 
-  const sessionId = createUploadSession(session.userId);
-
   try {
     const presigned = await issueSignedUploadUrls(
       files.map((file) => ({
         originalName: file.originalName,
         mimeType: file.mimeType,
         sizeBytes: file.sizeBytes,
+      })),
+    );
+
+    const sessionId = createUploadSession(
+      session.userId,
+      (res.locals.propertyOrganizationId as string | undefined) ?? null,
+      presigned.map((upload, index) => ({
+        original_name: upload.originalName,
+        storage_path: upload.storagePath,
+        mime_type: files[index]!.mimeType,
+        size_bytes: files[index]!.sizeBytes,
+        storage_bucket: upload.storageBucket,
+        public_path: upload.publicPath,
       })),
     );
 
@@ -452,14 +463,6 @@ router.post('/submit', async (req, res) => {
       return;
     }
 
-    if (!consumeUploadSession(media_upload_session_id, validation.data.agent_user_id)) {
-      res.status(400).json({
-        error: 'Invalid upload session',
-        details: 'media_upload_session_id inexistente o vencido.',
-      });
-      return;
-    }
-
     if (media_uploads.length > MAX_MEDIA_FILES) {
       res.status(400).json({
         error: 'Too many files',
@@ -480,6 +483,19 @@ router.post('/submit', async (req, res) => {
       res.status(413).json({
         error: 'Request payload too large',
         details: 'El total de archivos supera 1 GB (límite de media_uploads).',
+      });
+      return;
+    }
+
+    if (!verifyUploadSession(
+      media_upload_session_id,
+      validation.data.agent_user_id,
+      (res.locals.propertyOrganizationId as string | undefined) ?? null,
+      media_uploads,
+    )) {
+      res.status(400).json({
+        error: 'Invalid upload session',
+        details: 'media_upload_session_id inexistente, vencido o no coincide con los archivos.',
       });
       return;
     }

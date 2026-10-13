@@ -51,6 +51,15 @@ The current tenant UI uses the same handler through
 `/api/organizations/:organization/properties/legacy/submit`. The original
 `/properties/...` mounts remain compatibility paths.
 
+For direct Supabase uploads, presign returns `upload_session_id` and signed URLs.
+The session ID is a signed token bound to the authenticated user, organization,
+and issued file descriptors. Submit must include that token as
+`media_upload_session_id` with matching `media_uploads` metadata. Its lifetime is
+`MEDIA_UPLOAD_SESSION_TTL_MS` (two hours in the production configuration). The
+token is valid across backend instances; a new presign is required after expiry.
+Property submission itself is not idempotent, so clients must check the result
+of an uncertain submit before retrying.
+
 ### `POST /properties/submit`
 
 ### Purpose
