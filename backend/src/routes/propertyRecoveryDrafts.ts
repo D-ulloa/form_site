@@ -11,8 +11,11 @@ import {
 } from '../properties/recoveryDraftRepository.js';
 
 const DraftId = z.string().uuid();
+const propertyFields = Object.keys(propertySchema.shape).filter((key) => !key.startsWith('agent_'));
 const allowedFields = new Set([
-  ...Object.keys(propertySchema.shape).filter((key) => !key.startsWith('agent_')),
+  ...propertyFields,
+  // React Hook Form treats a trailing period in a registered field name as a path separator.
+  ...propertyFields.map((key) => key.replace(/\.$/u, '')),
   'Numero', 'PisoMzaDenominacion', 'DeptoLote', 'SupTerrenoHectareas',
 ]);
 const fieldValue = z.union([z.string(), z.number().finite(), z.boolean()]);
