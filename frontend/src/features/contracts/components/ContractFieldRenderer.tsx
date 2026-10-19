@@ -18,9 +18,11 @@ interface ContractFieldRendererProps {
   register: UseFormRegister<ContractFormValues>;
   error?: FieldError;
   autoFocus?: boolean;
+  typingOnlyNumbers?: boolean;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DECIMAL_NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 function isEmptyValue(value: unknown): boolean {
   return value === undefined || value === null || value === '';
@@ -180,8 +182,14 @@ export function getContractFieldRules(
     validate: (value: unknown) => validateContractField(field, value),
     ...(field.type === 'number'
       ? {
-          setValueAs: (value: unknown) =>
-            value === '' || value === undefined ? '' : Number(value),
+          setValueAs: (value: unknown) => {
+            const normalized = typeof value === 'string' ? value.trim() : value;
+            if (normalized === '' || normalized === undefined || normalized === null) return '';
+            if (typeof normalized === 'number') return normalized;
+            return typeof normalized === 'string' && DECIMAL_NUMBER_PATTERN.test(normalized)
+              ? Number(normalized)
+              : Number.NaN;
+          },
         }
       : {}),
   };
@@ -193,12 +201,14 @@ export function ContractFieldRenderer({
   register,
   error,
   autoFocus = false,
+  typingOnlyNumbers = false,
 }: ContractFieldRendererProps) {
   const fieldName = name ?? field.name;
   const inputId = `contract-${fieldName.replace(/[^A-Za-z0-9_-]/gu, '-')}`;
   const errorId = `${inputId}-error`;
   const errorMessage = error?.message ? String(error.message) : undefined;
   const registration = register(fieldName, getContractFieldRules(field));
+  const typingOnlyNumber = typingOnlyNumbers && field.type === 'number';
 
   if (field.type === 'boolean') {
     return (
@@ -253,13 +263,13 @@ export function ContractFieldRenderer({
         {...registration}
         id={inputId}
         label={field.label}
-        type={field.type === 'string' ? 'text' : field.type}
+        type={field.type === 'string' || typingOnlyNumber ? 'text' : field.type}
         required={field.required}
-        min={field.type === 'number' ? field.min : undefined}
-        max={field.type === 'number' ? field.max : undefined}
+        min={field.type === 'number' && !typingOnlyNumber ? field.min : undefined}
+        max={field.type === 'number' && !typingOnlyNumber ? field.max : undefined}
         maxLength={field.maxLength}
         pattern={field.pattern}
-        step={field.type === 'number' ? (field.integer ? '1' : 'any') : undefined}
+        step={field.type === 'number' && !typingOnlyNumber ? (field.integer ? '1' : 'any') : undefined}
         inputMode={field.type === 'number' ? 'decimal' : undefined}
         autoComplete={field.type === 'email' ? 'email' : undefined}
         placeholder={getContractFieldPlaceholder(field)}

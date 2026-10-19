@@ -38,6 +38,7 @@ interface ContractRepeatableSectionProps {
   userId?: string;
   onUploadPendingChange: (key: string, pending: boolean) => void;
   showUploads?: boolean;
+  typingOnlyNumbers?: boolean;
 }
 
 function asItems(value: unknown): Record<string, unknown>[] {
@@ -251,6 +252,7 @@ export function ContractRepeatableSection({
   userId,
   onUploadPendingChange,
   showUploads = true,
+  typingOnlyNumbers = false,
 }: ContractRepeatableSectionProps) {
   const repeatable = section.repeatable;
   const watched = useWatch({ control: form.control, name: repeatable?.name ?? '__invalid' });
@@ -342,6 +344,7 @@ export function ContractRepeatableSection({
                   name={`${repeatable.name}.${index}.${field.name}`}
                   register={form.register}
                   error={nestedFieldError(form.formState.errors, repeatable.name, index, field.name)}
+                  typingOnlyNumbers={typingOnlyNumbers}
                 />
               ))}
             </div>
@@ -404,6 +407,7 @@ export function ContractRepeatableSection({
                         index,
                         field.name,
                       )}
+                      typingOnlyNumbers={typingOnlyNumbers}
                     />
                   ))}
                 </div>

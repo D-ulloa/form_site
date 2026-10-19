@@ -884,6 +884,7 @@ export function ContractFormPage() {
                             token={token}
                             userId={undefined}
                             onUploadPendingChange={setUploadPending}
+                            typingOnlyNumbers
                           />
                         ) : (
                             <fieldset key={section.title} className="border-0 p-0">
@@ -896,6 +897,7 @@ export function ContractFormPage() {
                                       field={field}
                                       register={register}
                                       error={errors[field.name] as FieldError | undefined}
+                                      typingOnlyNumbers
                                     />
                                   ))}
                                 </div>
@@ -915,6 +917,7 @@ export function ContractFormPage() {
                                         field={field}
                                         register={register}
                                         error={errors[field.name] as FieldError | undefined}
+                                        typingOnlyNumbers
                                       />
                                     ))}
                                   </div>
