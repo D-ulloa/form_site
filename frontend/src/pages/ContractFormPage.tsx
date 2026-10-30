@@ -411,7 +411,11 @@ export function ContractFormPage() {
     () => {
       const queryToken = new URLSearchParams(location.search).get('token');
       if (queryToken) return queryToken;
-      return sessionStorage.getItem(`contract-token:${entryId}:${role ?? ''}`);
+      try {
+        return sessionStorage.getItem(`contract-token:${entryId}:${role ?? ''}`);
+      } catch {
+        return null;
+      }
     },
     [entryId, location.search, role],
   );
@@ -438,7 +442,12 @@ export function ContractFormPage() {
 
   useEffect(() => {
     if (!token || !new URLSearchParams(location.search).has('token')) return;
-    sessionStorage.setItem(`contract-token:${entryId}:${role ?? ''}`, token);
+    try {
+      sessionStorage.setItem(`contract-token:${entryId}:${role ?? ''}`, token);
+    } catch {
+      // Keep the original link intact if storage is unavailable.
+      return;
+    }
     window.history.replaceState(
       window.history.state,
       '',
@@ -446,6 +455,7 @@ export function ContractFormPage() {
     );
   }, [entryId, location.hash, location.pathname, location.search, role, token]);
 
+  const missingClientToken = role === 'client' && !token;
   const schemaQuery = useQuery({
     queryKey: ['contract-entry-schema', entryId, role, token],
     queryFn: () => fetchContractRoleSchema(
@@ -454,7 +464,7 @@ export function ContractFormPage() {
       token,
       undefined,
     ),
-    enabled: Boolean(entryId && role),
+    enabled: Boolean(entryId && role && !missingClientToken),
     retry: false,
   });
   useEffect(() => {
@@ -711,13 +721,21 @@ export function ContractFormPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        {schemaQuery.isPending && (
+        {missingClientToken && (
+          <div className="mx-auto max-w-xl">
+            <AlertInline variant="error" title="Falta el enlace de acceso del cliente">
+              Abrí el enlace original que te compartieron. Si ya no lo tenés, pedí un nuevo enlace para este contrato.
+            </AlertInline>
+          </div>
+        )}
+
+        {schemaQuery.isPending && !missingClientToken && (
           <div className="flex min-h-64 items-center justify-center text-sm text-slate-400" role="status">
             Cargando formulario seguro…
           </div>
         )}
 
-        {schemaQuery.isError && (
+        {schemaQuery.isError && !missingClientToken && (
           <div className="mx-auto max-w-xl">
             <AlertInline variant="error" title="No se pudo abrir el formulario">
               {schemaQuery.error.message || 'Verificá el enlace e intentá nuevamente.'}

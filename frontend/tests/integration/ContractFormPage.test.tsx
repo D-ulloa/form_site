@@ -157,6 +157,14 @@ afterEach(() => {
 });
 
 describe('SPEC-12 hosted contract forms', () => {
+  it('explains how to recover a missing client access token', () => {
+    renderPage(`/contracts/${entry.entryId}/client`);
+
+    expect(screen.getByText('Falta el enlace de acceso del cliente')).toBeTruthy();
+    expect(screen.getByText(/Abrí el enlace original que te compartieron/)).toBeTruthy();
+    expect(fetchContractRoleSchema).not.toHaveBeenCalled();
+  });
+
   it('shows the loading failure and logs diagnostics without the access token', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
