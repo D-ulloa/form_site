@@ -21,6 +21,8 @@ import { contractIdentityHeaders } from './contractIdentity.ts';
 
 const API_PREFIX = import.meta.env.DEV ? '' : '/_/backend';
 const CONTRACTS_API_PATH = `${API_PREFIX}/api/contracts`;
+const CONTRACT_REQUEST_TIMEOUT_MS = 30_000;
+const CONTRACT_UPLOAD_TIMEOUT_MS = 120_000;
 
 function tenantContractsPath(organization: string): string {
   return API_PREFIX + "/api/organizations/" + encodeURIComponent(organization) + "/contracts";
@@ -535,6 +537,7 @@ export async function fetchContractRoleSchema(
         withCredentials: true,
         params: { role, ...(token ? { token } : {}) },
         headers: contractIdentityHeaders(userId),
+        timeout: CONTRACT_REQUEST_TIMEOUT_MS,
       },
     );
     return parseResponse(
@@ -561,6 +564,7 @@ export async function requestContractDniUploadUrl(
         withCredentials: true,
         params: token ? { token } : undefined,
         headers: contractIdentityHeaders(userId),
+        timeout: CONTRACT_REQUEST_TIMEOUT_MS,
       },
     );
     const parsed = parseResponse(
@@ -586,6 +590,7 @@ export async function uploadContractDniImage(
       'x-upsert': 'false',
     },
     maxRedirects: 0,
+    timeout: CONTRACT_UPLOAD_TIMEOUT_MS,
     validateStatus: (status) => status >= 200 && status < 300,
   });
 }
@@ -614,6 +619,7 @@ export async function requestContractEvidenceUploadUrls(
           withCredentials: true,
           params: token ? { token } : undefined,
           headers: contractIdentityHeaders(userId),
+          timeout: CONTRACT_REQUEST_TIMEOUT_MS,
         },
       );
       const parsed = parseResponse(
@@ -642,6 +648,7 @@ export async function uploadContractEvidenceFile(
       'x-upsert': 'false',
     },
     maxRedirects: 0,
+    timeout: CONTRACT_UPLOAD_TIMEOUT_MS,
     validateStatus: (status) => status >= 200 && status < 300,
   });
 }
@@ -661,6 +668,7 @@ export async function submitContractRole(
         withCredentials: true,
         params: { role, ...(token ? { token } : {}) },
         headers: contractIdentityHeaders(userId),
+        timeout: CONTRACT_REQUEST_TIMEOUT_MS,
       },
     );
     return parseResponse(
