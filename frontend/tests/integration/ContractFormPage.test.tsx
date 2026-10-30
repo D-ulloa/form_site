@@ -13,6 +13,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentProvider } from '../../src/app/contexts/AgentContext.tsx';
 import {
+  ContractRequestError,
   fetchContractRoleSchema,
   requestContractEvidenceUploadUrls,
   submitContractRole,
@@ -25,7 +26,17 @@ import { ContractFormPage } from '../../src/pages/ContractFormPage.tsx';
 
 vi.mock('../../src/features/contracts/services/contractApi.ts', () => ({
   ContractRequestError: class ContractRequestError extends Error {
-    fieldErrors = [];
+    status?: number;
+    fieldErrors: Array<{ field?: string; message: string }>;
+
+    constructor(message: string, options: {
+      status?: number;
+      fieldErrors?: Array<{ field?: string; message: string }>;
+    } = {}) {
+      super(message);
+      this.status = options.status;
+      this.fieldErrors = options.fieldErrors ?? [];
+    }
   },
   fetchContractRoleSchema: vi.fn(),
   requestContractEvidenceUploadUrls: vi.fn(),
@@ -753,6 +764,67 @@ describe('SPEC-14 guarantor evidence uploads', () => {
       },
       undefined,
     );
+  });
+
+  it('shows a 400 validation error and unlocks without waiting for a status check', async () => {
+    const editableSchema: ContractRoleSchemaResponse = {
+      schemaId: 'rent-contract-v1',
+      contractType: 'rent-contract-v1',
+      role: 'client',
+      sections: [evidenceSection],
+      entry,
+      readOnly: false,
+      values: {},
+    };
+    vi.mocked(fetchContractRoleSchema)
+      .mockResolvedValueOnce(editableSchema)
+      .mockImplementation(() => new Promise(() => {}));
+    vi.mocked(requestContractEvidenceUploadUrls).mockResolvedValue([{
+      filename: 'recibo.pdf',
+      mimeType: 'application/pdf',
+      size: 5,
+      storagePath: `${entry.entryId}/garantes/0/recibo_sueldo_files/recibo.pdf`,
+      storageBucket: 'contract-evidence',
+      uploadUrl: 'https://storage.example.test/upload/recibo',
+    }]);
+    vi.mocked(submitContractRole)
+      .mockRejectedValueOnce(new ContractRequestError('Validation failed', {
+        status: 400,
+        fieldErrors: [{
+          field: 'garantes.0.guarantor_company',
+          message: 'Revisá este campo.',
+        }],
+      }))
+      .mockResolvedValueOnce({
+        submissionId: '22222222-2222-4222-8222-222222222222',
+        entryId: entry.entryId,
+        status: 'open',
+        submittedAt: '2026-07-29T12:05:00.000Z',
+      });
+    const file = new File(['proof'], 'recibo.pdf', { type: 'application/pdf' });
+
+    renderPage(`/contracts/${entry.entryId}/client?token=client-token`);
+    fireEvent.change(await screen.findByLabelText('Empresa'), {
+      target: { value: 'Empresa SA' },
+    });
+    fireEvent.change(screen.getByLabelText('Subir recibo de sueldo'), {
+      target: { files: [file] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText(
+      'Revisá los campos marcados e intentá guardar nuevamente.',
+    )).toBeTruthy();
+    expect(screen.getByText('Revisá este campo.')).toBeTruthy();
+    expect(screen.getByLabelText('Empresa')).toHaveProperty('value', 'Empresa SA');
+    expect(screen.getByText('recibo.pdf')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Guardar' }).matches(':disabled')).toBe(false);
+    expect(fetchContractRoleSchema).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(submitContractRole).toHaveBeenCalledTimes(2));
+    expect(requestContractEvidenceUploadUrls).toHaveBeenCalledTimes(1);
+    expect(uploadContractEvidenceFile).toHaveBeenCalledTimes(1);
   });
 
   it('reconciles an ambiguous final response when the server already stored the form', async () => {

@@ -672,7 +672,9 @@ export function ContractFormPage() {
       setIsEditing(false);
       void schemaQuery.refetch();
     } catch (error) {
-      if (finalSubmitAttempted) {
+      const requestError = error instanceof ContractRequestError ? error : null;
+      const validationRejected = requestError?.status === 400;
+      if (finalSubmitAttempted && !validationRejected) {
         const reconciliation = await schemaQuery.refetch();
         if (reconciliation.data?.readOnly) {
           setSubmitMessage(null);
@@ -682,16 +684,18 @@ export function ContractFormPage() {
           return;
         }
       }
-      if (error instanceof ContractRequestError) {
-        error.fieldErrors.forEach((fieldError) => {
+      if (requestError) {
+        requestError.fieldErrors.forEach((fieldError) => {
           if (fieldError.field) {
             setError(fieldError.field, { type: 'server', message: fieldError.message });
           }
         });
       }
       setSubmitMessage(
-        error instanceof ContractRequestError && error.fieldErrors.length > 0
+        requestError?.fieldErrors.length
           ? 'Revisá los campos marcados e intentá guardar nuevamente.'
+          : validationRejected
+            ? 'El servidor rechazó los datos del formulario. Revisalos e intentá guardar nuevamente.'
           : finalSubmitAttempted
             ? 'No se pudo confirmar el guardado. Verificamos el estado y podés intentar nuevamente.'
             : 'No se pudieron subir los archivos. Intentá guardar nuevamente.',
